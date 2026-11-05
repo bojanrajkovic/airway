@@ -1,0 +1,28 @@
+packages:
+  - packages/*
+
+# Every dependency's version lives here once, and package.json files say "catalog:". Strict mode
+# makes `pnpm add` refuse a version that isn't in the catalog, so two packages can't drift apart.
+catalogMode: strict
+catalog:
+  "@stylistic/eslint-plugin": 5.10.0
+  "@types/node": 26.6.6
+  "@types/pg": 8.23.1
+  oxfmt: 0.75.0
+  oxlint: 1.90.0
+  oxlint-plugin-eslint: 1.90.0
+  oxlint-tsgolint: 7.0.2005
+  pg: 8.23.1
+  typescript: 7.0.2
+  vitest: 5.0.5
+  zod: 4.6.7
+
+# Setting this turns on strict mode: a version younger than a day fails the install instead of
+# being skipped silently. Most malicious releases are caught and pulled within that day.
+minimumReleaseAge: 1440
+# Fails on a version published with weaker trust evidence (provenance, trusted publishing) than an
+# earlier version of the same package, the usual sign of a stolen publish token.
+trustPolicy: no-downgrade
+
+# `pnpm add` writes exact versions, so the lockfile and the catalog say the same thing.
+savePrefix: ""

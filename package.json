@@ -1,0 +1,29 @@
+{
+  "name": "airway",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@12.16.1",
+  "engines": {
+    "node": ">=26"
+  },
+  "scripts": {
+    "typecheck": "for project in . packages/*/; do [ -d \"$project\" ] || continue; tsc --project \"$project\" || exit 1; done",
+    "lint": "oxlint --ignore-pattern tests/fixtures/lint/",
+    "format": "oxfmt",
+    "format:check": "oxfmt --check",
+    "test": "vitest run --project unit",
+    "check": "pnpm run --no-bail \"/^(typecheck|lint|format:check|test)$/\""
+  },
+  "devDependencies": {
+    "@stylistic/eslint-plugin": "catalog:",
+    "@types/node": "catalog:",
+    "oxfmt": "catalog:",
+    "oxlint": "catalog:",
+    "oxlint-plugin-eslint": "catalog:",
+    "oxlint-tsgolint": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:",
+    "zod": "catalog:"
+  }
+}
