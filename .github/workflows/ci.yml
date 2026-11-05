@@ -32,7 +32,7 @@ jobs:
     name: Database tests
     runs-on: ubuntu-26.04
     timeout-minutes: 15
-    # The same image and digest `pnpm db:up` runs locally.
+    # The same image and digest scripts/db-up.sh runs locally.
     services:
       postgres:
         image: postgres:18@sha256:bd5dfa494a5a259704365813dbfa5fa6b3e69be7348d43b547f540c730478583
@@ -61,7 +61,7 @@ jobs:
     name: Check
     needs: [test, db]
     if: always()
-    # One step of a few seconds, so it runs on the 1-vCPU runner at a third the price.
+    # One step of a few seconds, so the 1-vCPU runner is enough.
     runs-on: ubuntu-slim
     timeout-minutes: 5
     steps:

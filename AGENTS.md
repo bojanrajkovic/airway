@@ -26,14 +26,4 @@ This repo, its issues, PR bodies and comments, test plans, and screenshots are a
 - Tests go where logic can be wrong: parsing, scoring, time math, the SQL path, permissions, and data writes. Trivial wiring gets none.
 - `pnpm check` must pass, and so must `pnpm test:db` when database code changes. [docs/testing.md](docs/testing.md) explains both.
 
-## Landing a stack
-
-Stacks use `gh stack` v0.3.0. `gh pr merge` can't merge a stacked PR.
-
-1. Run `gh stack sync`.
-2. Wait for CI to pass on every unmerged PR in the stack.
-3. Replace each PR body `gh stack` generated with a real one, because the squash commit takes its body from the PR.
-4. Run `gh stack merge <pr> --yes --squash`. It merges that PR and every PR below it.
-5. If PRs remain above it, run `gh stack rebase` and `gh stack push`, then wait for CI again.
-
-A lane with a single PR lands with `gh pr merge --squash`.
+- Stacked PRs use `gh stack` v0.3.0, and land with `gh stack merge`, because `gh pr merge` can't merge them. Replace the PR bodies `gh stack` generates before merging.

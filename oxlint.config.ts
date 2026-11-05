@@ -2,15 +2,17 @@ import { defineConfig } from "oxlint";
 import presets from "./oxlint.presets.ts";
 
 type Brand = { name: string; owner: string };
-// Branded types are only as safe as their constructors; a cast elsewhere forges one. Each brand
-// may be cast to only in the file that owns it. Add an entry with each new brand, plus a case in
-// tests/fixtures/lint/violations.ts.
+// Branded types are only as safe as their constructors; a cast elsewhere forges one.
+// typescript/no-unsafe-type-assertion already rejects every cast to a brand, so the owner's
+// constructor casts behind a disable comment that says why. This list is a second lock: a file
+// that disables no-unsafe-type-assertion for another cast still can't forge a brand. Add an entry
+// with each new brand.
 const BRANDS: Brand[] = [];
 // An object shape spelled out where a function's return type goes, including inside
 // `Promise<…>`, arrays, and unions. A named type says what the result is and reads at a glance.
 const INLINE_RETURN_TYPE = {
   selector:
-    ":matches(FunctionDeclaration, FunctionExpression, ArrowFunctionExpression, TSDeclareFunction, TSEmptyBodyFunctionExpression, TSFunctionType, TSMethodSignature, TSPropertySignature > TSTypeAnnotation > TSFunctionType) > TSTypeAnnotation.returnType TSTypeLiteral",
+    ":matches(FunctionDeclaration, FunctionExpression, ArrowFunctionExpression, TSDeclareFunction, TSEmptyBodyFunctionExpression, TSFunctionType, TSMethodSignature, TSPropertySignature > TSTypeAnnotation > TSFunctionType) > TSTypeAnnotation.returnType TSTypeLiteral:not(TSFunctionType > * > TSTypeAnnotation TSTypeLiteral)",
   message: "Name the return type: declare `type X = { … }` and return `X`.",
 };
 type Restriction = { selector: string; message: string };
@@ -98,7 +100,8 @@ export default defineConfig({
     ],
   },
   overrides: [
-    // Each brand's owner may cast to its own brands, and only its own.
+    // A brand's owner is exempt from this list for its own brands; its cast still needs the
+    // no-unsafe-type-assertion disable comment.
     ...BRAND_OWNERS.map((file) => ({
       files: [file],
       rules: { "eslint-js/no-restricted-syntax": restrictedSyntax(file) },
@@ -106,7 +109,7 @@ export default defineConfig({
     // Vitest reads a fixture's dependencies from its destructured first parameter, so a fixture
     // with none must still destructure `{}`. @airway/testing defines fixtures outside tests/.
     {
-      files: ["tests/**/*.ts", "packages/*/tests/**/*.ts", "packages/testing/src/**/*.ts"],
+      files: ["tests/**/*.ts", "packages/*/tests/**/*.{ts,tsx}", "packages/testing/src/**/*.ts"],
       rules: { "no-empty-pattern": ["error", { allowObjectPatternsAsParameters: true }] },
     },
   ],

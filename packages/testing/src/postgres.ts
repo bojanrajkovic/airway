@@ -34,14 +34,15 @@ export const test = base.extend<PostgresFixtures>({
 });
 
 async function runAsAdmin(sql: string): Promise<void> {
-  const client = new pg.Client(ADMIN_URL);
+  // Under Vitest's 5-second test timeout, so a host that never answers gets the message below.
+  const client = new pg.Client({ connectionString: ADMIN_URL, connectionTimeoutMillis: 3_000 });
 
   try {
     await client.connect();
   } catch (error) {
-    // The URL holds a password, so the message names only the host.
+    // The URL holds a password, so the message names only the host. The cause says what failed.
     throw new Error(
-      `Postgres isn't reachable at ${new URL(ADMIN_URL).host}. Start it with \`pnpm db:up\`, or set AIRWAY_TEST_POSTGRES_URL.`,
+      `Couldn't connect to Postgres at ${new URL(ADMIN_URL).host}. If it isn't running, start it with \`pnpm db:up\`, or set AIRWAY_TEST_POSTGRES_URL.`,
       { cause: error },
     );
   }

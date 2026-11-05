@@ -9,7 +9,7 @@ Vitest runs two projects, both defined in `vitest.config.ts`:
 | Project | Command | What it runs |
 |---|---|---|
 | `unit` | `pnpm test` (also part of `pnpm check`) | Every `*.test.ts` and `*.test.tsx` except database tests |
-| `db` | `pnpm test:db` | Every `*.db.test.ts`, against a real Postgres 18 |
+| `db` | `pnpm test:db` | Every `*.db.test.ts` and `*.db.test.tsx`, against a real Postgres 18 |
 
 Files, and the tests inside them, run in a random order, so a test that depends on another running first fails. A failing run prints its seed, and `pnpm test --sequence.seed=<seed>` replays that order.
 
@@ -17,7 +17,7 @@ The `unit` project shares one module registry across files, which saves starting
 
 ## Where tests go
 
-A package's tests live in its `tests/` folder and mirror `src/`: the tests for `src/query/compile.ts` go in `tests/query/compile.test.ts`. The repo's own tooling tests, such as the lint fixture test, live in the top-level `tests/`.
+A package's tests live in its `tests/` folder and mirror `src/`: the tests for `src/query/compile.ts` go in `tests/query/compile.test.ts`. The folder has its own `tsconfig.json`, so Node types that test helpers bring in never reach `src`. The repo's own tooling tests, such as the lint fixture test, live in the top-level `tests/`.
 
 Helpers that more than one package's tests need go in `@airway/testing`, imported as `@airway/testing/<file>`.
 
@@ -51,13 +51,13 @@ The database is dropped with `force`, so a connection a test forgot to close doe
 
 ### Postgres locally
 
-`pnpm db:up` runs Postgres 18 in Podman, published on `127.0.0.1:54318` with the password `airway`, and `pnpm db:down` stops and removes it. Nothing is kept between runs. To use another server, set `AIRWAY_TEST_POSTGRES_URL` to a URL for a role that can create databases, ending in `/postgres`.
+`pnpm db:up` runs Postgres 18 in Podman, published on `127.0.0.1:54318` with the password `airway`, and returns once it accepts connections. `pnpm db:down` stops and removes it. Nothing is kept between runs. To use another server, set `AIRWAY_TEST_POSTGRES_URL` to a URL for an existing database, as a role that can create databases.
 
-If Postgres isn't reachable, the first database test fails with a message that says so.
+If the fixture can't connect within 3 seconds, the first database test fails with a message naming the host, and the underlying error as its cause.
 
 ### Postgres in CI
 
-The `Database tests` job runs the same image as a service container. The image is pinned by digest in two places, `package.json`'s `db:up` script and `.github/workflows/ci.yml`, and both must name the same digest.
+The `Database tests` job runs the same image as a service container. The image is pinned by digest in two places, `scripts/db-up.sh` and `.github/workflows/ci.yml`, and both must name the same digest.
 
 ## The lint fixture test
 

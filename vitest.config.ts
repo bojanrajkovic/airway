@@ -2,7 +2,7 @@ import { configDefaults, defineConfig } from "vitest/config";
 
 const UNIT = ["tests/**/*.test.ts", "packages/*/tests/**/*.test.{ts,tsx}"];
 // Database tests need Postgres, which `pnpm db:up` starts locally and CI runs as a service.
-const DB = ["packages/*/tests/**/*.db.test.ts"];
+const DB = ["{tests,packages/*/tests}/**/*.db.test.{ts,tsx}"];
 
 export default defineConfig({
   test: {

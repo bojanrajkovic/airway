@@ -2,7 +2,7 @@ packages:
   - packages/*
 
 # Every dependency's version lives here once, and package.json files say "catalog:". Strict mode
-# makes `pnpm add` refuse a version that isn't in the catalog, so two packages can't drift apart.
+# makes `pnpm add` go through the catalog; a version typed into a package.json by hand isn't caught.
 catalogMode: strict
 catalog:
   "@stylistic/eslint-plugin": 5.10.0
