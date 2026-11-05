@@ -6,11 +6,16 @@
   "exports": {
     "./*": "./src/*.ts"
   },
+  "scripts": {
+    "typecheck": "tsc --project . && tsc --project tests"
+  },
   "dependencies": {
     "pg": "catalog:",
     "vitest": "catalog:"
   },
   "devDependencies": {
+    "@tsconfig/node": "catalog:",
+    "@tsconfig/strictest": "catalog:",
     "@types/node": "catalog:",
     "@types/pg": "catalog:",
     "zod": "catalog:"

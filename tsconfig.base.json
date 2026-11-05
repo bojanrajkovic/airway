@@ -1,17 +1,11 @@
 {
+  "extends": "@tsconfig/strictest/tsconfig.json",
   "compilerOptions": {
     "target": "ESNext",
     "module": "preserve",
     "moduleResolution": "bundler",
-    "strict": true,
-    "noUncheckedIndexedAccess": true,
-    "exactOptionalPropertyTypes": true,
-    "noImplicitOverride": true,
-    "noFallthroughCasesInSwitch": true,
     "verbatimModuleSyntax": true,
-    "isolatedModules": true,
     "resolveJsonModule": true,
-    "skipLibCheck": true,
     "allowImportingTsExtensions": true,
     "noEmit": true
   }

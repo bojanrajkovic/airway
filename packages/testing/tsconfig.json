@@ -1,8 +1,4 @@
 {
-  "extends": "../../tsconfig.base.json",
-  "compilerOptions": {
-    "lib": ["ESNext"],
-    "types": ["node"]
-  },
+  "extends": ["@tsconfig/node/tsconfig.json", "../../tsconfig.base.json"],
   "include": ["src"]
 }

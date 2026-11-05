@@ -6,6 +6,9 @@ packages:
 catalogMode: strict
 catalog:
   "@stylistic/eslint-plugin": 5.10.0
+  # An alias, so a Node major bump changes only this line, not every tsconfig that extends it.
+  "@tsconfig/node": npm:@tsconfig/node26@26.0.1
+  "@tsconfig/strictest": 2.0.8
   "@types/node": 26.6.6
   "@types/pg": 8.23.1
   oxfmt: 0.75.0

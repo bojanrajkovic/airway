@@ -2,24 +2,19 @@
 
 ## Setup
 
-You need [mise](https://mise.jdx.dev) and [Podman](https://podman.io). `mise install` installs the Node and pnpm versions pinned in `mise.toml`. `pnpm install` installs everything else.
-
-pnpm refuses two kinds of package version, both set in `pnpm-workspace.yaml`:
-
-- **Anything published less than a day ago** (`minimumReleaseAge`). Most malicious releases are caught and pulled within a day.
-- **A version published with weaker trust evidence than an earlier one** (`trustPolicy: no-downgrade`), such as a release without provenance after releases that had it. That's the usual sign of a stolen publish token.
+You need [mise](https://mise.jdx.dev) and a container runtime, [Podman](https://podman.io) or Docker. `mise install` installs the Node and pnpm versions pinned in `mise.toml`. `pnpm install` installs everything else. pnpm refuses package versions less than a day old, and versions published with weaker trust evidence than an earlier one; `pnpm-workspace.yaml` says why.
 
 ## Scripts
 
 | Script | What it does |
 |---|---|
 | `pnpm check` | Runs `typecheck`, `lint`, `format:check`, and `test`, reporting every failure instead of stopping at the first |
-| `pnpm typecheck` | Runs `tsc` on the root project and on each package's `src` and `tests` projects |
+| `pnpm typecheck` | Runs `tsc` on the root project, then each package's own `typecheck` script |
 | `pnpm lint` | Oxlint, with type-aware rules |
 | `pnpm format` / `format:check` | Oxfmt: rewrite files, or only report |
 | `pnpm test` | The unit tests |
 | `pnpm test:db` | The database tests; start Postgres first |
-| `pnpm db:up` / `db:down` | Start or stop Postgres 18 in Podman |
+| `pnpm db:up` / `db:down` | Start or stop Postgres 18 in Podman or Docker |
 
 ## Workspace
 
@@ -28,19 +23,18 @@ airway is a pnpm workspace. Each package lives in `packages/<name>/`, is private
 Adding a package takes four things:
 
 1. `package.json` with `"private": true`, the shared version, `"type": "module"`, and `"exports": { "./*": "./src/*.ts" }`. Other packages then import `@airway/<name>/<file>`, which resolves to `src/<file>.ts`.
-2. `tsconfig.json` that extends `../../tsconfig.base.json`, includes only `src`, and sets `lib` and `types` for where the package runs:
+2. `tsconfig.json` that includes only `src` and sets up the platform the package runs on. `tsconfig.base.json` extends `@tsconfig/strictest` and holds airway's module settings.
 
-   | The package runs in | `lib` | `types` |
+   | The package runs in | `extends` | Also set |
    |---|---|---|
-   | Both the browser and the server | `["ESNext"]` | `[]` |
-   | The server, or only in tests | `["ESNext"]` | `["node"]` |
-   | The browser | `["ESNext", "DOM", "DOM.Iterable"]` | `[]` |
+   | The server, or only in tests | `["@tsconfig/node/tsconfig.json", "../../tsconfig.base.json"]` | |
+   | The browser | `"../../tsconfig.base.json"` | `"lib": ["ESNext", "DOM", "DOM.Iterable"]`, `"types": []` |
+   | Both | `"../../tsconfig.base.json"` | `"lib": ["ESNext"]`, `"types": []` |
 
-   A shared package with no Node or DOM types can't touch either platform by accident: `node:fs` or `window` fails to compile.
+   `@tsconfig/node` is a catalog alias for the current Node major's base, such as `npm:@tsconfig/node26`, so a Node upgrade changes one catalog line. A shared package with no Node or DOM types can't touch either platform by accident: `node:fs` or `window` fails to compile.
 3. `src/` for the code.
-4. `tests/` for its tests, mirroring `src/`, with a `tests/tsconfig.json` that extends `../tsconfig.json`, includes `.`, and adds `"types": ["node"]`. Tests get their own project because their helpers bring in Node's types, and in one shared project those types would reach `src` too. [Testing](testing.md) covers where tests go.
-
-`pnpm typecheck` finds every package and its tests project on its own, and reports every project's errors before failing.
+4. `tests/` for its tests, mirroring `src/`, with a `tests/tsconfig.json` that extends `../tsconfig.json`, includes `.`, and sets `"types": ["node"]` if the package's own config doesn't. Tests get their own project because their helpers bring in Node's types, and in one shared project those types would reach `src` too. [Testing](testing.md) covers where tests go.
+5. A `typecheck` script: `tsc --project . && tsc --project tests`. `pnpm typecheck` runs it in every package.
 
 `@airway/testing` holds test helpers that more than one package uses. It never ships in the image. A package that uses it lists `"@airway/testing": "workspace:*"` in its `devDependencies`.
 

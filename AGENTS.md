@@ -1,6 +1,6 @@
 # airway
 
-airway imports a ResMed AirSense 10's SD card into Postgres and serves a trends page, a query explorer, and an MCP server. Read [README.md](README.md) first, then the page in [docs/](docs/README.md) for the area you're changing.
+airway imports a ResMed CPAP's SD card into Postgres and serves a trends page, a query explorer, and an MCP server. Read [README.md](README.md) first, then the page in [docs/](docs/README.md) for the area you're changing.
 
 ## Public places get synthetic data only
 
@@ -25,5 +25,4 @@ This repo, its issues, PR bodies and comments, test plans, and screenshots are a
 - PRs merge by squash, and the squash commit's body is the PR body, so write the body as a commit message. Test plans and screenshots go in a PR comment.
 - Tests go where logic can be wrong: parsing, scoring, time math, the SQL path, permissions, and data writes. Trivial wiring gets none.
 - `pnpm check` must pass, and so must `pnpm test:db` when database code changes. [docs/testing.md](docs/testing.md) explains both.
-
-- Stacked PRs use `gh stack` v0.3.0, and land with `gh stack merge`, because `gh pr merge` can't merge them. Replace the PR bodies `gh stack` generates before merging.
+- Stacked PRs use `gh stack`, and land with `gh stack merge`, because `gh pr merge` can't merge them. Replace the PR bodies `gh stack` generates before merging.

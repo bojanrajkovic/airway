@@ -4,7 +4,7 @@ import { test as base } from "vitest";
 
 // `pnpm db:up` publishes Postgres here. CI points the variable at its service container.
 const ADMIN_URL =
-  process.env.AIRWAY_TEST_POSTGRES_URL ?? "postgres://postgres:airway@127.0.0.1:54318/postgres";
+  process.env["AIRWAY_TEST_POSTGRES_URL"] ?? "postgres://postgres:airway@127.0.0.1:54318/postgres";
 
 type PostgresFixtures = { databaseUrl: string };
 

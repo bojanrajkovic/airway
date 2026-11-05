@@ -1,12 +1,12 @@
 # airway
 
-airway is a self-hosted app for the data a ResMed AirSense 10 CPAP writes to its SD card. It imports the card's EDF files into Postgres and serves three things from them:
+airway is a self-hosted app for the data a ResMed CPAP, such as the AirSense 10, writes to its SD card. It imports the card's EDF files into Postgres and serves three things from them:
 
 - a phone-first trends page with nightly, weekly, and monthly numbers
 - an explorer that slices the data any way you like and gives every query a link you can share
 - an MCP server, so AI agents can query the same data and hand you links to what they found
 
-One instance serves one patient. It runs behind an identity proxy that signs every request.
+One instance serves one patient.
 
 airway is under construction and doesn't run yet. The [issues](https://github.com/bojanrajkovic/airway/issues) track the build.
 
@@ -26,20 +26,9 @@ flowchart LR
   proxy --> mcp
 ```
 
-## Getting started
+## Developing
 
-You need [mise](https://mise.jdx.dev) and [Podman](https://podman.io).
-
-```sh
-mise install       # Node and pnpm, at the versions in mise.toml
-pnpm install
-pnpm check         # typecheck, lint, format check, and unit tests
-pnpm db:up         # Postgres 18 in Podman, for the database tests
-pnpm test:db
-pnpm db:down
-```
-
-[docs/README.md](docs/README.md) indexes the rest of the docs, one page per area.
+[docs/development.md](docs/development.md) covers setup, and [docs/README.md](docs/README.md) indexes the rest of the docs, one page per area.
 
 ## License
 

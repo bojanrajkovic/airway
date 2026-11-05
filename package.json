@@ -7,18 +7,22 @@
     "node": ">=26"
   },
   "scripts": {
-    "typecheck": "scripts/typecheck.sh",
+    "typecheck": "pnpm run --no-bail \"/^typecheck:/\"",
+    "typecheck:root": "tsc --project .",
+    "typecheck:packages": "pnpm --recursive --no-bail typecheck",
     "lint": "oxlint --ignore-pattern tests/fixtures/lint/",
     "format": "oxfmt",
     "format:check": "oxfmt --check",
     "test": "vitest run --project unit",
     "test:db": "vitest run --project db",
     "check": "pnpm run --no-bail \"/^(typecheck|lint|format:check|test)$/\"",
-    "db:up": "scripts/db-up.sh",
-    "db:down": "podman stop airway-postgres"
+    "db:up": "scripts/db.sh up",
+    "db:down": "scripts/db.sh down"
   },
   "devDependencies": {
     "@stylistic/eslint-plugin": "catalog:",
+    "@tsconfig/node": "catalog:",
+    "@tsconfig/strictest": "catalog:",
     "@types/node": "catalog:",
     "oxfmt": "catalog:",
     "oxlint": "catalog:",

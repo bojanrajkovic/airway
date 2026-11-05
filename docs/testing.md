@@ -51,14 +51,14 @@ The database is dropped with `force`, so a connection a test forgot to close doe
 
 ### Postgres locally
 
-`pnpm db:up` runs Postgres 18 in Podman, published on `127.0.0.1:54318` with the password `airway`, and returns once it accepts connections. `pnpm db:down` stops and removes it. Nothing is kept between runs. To use another server, set `AIRWAY_TEST_POSTGRES_URL` to a URL for an existing database, as a role that can create databases.
+`pnpm db:up` runs Postgres 18 in Podman or Docker, published on `127.0.0.1:54318` with the password `airway`, and returns once it accepts connections. `pnpm db:down` stops and removes it. Nothing is kept between runs. To use another server, set `AIRWAY_TEST_POSTGRES_URL` to a URL for an existing database, as a role that can create databases.
 
 If the fixture can't connect within 3 seconds, the first database test fails with a message naming the host, and the underlying error as its cause.
 
 ### Postgres in CI
 
-The `Database tests` job runs the same image as a service container. The image is pinned by digest in two places, `scripts/db-up.sh` and `.github/workflows/ci.yml`, and both must name the same digest.
+The `Database tests` job runs the same image as a service container. The image is pinned by digest in two places, `scripts/db.sh` and `.github/workflows/ci.yml`, and both must name the same digest.
 
 ## The lint fixture test
 
-`tests/lint.test.ts` checks that every lint rule still reports. [Development](development.md#lint-and-format) explains why and how to update it.
+`tests/lint.test.ts` checks that the rules its fixture breaks still report. [Development](development.md#lint-and-format) explains why and how to update it.
