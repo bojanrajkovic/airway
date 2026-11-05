@@ -1,0 +1,69 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+jobs:
+  test:
+    name: Lint and test
+    runs-on: ubuntu-26.04
+    # Stops a stalled step from holding the runner for GitHub's 6-hour default.
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: jdx/mise-action@f5be966e4a917d54244728e6a5fdcd1d93a35e6c # v5.2.6
+      - run: pnpm install --frozen-lockfile
+      # Fails if a package's registry signature doesn't verify.
+      - run: pnpm audit signatures
+      - run: pnpm check
+
+  db:
+    name: Database tests
+    runs-on: ubuntu-26.04
+    timeout-minutes: 15
+    # The same image and digest `pnpm db:up` runs locally.
+    services:
+      postgres:
+        image: postgres:18@sha256:bd5dfa494a5a259704365813dbfa5fa6b3e69be7348d43b547f540c730478583
+        env:
+          POSTGRES_PASSWORD: airway
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready --username postgres"
+          --health-interval 2s
+          --health-timeout 5s
+          --health-retries 15
+    env:
+      AIRWAY_TEST_POSTGRES_URL: postgres://postgres:airway@127.0.0.1:5432/postgres
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: jdx/mise-action@f5be966e4a917d54244728e6a5fdcd1d93a35e6c # v5.2.6
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm test:db
+
+  # The ruleset on main requires Check. A job skipped after a failed job it needs counts as passing,
+  # so this one always runs and fails unless every job it gates succeeded.
+  check:
+    name: Check
+    needs: [test, db]
+    if: always()
+    # One step of a few seconds, so it runs on the 1-vCPU runner at a third the price.
+    runs-on: ubuntu-slim
+    timeout-minutes: 5
+    steps:
+      - if: contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') || contains(needs.*.result, 'skipped')
+        run: exit 1
