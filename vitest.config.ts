@@ -1,6 +1,8 @@
-import { defineConfig } from "vitest/config";
+import { configDefaults, defineConfig } from "vitest/config";
 
 const UNIT = ["tests/**/*.test.ts", "packages/*/tests/**/*.test.{ts,tsx}"];
+// Database tests need Postgres, which `pnpm db:up` starts locally and CI runs as a service.
+const DB = ["packages/*/tests/**/*.db.test.ts"];
 
 export default defineConfig({
   test: {
@@ -15,9 +17,11 @@ export default defineConfig({
         test: {
           name: "unit",
           include: UNIT,
+          exclude: [...configDefaults.exclude, ...DB],
           isolate: false,
         },
       },
+      { extends: true, test: { name: "db", include: DB } },
     ],
   },
 });

@@ -13,7 +13,10 @@
     "format": "oxfmt",
     "format:check": "oxfmt --check",
     "test": "vitest run --project unit",
-    "check": "pnpm run --no-bail \"/^(typecheck|lint|format:check|test)$/\""
+    "test:db": "vitest run --project db",
+    "check": "pnpm run --no-bail \"/^(typecheck|lint|format:check|test)$/\"",
+    "db:up": "podman run --detach --rm --name airway-postgres --publish 127.0.0.1:54318:5432 --env POSTGRES_PASSWORD=airway docker.io/library/postgres:18@sha256:bd5dfa494a5a259704365813dbfa5fa6b3e69be7348d43b547f540c730478583",
+    "db:down": "podman stop airway-postgres"
   },
   "devDependencies": {
     "@stylistic/eslint-plugin": "catalog:",

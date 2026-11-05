@@ -104,9 +104,9 @@ export default defineConfig({
       rules: { "eslint-js/no-restricted-syntax": restrictedSyntax(file) },
     })),
     // Vitest reads a fixture's dependencies from its destructured first parameter, so a fixture
-    // with none must still destructure `{}`.
+    // with none must still destructure `{}`. @airway/testing defines fixtures outside tests/.
     {
-      files: ["tests/**/*.ts", "packages/*/tests/**/*.ts"],
+      files: ["tests/**/*.ts", "packages/*/tests/**/*.ts", "packages/testing/src/**/*.ts"],
       rules: { "no-empty-pattern": ["error", { allowObjectPatternsAsParameters: true }] },
     },
   ],
