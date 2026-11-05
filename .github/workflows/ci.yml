@@ -22,7 +22,24 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+      # Caches are written only by pushes to main. A PR restores main's caches and saves none, so
+      # PRs can't fill the cache quota or leave anything for a later run to restore.
       - uses: jdx/mise-action@f5be966e4a917d54244728e6a5fdcd1d93a35e6c # v5.2.6
+        with:
+          cache_save: ${{ github.ref == 'refs/heads/main' }}
+      - id: pnpm-store
+        run: echo "path=$(pnpm store path --silent)" >> "$GITHUB_OUTPUT"
+      # pnpm checks every package it takes from the store against the lockfile's integrity hash,
+      # so a cached store can make installs faster but can't change what gets installed.
+      - if: github.ref == 'refs/heads/main'
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with: &pnpm-store-cache
+          path: ${{ steps.pnpm-store.outputs.path }}
+          key: pnpm-store-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: pnpm-store-${{ runner.os }}-
+      - if: github.ref != 'refs/heads/main'
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with: *pnpm-store-cache
       - run: pnpm install --frozen-lockfile
       # Fails if a package's registry signature doesn't verify.
       - run: pnpm audit signatures
@@ -52,6 +69,13 @@ jobs:
         with:
           persist-credentials: false
       - uses: jdx/mise-action@f5be966e4a917d54244728e6a5fdcd1d93a35e6c # v5.2.6
+        with:
+          cache_save: ${{ github.ref == 'refs/heads/main' }}
+      - id: pnpm-store
+        run: echo "path=$(pnpm store path --silent)" >> "$GITHUB_OUTPUT"
+      # Only restores: the Lint and test job saves the store on main.
+      - uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with: *pnpm-store-cache
       - run: pnpm install --frozen-lockfile
       - run: pnpm test:db
 

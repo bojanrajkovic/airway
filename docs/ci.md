@@ -17,6 +17,7 @@
 - Every action is pinned to a full commit SHA, with its version in a comment.
 - The workflow's token can only read the repo, and checkout doesn't keep the credentials around.
 - `pnpm install --frozen-lockfile` installs exactly what the lockfile says, and `pnpm audit signatures` fails if a package's registry signature doesn't verify.
+- Only pushes to `main` write caches: mise's tools, and the pnpm store keyed on the lockfile. Pull requests restore `main`'s caches and save none. pnpm checks every package it takes from the store against the lockfile's integrity hash, so a cache can make installs faster but can't change what's installed.
 
 ## The ruleset on main
 
