@@ -13,7 +13,7 @@ In development, `pnpm dev` loads `.env.example`, then `.env` if it exists, so yo
 | `AIRWAY_ADULT_RULES_FROM_13` | no, `false` | `true` or `false` | Scores ages 13 to 17 with adult rules |
 | `AIRWAY_CLOCK_OFFSETS` | yes | JSON array | The CPAP clock's UTC offsets, described below |
 | `AIRWAY_TIME_ZONE` | yes | IANA zone, such as `America/Chicago`; not a fixed offset such as `-05:00` | The home time zone: night boundaries, alert times, and every time the app shows |
-| `AIRWAY_MIRROR_PATH` | yes | absolute path | The read-only copy of the SD card |
+| `AIRWAY_CPAP_DATA_PATH` | yes | absolute path | The folder holding a read-only copy of the CPAP's SD card |
 | `PORT` | no, `3000` | 1 to 65535 | The HTTP port |
 | `LOG_LEVEL` | no, `info` | `fatal`, `error`, `warn`, `info`, `debug`, or `trace` | The lowest level logged |
 

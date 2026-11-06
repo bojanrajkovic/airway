@@ -8,14 +8,14 @@ import type { AppContext } from "./runtime/context.ts";
 
 const result = loadConfig();
 
-if (result.kind === "invalid") {
+if (result.isErr()) {
   process.stderr.write(
-    `airway: invalid configuration\n${result.problems.map((p) => `  ${p}\n`).join("")}`,
+    `airway: invalid configuration\n${result.error.map((p) => `  ${p}\n`).join("")}`,
   );
   process.exit(1);
 }
 
-const { config } = result;
+const config = result.value;
 const logger = createLogger(config.logLevel);
 const ctx: AppContext = { config, logger, clock: () => Temporal.Now.instant() };
 // Everything opened below registers its cleanup here, and shutdown closes it in reverse order.

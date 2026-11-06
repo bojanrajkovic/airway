@@ -17,6 +17,7 @@ This repo, its issues, PR bodies and comments, test plans, and screenshots are a
 - Every dependency's version lives in the catalog in `pnpm-workspace.yaml`.
 - Server code gets its config, logger, and clock from the `AppContext` it's given, never from `process.env` or globals. A lane that serves HTTP exports `routes(ctx): Hono` from its folder.
 - A night is a `Temporal.PlainDate`.
+- A function that can fail returns neverthrow's `Result` (or `ResultAsync`) instead of throwing.
 
 [docs/development.md](docs/development.md) has the details, including how to add a package, and [docs/server.md](docs/server.md) covers the server's structure.
 

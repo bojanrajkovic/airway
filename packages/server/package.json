@@ -8,11 +8,12 @@
     "typecheck": "tsc --project . && tsc --project tests"
   },
   "dependencies": {
+    "@airway/contract": "workspace:*",
     "@hono/node-server": "catalog:",
     "hono": "catalog:",
+    "neverthrow": "catalog:",
     "pino": "catalog:",
-    "zod": "catalog:",
-    "@airway/contract": "workspace:*"
+    "zod": "catalog:"
   },
   "devDependencies": {
     "@tsconfig/node": "catalog:",

@@ -9,27 +9,27 @@ const VALID = {
   AIRWAY_PATIENT_BIRTH_DATE: "2012-06-15",
   AIRWAY_CLOCK_OFFSETS: '[{"from":"2025-01-01","utcOffset":"-05:07"}]',
   AIRWAY_TIME_ZONE: "America/Chicago",
-  AIRWAY_MIRROR_PATH: "/mirror",
+  AIRWAY_CPAP_DATA_PATH: "/cpap-data",
 };
 
 const problems = (env: Record<string, string | undefined>): string[] => {
   const result = parseConfig(env);
 
-  return result.kind === "invalid" ? result.problems : [];
+  return result.isErr() ? result.error : [];
 };
 
 describe("parseConfig", () => {
   it("parses a complete environment, with defaults for the optional keys", () => {
     const result = parseConfig(VALID);
 
-    expect(result.kind).toBe("ok");
+    expect(result.isOk()).toBe(true);
 
-    if (result.kind === "ok") {
-      expect(result.config.port).toBe(3000);
-      expect(result.config.logLevel).toBe("info");
-      expect(result.config.patient.adultRulesFrom13).toBe(false);
-      expect(result.config.patient.birthDate.equals("2012-06-15")).toBe(true);
-      expect(result.config.clockOffsets[0]?.utcOffset).toBe("-05:07");
+    if (result.isOk()) {
+      expect(result.value.port).toBe(3000);
+      expect(result.value.logLevel).toBe("info");
+      expect(result.value.patient.adultRulesFrom13).toBe(false);
+      expect(result.value.patient.birthDate.equals("2012-06-15")).toBe(true);
+      expect(result.value.clockOffsets[0]?.utcOffset).toBe("-05:07");
     }
   });
 
@@ -48,7 +48,7 @@ describe("parseConfig", () => {
     ["AIRWAY_CLOCK_OFFSETS", '[{"from":"2025-01-01","utcOffset":"-5"}]'],
     ["AIRWAY_TIME_ZONE", "America/Atlantis"],
     ["AIRWAY_TIME_ZONE", "-06:00"],
-    ["AIRWAY_MIRROR_PATH", "relative/mirror"],
+    ["AIRWAY_CPAP_DATA_PATH", "relative/cpap-data"],
     ["PORT", "70000"],
     ["LOG_LEVEL", "verbose"],
   ])("names %s when it's malformed", (key, value) => {

@@ -13,7 +13,7 @@ const CONFIG: Config = {
   },
   clockOffsets: [{ from: Temporal.PlainDate.from("2025-01-01"), utcOffset: "-05:07" }],
   timeZone: "America/Chicago",
-  mirrorPath: "/mirror",
+  cpapDataPath: "/cpap-data",
   port: 3000,
   logLevel: "info",
 };

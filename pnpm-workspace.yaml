@@ -20,6 +20,7 @@ catalog:
   "@vitest/browser-playwright": 5.1.0
   babel-plugin-react-compiler: 1.0.0
   hono: 4.13.16
+  neverthrow: 8.2.0
   oxfmt: 0.75.0
   oxlint: 1.90.0
   oxlint-plugin-eslint: 1.90.0
