@@ -24,7 +24,7 @@ The listener starts before anything else, so the pod answers `/healthz` while sl
 
 ## Shared dependencies
 
-`src/runtime/context.ts` defines `AppContext`: the config, the root logger, and a clock. `main.ts` builds it once and passes it whole. A service takes the context plus its own arguments, and logs through `ctx.logger.child({ module })`. There's no DI container: wiring is plain function calls, so a missing dependency is a compile error. Tests build a context with `testContext()` from `tests/support/context.ts`, which has synthetic config, a silent logger, and a fixed clock.
+`src/runtime/context.ts` defines `AppContext`: the config, the root logger, and a clock. `main.ts` builds it once and passes it whole. A service takes the context plus its own arguments, and logs through `ctx.logger.child({ module })`. Tests build a context with `testContext()` from `tests/support/context.ts`, which has synthetic config, a silent logger, and a fixed clock.
 
 ## Routes
 

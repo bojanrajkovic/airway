@@ -4,7 +4,7 @@ export type RuleSet = "pediatric" | "adult";
 export type PatientProfile = {
   /** Shown in the app's header and in the MCP instructions. */
   name: string;
-  /** Picks the rule set. Never shown, logged, or sent to agents. */
+  /** Picks the rule set. */
   birthDate: Temporal.PlainDate;
   /** AASM lets ages 13 to 17 be scored with adult rules; this turns that on. */
   adultRulesFrom13: boolean;

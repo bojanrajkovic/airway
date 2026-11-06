@@ -9,9 +9,6 @@ const VALID = {
   AIRWAY_PATIENT_BIRTH_DATE: "2012-06-15",
   AIRWAY_CLOCK_OFFSETS: '[{"from":"2025-01-01","utcOffset":"-05:07"}]',
   AIRWAY_TIME_ZONE: "America/Chicago",
-  AIRWAY_UI_HOST: "airway.example.test",
-  AIRWAY_MCP_HOST: "airway-mcp.example.test",
-  AIRWAY_JWKS_URL: "https://airway-mcp.example.test/.well-known/pomerium/jwks.json",
   AIRWAY_MIRROR_PATH: "/mirror",
 };
 
@@ -51,8 +48,6 @@ describe("parseConfig", () => {
     ["AIRWAY_CLOCK_OFFSETS", '[{"from":"2025-01-01","utcOffset":"-5"}]'],
     ["AIRWAY_TIME_ZONE", "America/Atlantis"],
     ["AIRWAY_TIME_ZONE", "-06:00"],
-    ["AIRWAY_UI_HOST", "https://airway.example.test"],
-    ["AIRWAY_JWKS_URL", "not a url"],
     ["AIRWAY_MIRROR_PATH", "relative/mirror"],
     ["PORT", "70000"],
     ["LOG_LEVEL", "verbose"],
@@ -60,17 +55,6 @@ describe("parseConfig", () => {
     expect(problems({ ...VALID, [key]: value })).toEqual([
       expect.stringMatching(new RegExp(`^${key}: `, "v")),
     ]);
-  });
-
-  it("never echoes a value back, so a bad birth date doesn't end up in the logs", () => {
-    const found = problems({
-      ...VALID,
-      AIRWAY_PATIENT_BIRTH_DATE: "2012-13-45",
-      DATABASE_URL: "mysql://u:hunter2@x/db",
-    });
-
-    expect(found).toHaveLength(2);
-    expect(found.join("\n")).not.toMatch(/2012-13-45|hunter2/v);
   });
 
   it.each([

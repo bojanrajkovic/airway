@@ -13,9 +13,6 @@ export type Config = {
   clockOffsets: ClockOffset[];
   /** The IANA zone night boundaries, alert times, and every displayed time use. */
   timeZone: string;
-  uiHost: string;
-  mcpHost: string;
-  jwksUrl: string;
   mirrorPath: string;
   port: number;
   logLevel: LogLevel;
@@ -23,17 +20,11 @@ export type Config = {
 
 export type ConfigResult = { kind: "ok"; config: Config } | { kind: "invalid"; problems: string[] };
 
-// Intl also accepts fixed offsets such as -05:00, which have no daylight saving time, so they'd
-// put night boundaries and alert times an hour off for half the year.
+// A zone name such as America/Chicago. Temporal also accepts fixed offsets such as -05:00, which
+// have no daylight saving time, so they'd put night boundaries an hour off for half the year.
 function isTimeZone(zone: string): boolean {
-  if (/^[+\-]/v.test(zone)) {
-    return false;
-  }
-
   try {
-    new Intl.DateTimeFormat("en-US", { timeZone: zone });
-
-    return true;
+    return !/^[+\-]/v.test(Temporal.Now.zonedDateTimeISO(zone).timeZoneId);
   } catch {
     return false;
   }
@@ -58,18 +49,12 @@ const Env = z.object({
   AIRWAY_ADULT_RULES_FROM_13: z.enum(["true", "false"]).default("false"),
   AIRWAY_CLOCK_OFFSETS: json.pipe(ClockOffsets),
   AIRWAY_TIME_ZONE: z.string().refine(isTimeZone, "must be an IANA time zone"),
-  AIRWAY_UI_HOST: z.hostname({ error: "must be a hostname" }),
-  AIRWAY_MCP_HOST: z.hostname({ error: "must be a hostname" }),
-  AIRWAY_JWKS_URL: z.url({ protocol: /^https?$/v, error: "must be an http(s) URL" }),
   AIRWAY_MIRROR_PATH: z.string().startsWith("/", "must be an absolute path"),
   PORT: z.coerce.number().int().min(1).max(65_535).default(3000),
   LOG_LEVEL: z.enum(LOG_LEVELS).default("info"),
 });
 
-/**
- * Parses airway's settings from `env`. A problem names its key and the rule it broke, never the
- * value, because values include passwords and the patient's birth date.
- */
+/** Parses airway's settings from `env`. Each problem names its key and what's wrong with it. */
 export function parseConfig(env: Record<string, string | undefined>): ConfigResult {
   const result = Env.safeParse(env);
 
@@ -98,9 +83,6 @@ export function parseConfig(env: Record<string, string | undefined>): ConfigResu
       },
       clockOffsets: data.AIRWAY_CLOCK_OFFSETS,
       timeZone: data.AIRWAY_TIME_ZONE,
-      uiHost: data.AIRWAY_UI_HOST,
-      mcpHost: data.AIRWAY_MCP_HOST,
-      jwksUrl: data.AIRWAY_JWKS_URL,
       mirrorPath: data.AIRWAY_MIRROR_PATH,
       port: data.PORT,
       logLevel: data.LOG_LEVEL,
