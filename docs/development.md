@@ -9,7 +9,7 @@ You need [mise](https://mise.jdx.dev) and a container runtime, [Podman](https://
 | Script | What it does |
 |---|---|
 | `pnpm dev` | The server and Vite's dev server together, with settings from `.env.example` and your `.env` ([Configuration](configuration.md)) |
-| `pnpm build` | Each package's `build`: the web app, then the server bundle that serves it |
+| `pnpm build` | Each package's `build`: the web app, into the server's `dist/public/`, and the server bundle |
 | `pnpm check` | Runs `typecheck`, `lint`, `format:check`, and `test`, reporting every failure instead of stopping at the first |
 | `pnpm typecheck` | Runs `tsc` on the root project, then each package's own `typecheck` script |
 | `pnpm lint` | Oxlint, with type-aware rules |

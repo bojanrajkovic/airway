@@ -29,7 +29,12 @@ if (webRoot === undefined) {
   logger.info("no web build next to the server; serving the API only");
 }
 
-const server = serve({ fetch: createApp(ctx, { webRoot }).fetch, port: config.port });
+const server = serve(
+  { fetch: createApp(ctx, { webRoot }).fetch, port: config.port },
+  ({ port }) => {
+    logger.info({ port }, "listening");
+  },
+);
 resources.defer(async () => {
   await new Promise<void>((resolve, reject) => {
     server.close((error) => {
@@ -41,7 +46,6 @@ resources.defer(async () => {
     });
   });
 });
-logger.info({ port: config.port }, "listening");
 
 async function shutdown(signal: NodeJS.Signals): Promise<void> {
   logger.info({ signal }, "shutting down");

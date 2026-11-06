@@ -50,6 +50,7 @@ describe("parseConfig", () => {
     ["AIRWAY_CLOCK_OFFSETS", "not json"],
     ["AIRWAY_CLOCK_OFFSETS", '[{"from":"2025-01-01","utcOffset":"-5"}]'],
     ["AIRWAY_TIME_ZONE", "America/Atlantis"],
+    ["AIRWAY_TIME_ZONE", "-06:00"],
     ["AIRWAY_UI_HOST", "https://airway.example.test"],
     ["AIRWAY_JWKS_URL", "not a url"],
     ["AIRWAY_MIRROR_PATH", "relative/mirror"],

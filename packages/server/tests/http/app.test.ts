@@ -31,6 +31,9 @@ describe("createApp", () => {
 
     expect(response.status).toBe(status);
     expect(response.headers.get("content-security-policy")).toBe(CSP);
+    expect(response.headers.get("cache-control")).toBe(
+      url.startsWith("/assets/") || url === "/healthz" ? null : "no-cache",
+    );
 
     if (body !== undefined) {
       expect(await response.text()).toBe(body);

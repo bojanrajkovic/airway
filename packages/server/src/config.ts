@@ -23,7 +23,13 @@ export type Config = {
 
 export type ConfigResult = { kind: "ok"; config: Config } | { kind: "invalid"; problems: string[] };
 
+// Intl also accepts fixed offsets such as -05:00, which have no daylight saving time, so they'd
+// put night boundaries and alert times an hour off for half the year.
 function isTimeZone(zone: string): boolean {
+  if (/^[+\-]/v.test(zone)) {
+    return false;
+  }
+
   try {
     new Intl.DateTimeFormat("en-US", { timeZone: zone });
 

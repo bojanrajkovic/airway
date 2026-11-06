@@ -8,7 +8,6 @@
     "typecheck": "tsc --project . && tsc --project tests"
   },
   "dependencies": {
-    "@airway/contract": "workspace:*",
     "react": "catalog:",
     "react-dom": "catalog:",
     "temporal-polyfill": "catalog:"

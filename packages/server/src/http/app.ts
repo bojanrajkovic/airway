@@ -36,7 +36,13 @@ export function createApp(ctx: AppContext, { webRoot }: AppOptions): Hono {
     // Built assets have hashed names, so a missing one is a real 404, not a deep link.
     app.use("/assets/*", serveStatic({ root: webRoot }));
     app.get("/assets/*", async (c) => await c.notFound());
-    // Any other GET is a client-side route: the web app reads the URL and renders the page.
+    // Any other GET is a client-side route: the web app reads the URL and renders the page. The
+    // page is revalidated on every load, because a cached copy would point at assets a newer
+    // build has replaced.
+    app.get("*", async (c, next) => {
+      await next();
+      c.header("Cache-Control", "no-cache");
+    });
     app.get("*", serveStatic({ root: webRoot, path: "index.html" }));
   }
 

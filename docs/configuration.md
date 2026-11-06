@@ -2,7 +2,7 @@
 
 The server reads every setting from environment variables, once, at startup. `packages/server/src/config.ts` parses them with zod, and a lint rule stops any other code from reading `process.env`. If a setting is missing or malformed, the server exits before listening and prints each problem as `KEY: rule`. It never prints the value, because values include passwords and the patient's birth date.
 
-In development, `pnpm dev` loads `.env.example`, then `.env` if it exists, so your own `.env` overrides the synthetic defaults. git ignores `.env`.
+In development, `pnpm dev` loads `.env.example`, then `.env` if it exists, so your own `.env` overrides the synthetic defaults. git ignores `.env`. Leave `PORT` at 3000 in development: Vite forwards API requests there.
 
 | Variable | Required | Format | What it's for |
 |---|---|---|---|
@@ -12,7 +12,7 @@ In development, `pnpm dev` loads `.env.example`, then `.env` if it exists, so yo
 | `AIRWAY_PATIENT_BIRTH_DATE` | yes | `YYYY-MM-DD` | Picks the scoring rules ([Scoring](scoring.md)); never shown, logged, or sent to agents |
 | `AIRWAY_ADULT_RULES_FROM_13` | no, `false` | `true` or `false` | Scores ages 13 to 17 with adult rules |
 | `AIRWAY_CLOCK_OFFSETS` | yes | JSON array | The CPAP clock's UTC offsets, described below |
-| `AIRWAY_TIME_ZONE` | yes | IANA zone, such as `America/Chicago` | The home time zone: night boundaries, alert times, and every time the app shows |
+| `AIRWAY_TIME_ZONE` | yes | IANA zone, such as `America/Chicago`; not a fixed offset such as `-05:00` | The home time zone: night boundaries, alert times, and every time the app shows |
 | `AIRWAY_UI_HOST` | yes | hostname | The web app's public hostname |
 | `AIRWAY_MCP_HOST` | yes | hostname | The MCP server's public hostname |
 | `AIRWAY_JWKS_URL` | yes | `http(s)://` URL | Where the identity proxy publishes its signing keys |

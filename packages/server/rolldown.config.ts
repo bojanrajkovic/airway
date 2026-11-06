@@ -16,8 +16,5 @@ export default defineConfig({
     entryFileNames: "[name].js",
     // One file per entry; later subcommands such as `rebuild` share main.js.
     codeSplitting: false,
-    sourcemap: true,
-    // Stack traces need only the mappings; embedded sources would double the maps' size.
-    sourcemapExcludeSources: true,
   },
 });

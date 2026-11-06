@@ -15,7 +15,6 @@
     "@airway/contract": "workspace:*"
   },
   "devDependencies": {
-    "@airway/testing": "workspace:*",
     "@tsconfig/node": "catalog:",
     "@tsconfig/strictest": "catalog:",
     "@types/node": "catalog:",

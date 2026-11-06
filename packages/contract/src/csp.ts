@@ -1,5 +1,5 @@
 /**
- * The one Content-Security-Policy airway sends, on every server response and from `vite preview`.
+ * The one Content-Security-Policy airway sends, on every server response.
  * Everything loads from airway itself: no inline scripts or styles, no plugins, no framing.
  */
 export const CSP = [
