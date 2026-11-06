@@ -6,7 +6,7 @@ The server logs JSON lines to stdout with pino, through the root logger from `pa
 
 Each module logs through a child logger with its name bound, `ctx.logger.child({ module: "http" })`, and adds the ids of the work it's doing.
 
-Logs carry ids, counts, and outcomes, never values from the data. As a backstop, the logger redacts these fields wherever they appear: `authorization`, `cookie`, `password`, `birthDate`, `databaseUrl`, `readerDatabaseUrl`, and the identity proxy's JWT header.
+Logs carry ids, counts, and outcomes, never values from the data.
 
 `pnpm dev` prints the server's logs through pino-pretty; production logs stay JSON.
 
