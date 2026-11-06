@@ -19,11 +19,18 @@ export type Config = {
   logLevel: LogLevel;
 };
 
-// A zone name such as America/Chicago. Temporal also accepts fixed offsets such as -05:00, which
-// have no daylight saving time, so they'd put night boundaries an hour off for half the year.
+// The places Intl knows, by their ICU names. Fixed offsets such as -05:00, UTC, and Etc/GMT+5 aren't
+// listed; they have no daylight saving time, so they'd put night boundaries an hour off for half
+// the year.
+const PLACES = new Set(Intl.supportedValuesOf("timeZone"));
+
+// A place's zone name, such as America/Chicago. Intl resolves aliases and current names to the ICU
+// name first, so Asia/Kolkata and US/Eastern pass.
 function isTimeZone(zone: string): boolean {
   try {
-    return !/^[+\-]/v.test(Temporal.Now.zonedDateTimeISO(zone).timeZoneId);
+    return PLACES.has(
+      new Intl.DateTimeFormat(undefined, { timeZone: zone }).resolvedOptions().timeZone,
+    );
   } catch {
     return false;
   }

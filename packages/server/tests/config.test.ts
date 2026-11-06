@@ -48,6 +48,7 @@ describe("parseConfig", () => {
     ["AIRWAY_CLOCK_OFFSETS", '[{"from":"2025-01-01","utcOffset":"-5"}]'],
     ["AIRWAY_TIME_ZONE", "America/Atlantis"],
     ["AIRWAY_TIME_ZONE", "-06:00"],
+    ["AIRWAY_TIME_ZONE", "Etc/UTC"],
     ["AIRWAY_CPAP_DATA_PATH", "relative/cpap-data"],
     ["PORT", "70000"],
     ["LOG_LEVEL", "verbose"],
