@@ -1,5 +1,5 @@
 # Ingest
 
-How airway reads the SD-card mirror and builds the derived tables.
+How airway reads the CPAP data folder and builds the derived tables.
 
 Nothing in this area is built yet.

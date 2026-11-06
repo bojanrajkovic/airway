@@ -1,5 +1,6 @@
 import { defineConfig } from "oxlint";
 import presets from "./oxlint.presets.ts";
+import { WEB_RULES } from "./oxlint.web.ts";
 
 type Brand = { name: string; owner: string };
 // Branded types are only as safe as their constructors; a cast elsewhere forges one.
@@ -100,6 +101,11 @@ export default defineConfig({
     ],
   },
   overrides: [
+    {
+      files: ["packages/web/**/*.{ts,tsx}"],
+      plugins: ["react", "jsx-a11y"],
+      rules: WEB_RULES,
+    },
     // A brand's owner is exempt from this list for its own brands; its cast still needs the
     // no-unsafe-type-assertion disable comment.
     ...BRAND_OWNERS.map((file) => ({

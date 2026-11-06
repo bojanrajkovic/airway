@@ -4,12 +4,13 @@ Tests go where logic can be wrong: parsing, scoring, time math, the SQL path, pe
 
 ## Running tests
 
-Vitest runs two projects, both defined in `vitest.config.ts`:
+Vitest runs three projects, all defined in `vitest.config.ts`:
 
 | Project | Command | What it runs |
 |---|---|---|
-| `unit` | `pnpm test` (also part of `pnpm check`) | Every `*.test.ts` and `*.test.tsx` except database tests |
+| `unit` | `pnpm test` (also part of `pnpm check`) | Every `*.test.ts` and `*.test.tsx` except database and browser tests |
 | `db` | `pnpm test:db` | Every `*.db.test.ts` and `*.db.test.tsx`, against a real Postgres 18 |
+| `browser` | `pnpm test:browser` | Every `*.browser.test.ts` and `*.browser.test.tsx`, in Chromium |
 
 Files, and the tests inside them, run in a random order, so a test that depends on another running first fails. A failing run prints its seed, and `pnpm test --sequence.seed=<seed>` replays that order.
 
@@ -19,7 +20,7 @@ The `unit` project shares one module registry across files, which saves starting
 
 A package's tests live in its `tests/` folder and mirror `src/`: the tests for `src/query/compile.ts` go in `tests/query/compile.test.ts`. The folder has its own `tsconfig.json`, so Node types that test helpers bring in never reach `src`. The repo's own tooling tests, such as the lint fixture test, live in the top-level `tests/`.
 
-Helpers that more than one package's tests need go in `@airway/testing`, imported as `@airway/testing/<file>`.
+Helpers that more than one package's tests need go in `@airway/testing`, imported as `@airway/testing/<file>`. A helper only one package uses stays in that package's `tests/support/`, such as the server's `testContext()` and the web's screenshot helper.
 
 ## Database tests
 
@@ -59,6 +60,12 @@ If the fixture can't connect within 3 seconds, the first database test fails wit
 
 The `Database tests` job runs the same image as a service container. The image is pinned by digest in two places, `scripts/db.sh` and `.github/workflows/ci.yml`, and both must name the same digest.
 
+## Browser tests
+
+A browser test is named `*.browser.test.tsx` and renders components in a real Chromium, through Vitest's browser mode and Playwright. Before the first run, install Chromium with `pnpm exec playwright install chromium`; CI runs in Playwright's image, which has it.
+
+`takeScreenshots(name)` in `packages/web/tests/support/` saves desktop and phone shots in light and dark to `tests/__screenshots__/`. git ignores them; CI uploads them as the `screenshots` artifact for PR comments. Nothing compares them.
+
 ## The lint fixture test
 
-`tests/lint.test.ts` checks that the rules its fixture breaks still report. [Development](development.md#lint-and-format) explains why and how to update it.
+`tests/lint.test.ts` checks that the rules its fixtures break still report: `tests/fixtures/lint/violations.ts` for the TypeScript rules, and `packages/web/tests/fixtures/lint/violations.tsx` for the React rules Oxlint turns off by default. [Development](development.md#lint-and-format) explains why and how to update it.

@@ -14,8 +14,8 @@ airway is under construction and doesn't run yet. The [issues](https://github.co
 
 ```mermaid
 flowchart LR
-  card[CPAP SD card] -->|copied to a folder| mirror[(SD-card mirror, read-only)]
-  mirror --> ingest[Ingest: reads new nights' EDF files]
+  card[CPAP SD card] -->|copied to a folder| data[(CPAP data folder, read-only)]
+  data --> ingest[Ingest: reads new nights' EDF files]
   ingest --> pg[(Postgres 18: derived tables and notes)]
   pg --> server[airway server]
   server --> web[Web app: trends and explorer]
