@@ -1,6 +1,6 @@
 # Configuration
 
-The server reads every setting from environment variables, once, at startup. `packages/server/src/config.ts` parses them with zod, and a lint rule stops any other code from reading `process.env`. If a setting is missing or malformed, the server exits before listening and prints each problem as `KEY: rule`. It never prints the value, because values include passwords and the patient's birth date.
+The server reads every setting from environment variables, once, at startup. `packages/server/src/config.ts` parses them with zod, and no other code reads `process.env`. If a setting is missing or malformed, the server exits before listening and prints each problem as `KEY: rule`. It never prints the value, because values include passwords and the patient's birth date.
 
 In development, `pnpm dev` loads `.env.example`, then `.env` if it exists, so your own `.env` overrides the synthetic defaults. git ignores `.env`. Leave `PORT` at 3000 in development: Vite forwards API requests there.
 

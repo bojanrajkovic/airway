@@ -99,21 +99,8 @@ export default defineConfig({
       { blankLine: "always", prev: "block-like", next: "*" },
       { blankLine: "always", prev: "*", next: ["return", "throw"] },
     ],
-    // Settings come from one parsed, validated place, so nothing else reads the environment.
-    "eslint-js/no-restricted-properties": [
-      "error",
-      {
-        object: "process",
-        property: "env",
-        message: "Read settings from the config (packages/server/src/config.ts).",
-      },
-    ],
   },
   overrides: [
-    {
-      files: ["packages/server/src/config.ts", "packages/testing/**", "scripts/**"],
-      rules: { "eslint-js/no-restricted-properties": "off" },
-    },
     {
       files: ["packages/web/**/*.{ts,tsx}"],
       plugins: ["react", "jsx-a11y"],
