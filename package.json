@@ -7,27 +7,34 @@
     "node": ">=26"
   },
   "scripts": {
+    "dev": "node scripts/dev.ts",
     "typecheck": "pnpm run --no-bail \"/^typecheck:/\"",
     "typecheck:root": "tsc --project .",
     "typecheck:packages": "pnpm --recursive --no-bail typecheck",
-    "lint": "oxlint --ignore-pattern tests/fixtures/lint/",
+    "lint": "oxlint --ignore-pattern '**/fixtures/lint/**'",
     "format": "oxfmt",
     "format:check": "oxfmt --check",
     "test": "vitest run --project unit",
     "test:db": "vitest run --project db",
+    "test:browser": "vitest run --project browser",
     "check": "pnpm run --no-bail \"/^(typecheck|lint|format:check|test)$/\"",
     "db:up": "scripts/db.sh up",
-    "db:down": "scripts/db.sh down"
+    "db:down": "scripts/db.sh down",
+    "build": "pnpm --recursive build"
   },
   "devDependencies": {
     "@stylistic/eslint-plugin": "catalog:",
     "@tsconfig/node": "catalog:",
     "@tsconfig/strictest": "catalog:",
     "@types/node": "catalog:",
+    "@vitejs/plugin-react": "catalog:",
+    "@vitest/browser-playwright": "catalog:",
     "oxfmt": "catalog:",
     "oxlint": "catalog:",
     "oxlint-plugin-eslint": "catalog:",
     "oxlint-tsgolint": "catalog:",
+    "pino-pretty": "catalog:",
+    "playwright": "catalog:",
     "typescript": "catalog:",
     "vitest": "catalog:",
     "zod": "catalog:"

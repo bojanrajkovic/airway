@@ -2,7 +2,16 @@
 
 How airway computes and labels its numbers.
 
-Nothing in this area is built yet.
+## Rule sets
+
+AASM scores children and adults with different rules. `ruleSetFor(night, profile)` in `@airway/contract/profile` picks one per night from the patient's birth date:
+
+- **pediatric** before the night of the 18th birthday, and **adult** from that night on;
+- with `AIRWAY_ADULT_RULES_FROM_13=true`, adult from the night of the 13th birthday instead, as AASM allows for ages 13 to 17.
+
+A 29 February birthday counts from 28 February in other years.
+
+Nothing else in scoring is built yet.
 
 ## derived_version
 

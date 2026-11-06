@@ -1,2 +1,6 @@
 node_modules/
 dist/
+
+# Browser-test screenshots: CI uploads them; nothing compares them.
+__screenshots__/
+.env

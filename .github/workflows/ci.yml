@@ -77,11 +77,41 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm test:db
 
+  browser:
+    name: Browser tests
+    runs-on: ubuntu-26.04
+    # Playwright's image holds Chromium and its system packages. Its tag must match the playwright
+    # package in the catalog. The user is the runner's, so the checkout and caches stay writable.
+    container:
+      image: mcr.microsoft.com/playwright:v1.64.1-noble@sha256:2f05f8a734509a7b3f26a912639488ee08f58a7b292d14d62271bcff9038768f
+      options: --user 1001
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: jdx/mise-action@f5be966e4a917d54244728e6a5fdcd1d93a35e6c # v5.2.6
+        with:
+          cache_save: ${{ github.ref == 'refs/heads/main' }}
+      - id: pnpm-store
+        run: echo "path=$(pnpm store path --silent)" >> "$GITHUB_OUTPUT"
+      - uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with: *pnpm-store-cache
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm test:browser
+      # Desktop and phone screenshots, in light and dark, for the PR's screenshots.
+      - if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: screenshots
+          path: packages/web/tests/__screenshots__/
+          if-no-files-found: ignore
+
   # The ruleset on main requires Check. A job skipped after a failed job it needs counts as passing,
   # so this one always runs and fails unless every job it gates succeeded.
   check:
     name: Check
-    needs: [test, db]
+    needs: [test, db, browser]
     if: always()
     # One step of a few seconds, so the 1-vCPU runner is enough.
     runs-on: ubuntu-slim

@@ -1,0 +1,4 @@
+/* Follows the device's light or dark setting. ui-74 adds the design tokens on top. */
+:root {
+  color-scheme: light dark;
+}

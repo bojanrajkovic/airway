@@ -6,7 +6,8 @@
 |---|---|
 | Lint and test | `pnpm audit signatures`, then `pnpm check` |
 | Database tests | `pnpm test:db`, with Postgres 18 as a service container |
-| Check | Fails unless both jobs above succeeded |
+| Browser tests | `pnpm test:browser` in Playwright's image, then uploads the screenshots |
+| Check | Fails unless every job above succeeded |
 
 ## The Check job
 
