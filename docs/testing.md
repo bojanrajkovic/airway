@@ -20,7 +20,7 @@ The `unit` project shares one module registry across files, which saves starting
 
 A package's tests live in its `tests/` folder and mirror `src/`: the tests for `src/query/compile.ts` go in `tests/query/compile.test.ts`. The folder has its own `tsconfig.json`, so Node types that test helpers bring in never reach `src`. The repo's own tooling tests, such as the lint fixture test, live in the top-level `tests/`.
 
-Helpers that more than one package's tests need go in `@airway/testing`, imported as `@airway/testing/<file>`. A helper only one package uses stays in that package's `tests/support/`, such as the server's `testContext()` and the web's axe and screenshot helpers.
+Helpers that more than one package's tests need go in `@airway/testing`, imported as `@airway/testing/<file>`. A helper only one package uses stays in that package's `tests/support/`, such as the server's `testContext()` and the web's screenshot helper.
 
 ## Database tests
 
@@ -64,10 +64,7 @@ The `Database tests` job runs the same image as a service container. The image i
 
 A browser test is named `*.browser.test.tsx` and renders components in a real Chromium, through Vitest's browser mode and Playwright. Before the first run, install Chromium with `pnpm exec playwright install chromium`; CI runs in Playwright's image, which has it.
 
-`packages/web/tests/support/` has two helpers:
-
-- `expectNoAxeViolations(element)` runs [axe-core](https://github.com/dequelabs/axe-core), an accessibility checker, on what the test rendered, and fails on any violation, such as a missing label or a broken ARIA role.
-- `takeScreenshots(name)` saves desktop and phone shots in light and dark to `tests/__screenshots__/`. git ignores them; CI uploads them as the `screenshots` artifact for PR comments. Nothing compares them.
+`takeScreenshots(name)` in `packages/web/tests/support/` saves desktop and phone shots in light and dark to `tests/__screenshots__/`. git ignores them; CI uploads them as the `screenshots` artifact for PR comments. Nothing compares them.
 
 ## The lint fixture test
 

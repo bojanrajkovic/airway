@@ -20,7 +20,6 @@
     "@types/react-dom": "catalog:",
     "@vitejs/plugin-react": "catalog:",
     "@vitest/browser-playwright": "catalog:",
-    "axe-core": "catalog:",
     "babel-plugin-react-compiler": "catalog:",
     "playwright": "catalog:",
     "vite": "catalog:",
