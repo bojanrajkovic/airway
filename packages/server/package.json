@@ -10,12 +10,20 @@
   "dependencies": {
     "@airway/contract": "workspace:*",
     "@hono/node-server": "catalog:",
+    "@opentelemetry/api": "catalog:",
+    "@opentelemetry/core": "catalog:",
+    "@opentelemetry/instrumentation-http": "catalog:",
+    "@opentelemetry/instrumentation-runtime-node": "catalog:",
+    "@opentelemetry/sdk-metrics": "catalog:",
+    "@opentelemetry/sdk-node": "catalog:",
+    "@opentelemetry/sdk-trace": "catalog:",
     "hono": "catalog:",
     "neverthrow": "catalog:",
     "pino": "catalog:",
     "zod": "catalog:"
   },
   "devDependencies": {
+    "@airway/testing": "workspace:*",
     "@tsconfig/node": "catalog:",
     "@tsconfig/strictest": "catalog:",
     "@types/node": "catalog:",

@@ -10,6 +10,7 @@ const server = spawn(
     "--env-file=.env.example",
     "--env-file-if-exists=.env",
     "--watch",
+    "--import=./packages/server/src/instrument.ts",
     "packages/server/src/main.ts",
   ],
   { stdio: ["ignore", "pipe", "inherit"] },

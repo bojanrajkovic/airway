@@ -10,6 +10,10 @@
     "typecheck": "tsc --project . && tsc --project tests"
   },
   "dependencies": {
+    "@opentelemetry/api": "catalog:",
+    "@opentelemetry/sdk-metrics": "catalog:",
+    "@opentelemetry/sdk-node": "catalog:",
+    "@opentelemetry/sdk-trace": "catalog:",
     "pg": "catalog:",
     "vitest": "catalog:"
   },

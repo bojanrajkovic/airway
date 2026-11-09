@@ -14,7 +14,7 @@
     "lint": "oxlint --ignore-pattern '**/fixtures/lint/**'",
     "format": "oxfmt",
     "format:check": "oxfmt --check",
-    "test": "vitest run --project unit",
+    "test": "vitest run --project unit --project telemetry",
     "test:db": "vitest run --project db",
     "test:browser": "vitest run --project browser",
     "check": "pnpm run --no-bail \"/^(typecheck|lint|format:check|test)$/\"",

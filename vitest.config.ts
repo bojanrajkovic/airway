@@ -4,6 +4,8 @@ import { configDefaults, defineConfig } from "vitest/config";
 import type { BrowserCommand } from "vitest/node";
 
 const UNIT = ["tests/**/*.test.ts", "packages/*/tests/**/*.test.{ts,tsx}"];
+// Telemetry tests start an OpenTelemetry SDK, which registers process-wide providers.
+const TELEMETRY = ["{tests,packages/*/tests}/**/*.telemetry.test.{ts,tsx}"];
 // Database tests need Postgres, which `pnpm db:up` starts locally and CI runs as a service.
 const DB = ["{tests,packages/*/tests}/**/*.db.test.{ts,tsx}"];
 // Browser tests render components in Chromium, which Playwright installs locally and CI's
@@ -27,10 +29,12 @@ export default defineConfig({
         test: {
           name: "unit",
           include: UNIT,
-          exclude: [...configDefaults.exclude, ...DB, ...BROWSER],
+          exclude: [...configDefaults.exclude, ...TELEMETRY, ...DB, ...BROWSER],
           isolate: false,
         },
       },
+      // Isolated, so one file's SDK never records another file's spans.
+      { extends: true, test: { name: "telemetry", include: TELEMETRY } },
       { extends: true, test: { name: "db", include: DB } },
       {
         extends: true,

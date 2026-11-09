@@ -1,6 +1,6 @@
 # Server
 
-`packages/server` is one Node process: a Hono app that serves the API and the built web app. `src/main.ts` is the entry point, and Rolldown bundles it to `dist/main.js`.
+`packages/server` is one Node process: a Hono app that serves the API and the built web app. `src/main.ts` is the entry point, and Rolldown bundles it to `dist/main.js`. The telemetry preload, `src/instrument.ts`, is bundled on its own to `dist/instrument.js` and runs first, through `node --import` ([Observability](observability.md#telemetry-startup)).
 
 ## Startup and shutdown
 

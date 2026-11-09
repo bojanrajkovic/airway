@@ -7,6 +7,13 @@ catalogMode: strict
 catalog:
   "@babel/core": 8.1.0
   "@hono/node-server": 2.1.6
+  "@opentelemetry/api": 1.10.0
+  "@opentelemetry/core": 3.1.0
+  "@opentelemetry/instrumentation-http": 0.301.0
+  "@opentelemetry/instrumentation-runtime-node": 0.38.0
+  "@opentelemetry/sdk-metrics": 3.1.0
+  "@opentelemetry/sdk-node": 0.301.0
+  "@opentelemetry/sdk-trace": 3.1.0
   "@rolldown/plugin-babel": 0.3.0
   "@stylistic/eslint-plugin": 5.10.0
   # An alias, so a Node major bump changes only this line, not every tsconfig that extends it.
@@ -48,3 +55,8 @@ trustPolicy: no-downgrade
 
 # `pnpm add` writes exact versions, so the lockfile and the catalog say the same thing.
 savePrefix: ""
+
+permissions:
+  # Its postinstall only checks versions; the library works without it.
+  protobufjs:
+    build: false

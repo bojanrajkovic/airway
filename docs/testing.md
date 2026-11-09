@@ -4,17 +4,35 @@ Tests go where logic can be wrong: parsing, scoring, time math, the SQL path, pe
 
 ## Running tests
 
-Vitest runs three projects, all defined in `vitest.config.ts`:
+Vitest runs four projects, all defined in `vitest.config.ts`:
 
 | Project | Command | What it runs |
 |---|---|---|
-| `unit` | `pnpm test` (also part of `pnpm check`) | Every `*.test.ts` and `*.test.tsx` except database and browser tests |
+| `unit` | `pnpm test` (also part of `pnpm check`) | Every `*.test.ts` and `*.test.tsx` except telemetry, database, and browser tests |
+| `telemetry` | `pnpm test` (also part of `pnpm check`) | Every `*.telemetry.test.ts`, each file isolated |
 | `db` | `pnpm test:db` | Every `*.db.test.ts` and `*.db.test.tsx`, against a real Postgres 18 |
 | `browser` | `pnpm test:browser` | Every `*.browser.test.ts` and `*.browser.test.tsx`, in Chromium |
 
 Files, and the tests inside them, run in a random order, so a test that depends on another running first fails. A failing run prints its seed, and `pnpm test --sequence.seed=<seed>` replays that order.
 
-The `unit` project shares one module registry across files, which saves starting a fresh one per file. A test that sets up process-wide state, such as starting an OpenTelemetry SDK that registers global providers, would leak that state into other files. Such tests get their own project with isolation on.
+The `unit` project shares one module registry across files, which saves starting a fresh one per file. A test that sets up process-wide state, such as starting an OpenTelemetry SDK that registers global providers, would leak that state into other files. Such tests are named `*.telemetry.test.ts`, and the `telemetry` project runs each file with its own module registry.
+
+## Telemetry tests
+
+A telemetry test calls `inMemoryTelemetry()` from `@airway/testing/telemetry` at the top level of the file. It starts an OpenTelemetry SDK before the file's tests and shuts it down after them, and returns what the file's code recorded:
+
+```ts
+import { inMemoryTelemetry } from "@airway/testing/telemetry";
+
+const { spans, metricReader, metricExporter } = inMemoryTelemetry();
+
+it("records a span", () => {
+  // spans.getFinishedSpans() holds every ended span; spans.reset() clears them.
+  // metricReader.collect() reads metrics recorded since the last collect.
+});
+```
+
+Pass `instrumentations` to test an instrumentation's settings, as `packages/server/tests/instrument.telemetry.test.ts` does for inbound HTTP.
 
 ## Where tests go
 
