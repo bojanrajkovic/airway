@@ -1,0 +1,27 @@
+# Release Please reads the squash commits on main, and a squash commit's title is the PR's title, so
+# every title must be a Conventional Commit. The ruleset on main requires this check.
+name: PR title
+
+on:
+  pull_request:
+    # edited: a retitled PR is checked again. synchronize: every new head commit needs the check.
+    types: [opened, edited, synchronize, reopened]
+
+permissions: {}
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  pr-title:
+    name: PR title
+    runs-on: ubuntu-slim
+    timeout-minutes: 5
+    permissions:
+      pull-requests: read # The action reads the PR through the API.
+    steps:
+      # Any Conventional Commit type, with or without a scope and !.
+      - uses: amannn/action-semantic-pull-request@2252a14e810aa9b85c2d560bd7070c802206ecf6 # v6.1.2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
