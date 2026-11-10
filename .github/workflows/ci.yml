@@ -126,9 +126,7 @@ jobs:
           build-args: GIT_SHA=${{ github.sha }}
           cache-from: type=gha
           cache-to: ${{ github.ref == 'refs/heads/main' && 'type=gha,mode=max' || '' }}
-      # The image tests run in Vitest, so the job needs the repo's tools and packages too. zizmor
-      # sees build-push-action and assumes this job publishes, but it only loads the image locally
-      # and pushes nothing.
+      # This job never pushes the image, so caching is safe.
       - uses: jdx/mise-action@f5be966e4a917d54244728e6a5fdcd1d93a35e6c # v5.2.6
         with: # zizmor: ignore[cache-poisoning]
           cache_save: ${{ github.ref == 'refs/heads/main' }}
@@ -140,8 +138,6 @@ jobs:
       - run: pnpm test:image
         env:
           AIRWAY_IMAGE: airway:ci
-      # Fails on a high or critical finding that has a fix. One without a fix doesn't, because
-      # nothing in airway could act on it.
       - uses: anchore/scan-action@27805bf3b4e84b4a5c980df22ed233c00390a439 # v7.4.2
         with:
           image: airway:ci
