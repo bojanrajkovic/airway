@@ -14,9 +14,12 @@
     "zod": "catalog:"
   },
   "devDependencies": {
+    "@airway/testing": "workspace:*",
     "@tsconfig/strictest": "catalog:",
     "@types/node": "catalog:",
+    "@types/pg": "catalog:",
     "fast-check": "catalog:",
+    "pg": "catalog:",
     "vitest": "catalog:"
   }
 }
