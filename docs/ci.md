@@ -7,6 +7,7 @@
 | Lint and test | `pnpm audit signatures`, then `pnpm check` |
 | Database tests | `pnpm test:db`, with Postgres 18 as a service container |
 | Browser tests | `pnpm test:browser` in Playwright's image, then uploads the screenshots |
+| Image | Builds the image, runs `pnpm test:image` against it, and scans it with Grype |
 | Check | Fails unless every job above succeeded |
 
 ## The Check job
@@ -18,7 +19,7 @@
 - Every action is pinned to a full commit SHA, with its version in a comment.
 - The workflow's token can only read the repo, and checkout doesn't keep the credentials around.
 - `pnpm install --frozen-lockfile` installs exactly what the lockfile says, and `pnpm audit signatures` fails if a package's registry signature doesn't verify.
-- Only pushes to `main` write caches (mise's tools and the pnpm store). Pull requests only restore them.
+- Only pushes to `main` write caches (mise's tools, the pnpm store, and the image's layers). Pull requests only restore them.
 
 ## The ruleset on main
 

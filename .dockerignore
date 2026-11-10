@@ -1,0 +1,8 @@
+**/node_modules
+**/dist
+**/__screenshots__
+.git
+.github
+.claude
+docs
+.env

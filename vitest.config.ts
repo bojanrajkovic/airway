@@ -11,6 +11,8 @@ const DB = ["{tests,packages/*/tests}/**/*.db.test.{ts,tsx}"];
 // Browser tests render components in Chromium, which Playwright installs locally and CI's
 // Playwright image ships.
 const BROWSER = ["{tests,packages/*/tests}/**/*.browser.test.{ts,tsx}"];
+// Image tests start the built image named by AIRWAY_IMAGE, through Docker or Podman.
+const IMAGE = ["tests/**/*.image.test.ts"];
 
 const setColorScheme: BrowserCommand<["light" | "dark"]> = async ({ page }, scheme) => {
   await page.emulateMedia({ colorScheme: scheme });
@@ -29,13 +31,14 @@ export default defineConfig({
         test: {
           name: "unit",
           include: UNIT,
-          exclude: [...configDefaults.exclude, ...TELEMETRY, ...DB, ...BROWSER],
+          exclude: [...configDefaults.exclude, ...TELEMETRY, ...DB, ...BROWSER, ...IMAGE],
           isolate: false,
         },
       },
       // Isolated, so one file's SDK never records another file's spans.
       { extends: true, test: { name: "telemetry", include: TELEMETRY } },
       { extends: true, test: { name: "db", include: DB } },
+      { extends: true, test: { name: "image", include: IMAGE } },
       {
         extends: true,
         plugins: [react()],

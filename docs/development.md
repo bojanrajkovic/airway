@@ -17,6 +17,7 @@ You need [mise](https://mise.jdx.dev) and a container runtime, [Podman](https://
 | `pnpm test` | The unit tests |
 | `pnpm test:db` | The database tests; start Postgres first |
 | `pnpm test:browser` | The browser tests, in Chromium ([Testing](testing.md#browser-tests)) |
+| `pnpm test:image` | The image tests, against the image in `AIRWAY_IMAGE` ([Testing](testing.md#image-tests)) |
 | `pnpm db:up` / `db:down` | Start or stop Postgres 18 in Podman or Docker |
 
 ## Workspace

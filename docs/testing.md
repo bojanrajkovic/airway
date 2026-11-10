@@ -12,6 +12,7 @@ Vitest runs four projects, all defined in `vitest.config.ts`:
 | `telemetry` | `pnpm test` (also part of `pnpm check`) | Every `*.telemetry.test.ts`, each file isolated |
 | `db` | `pnpm test:db` | Every `*.db.test.ts` and `*.db.test.tsx`, against a real Postgres 18 |
 | `browser` | `pnpm test:browser` | Every `*.browser.test.ts` and `*.browser.test.tsx`, in Chromium |
+| `image` | `pnpm test:image` | Every `*.image.test.ts`, against a built image |
 
 Files, and the tests inside them, run in a random order, so a test that depends on another running first fails. A failing run prints its seed, and `pnpm test --sequence.seed=<seed>` replays that order.
 
@@ -83,6 +84,19 @@ The `Database tests` job runs the same image as a service container. The image i
 A browser test is named `*.browser.test.tsx` and renders components in a real Chromium, through Vitest's browser mode and Playwright. Before the first run, install Chromium with `pnpm exec playwright install chromium`; CI runs in Playwright's image, which has it.
 
 `takeScreenshots(name)` in `packages/web/tests/support/` saves desktop and phone shots in light and dark to `tests/__screenshots__/`. git ignores them; CI uploads them as the `screenshots` artifact for PR comments. Nothing compares them.
+
+## Image tests
+
+`tests/image.image.test.ts` starts the built image with [testcontainers](https://node.testcontainers.org) the way the pod runs it: read-only, as UID 65532, with a tmpfs `/tmp`. It checks that the server starts with only its production dependencies and serves the page, its script, and the CSP header. Everything else is tested against the source.
+
+Build the image, then point `AIRWAY_IMAGE` at it:
+
+```sh
+docker build -t localhost/airway:dev .
+AIRWAY_IMAGE=localhost/airway:dev pnpm test:image
+```
+
+If you use Podman, start its socket with `systemctl --user start podman.socket`, then also set `DOCKER_HOST=unix://$XDG_RUNTIME_DIR/podman/podman.sock` and `TESTCONTAINERS_RYUK_DISABLED=true`. Ryuk, the container testcontainers uses to clean up, needs the Docker socket mounted, which rootless Podman doesn't allow.
 
 ## The lint fixture test
 
