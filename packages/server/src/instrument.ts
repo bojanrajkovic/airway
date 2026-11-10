@@ -7,6 +7,7 @@ import { HttpInstrumentation } from "@opentelemetry/instrumentation-http";
 import { PgInstrumentation } from "@opentelemetry/instrumentation-pg";
 import { RuntimeNodeInstrumentation } from "@opentelemetry/instrumentation-runtime-node";
 import { UndiciInstrumentation } from "@opentelemetry/instrumentation-undici";
+import { resourceFromAttributes } from "@opentelemetry/resources";
 import * as sdkMetrics from "@opentelemetry/sdk-metrics";
 import { NodeSDK } from "@opentelemetry/sdk-node";
 import { loadModule, normalizeSync } from "libpg-query";
@@ -71,6 +72,11 @@ async function startSdk(): Promise<void> {
   process.env["OTEL_PROPAGATORS"] ??= "none";
   const started = new NodeSDK({
     serviceName: "airway",
+    // The image sets both. A deployment's OTEL_RESOURCE_ATTRIBUTES is merged over these.
+    resource: resourceFromAttributes({
+      "service.version": process.env["AIRWAY_VERSION"] ?? "dev",
+      "vcs.ref.head.revision": process.env["AIRWAY_GIT_SHA"] ?? "dev",
+    }),
     // Exponential histograms adapt their buckets to what's recorded, so no instrument picks bucket
     // boundaries.
     views: [

@@ -20,6 +20,7 @@
     "@opentelemetry/instrumentation-pg": "catalog:",
     "@opentelemetry/instrumentation-runtime-node": "catalog:",
     "@opentelemetry/instrumentation-undici": "catalog:",
+    "@opentelemetry/resources": "catalog:",
     "@opentelemetry/sdk-metrics": "catalog:",
     "@opentelemetry/sdk-node": "catalog:",
     "@opentelemetry/sdk-trace": "catalog:",

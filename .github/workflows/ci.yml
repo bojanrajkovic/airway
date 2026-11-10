@@ -107,11 +107,53 @@ jobs:
           path: packages/web/tests/__screenshots__/
           if-no-files-found: ignore
 
+  image:
+    name: Image
+    runs-on: ubuntu-26.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      # The cluster's nodes are amd64 only.
+      - uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          platforms: linux/amd64
+          load: true
+          tags: airway:ci
+          build-args: GIT_SHA=${{ github.sha }}
+          cache-from: type=gha
+          cache-to: ${{ github.ref == 'refs/heads/main' && 'type=gha,mode=max' || '' }}
+      # The image tests run in Vitest, so the job needs the repo's tools and packages too. No mise
+      # cache: zizmor can't tell that this job publishes nothing, and the download is quick.
+      - uses: jdx/mise-action@f5be966e4a917d54244728e6a5fdcd1d93a35e6c # v5.2.6
+        with:
+          cache: false
+      - id: pnpm-store
+        run: echo "path=$(pnpm store path --silent)" >> "$GITHUB_OUTPUT"
+      - uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with: *pnpm-store-cache
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm test:image
+        env:
+          AIRWAY_IMAGE: airway:ci
+      # Fails on a high or critical finding that has a fix. One without a fix doesn't, because
+      # nothing in airway could act on it.
+      - uses: anchore/scan-action@27805bf3b4e84b4a5c980df22ed233c00390a439 # v7.4.2
+        with:
+          image: airway:ci
+          fail-build: true
+          severity-cutoff: high
+          only-fixed: true
+          output-format: table
+
   # The ruleset on main requires Check. A job skipped after a failed job it needs counts as passing,
   # so this one always runs and fails unless every job it gates succeeded.
   check:
     name: Check
-    needs: [test, db, browser]
+    needs: [test, db, browser, image]
     if: always()
     # One step of a few seconds, so the 1-vCPU runner is enough.
     runs-on: ubuntu-slim

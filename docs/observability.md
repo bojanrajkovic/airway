@@ -30,7 +30,9 @@ A function that can fail returns a `Result`, and each service module has one err
 
 `packages/server/src/instrument.ts` starts the OpenTelemetry SDK. Production loads it before the server with `node --import ./dist/instrument.js dist/main.js`, and `pnpm dev` does the same with the source file, so instrumentation is in place before any dependency loads.
 
-The SDK starts only when `OTEL_EXPORTER_OTLP_ENDPOINT` is set. It reads the standard `OTEL_*` variables itself. airway sets two defaults: no OTLP logs (logs go to stdout) and no propagators, so a `traceparent` header from outside never joins airway's traces. The SDK flushes when the event loop empties, which happens after `main.ts` has closed everything at shutdown.
+The SDK starts only when `OTEL_EXPORTER_OTLP_ENDPOINT` is set. It reads the standard `OTEL_*` variables itself. airway sets two defaults: no OTLP logs (logs go to stdout) and no propagators, so a `traceparent` header from outside never joins airway's traces.
+
+Every span and metric carries `service.name` `airway`, `service.version` from `AIRWAY_VERSION`, and `vcs.ref.head.revision` from `AIRWAY_GIT_SHA`. The image sets both; outside it, they're `dev`. Attributes in a deployment's `OTEL_RESOURCE_ATTRIBUTES` take precedence. The SDK flushes when the event loop empties, which happens after `main.ts` has closed everything at shutdown.
 
 ## Traces
 

@@ -17,6 +17,7 @@
     "test": "vitest run --project unit --project telemetry",
     "test:db": "vitest run --project db",
     "test:browser": "vitest run --project browser",
+    "test:image": "vitest run --project image",
     "check": "pnpm run --no-bail \"/^(typecheck|lint|format:check|test)$/\"",
     "db:up": "scripts/db.sh up",
     "db:down": "scripts/db.sh down",
@@ -35,6 +36,7 @@
     "oxlint-tsgolint": "catalog:",
     "pino-pretty": "catalog:",
     "playwright": "catalog:",
+    "testcontainers": "catalog:",
     "typescript": "catalog:",
     "vitest": "catalog:",
     "zod": "catalog:"
