@@ -27,20 +27,15 @@ describe("sql", () => {
 });
 
 describe("a column's SQL", () => {
-  it("defaults to its name as a quoted identifier", () => {
-    expect(render(signal("leak", "Leak.").sql, { homeZone: 1 })).toBe('"leak"');
-  });
-
-  it("quotes a name that isn't a plain identifier, so it can only ever name a column", () => {
-    const column = metric('x"; drop table nights; --', { unit: "s", decimals: 1 }, "Hostile.");
-
-    expect(render(column.sql, { homeZone: 1 })).toBe('"x""; drop table nights; --"');
+  it("is absent on a plain column, which is the table column of its own name", () => {
+    expect(signal("leak", "Leak.").sql).toBeUndefined();
+    expect(metric("duration", { unit: "s", decimals: 1 }, "Length.").sql).toBeUndefined();
   });
 
   it("is the given SQL when a column has its own", () => {
     const hour = dimension("hour_of_night", "integer", "Hour.", sql`extract(hour from ts)`);
 
-    expect(render(hour.sql, { homeZone: 1 })).toBe("extract(hour from ts)");
+    expect(hour.sql).toEqual(sql`extract(hour from ts)`);
   });
 });
 

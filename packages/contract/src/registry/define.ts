@@ -6,13 +6,13 @@ type SqlPart = string | typeof homeZone;
 
 declare const trusted: unique symbol;
 /**
- * SQL that came from source code: text typed in a `sql` template, or a column name quoted as an
- * identifier. It never holds a value from a request, so it's safe to put in a statement.
+ * SQL that came from source code: text typed in a `sql` template. It never holds a value from a
+ * request, so it's safe to put in a statement.
  */
 export type TrustedSql = { readonly parts: readonly SqlPart[]; readonly [trusted]: true };
 
 function trust(parts: readonly SqlPart[]): TrustedSql {
-  // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the one place a TrustedSql is made; both callers pass source text
+  // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the one place a TrustedSql is made, from a template's source text
   return { parts } as TrustedSql;
 }
 
@@ -47,17 +47,17 @@ export function render(trustedSql: TrustedSql, parameters: RenderParameters): st
     .join("");
 }
 
-// Quoted, so whatever the name holds, it can only name a column.
-function identifier(name: string): TrustedSql {
-  return trust([`"${name.replaceAll('"', '""')}"`]);
-}
-
 type Described = {
   name: string;
   /** What the column means, for a person or an agent choosing columns. */
   description: string;
-  sql: TrustedSql;
+  /** Set only on a computed column. Without it, the column is the table column of the same name. */
+  sql?: TrustedSql;
 };
+
+// A property can't be set to undefined, so a column without SQL leaves it out.
+const computed = (sql: TrustedSql | undefined): Pick<Described, "sql"> =>
+  sql === undefined ? {} : { sql };
 export type TimeColumn = Described & { role: "time"; kind: "timestamp" | "date" };
 export type DimensionColumn = Described &
   (
@@ -80,12 +80,11 @@ export type Dataset = {
   columns: readonly Column[];
 };
 
-/** A value the machine recorded. Its SQL is its own column. */
+/** A value the machine recorded. */
 export function signal(name: string, description: string): MetricColumn {
   return {
     name,
     description,
-    sql: identifier(name),
     role: "metric",
     kind: "number",
     unit: "from_header",
@@ -97,18 +96,18 @@ export function metric(
   name: string,
   unit: ColumnUnit,
   description: string,
-  columnSql = identifier(name),
+  columnSql?: TrustedSql,
 ): MetricColumn {
-  return { name, description, sql: columnSql, role: "metric", kind: "number", unit };
+  return { name, description, ...computed(columnSql), role: "metric", kind: "number", unit };
 }
 
 export function dimension(
   name: string,
   kind: "integer" | "boolean",
   description: string,
-  columnSql = identifier(name),
+  columnSql?: TrustedSql,
 ): DimensionColumn {
-  return { name, description, sql: columnSql, role: "dimension", kind };
+  return { name, description, ...computed(columnSql), role: "dimension", kind };
 }
 
 export function enumeration(
@@ -116,11 +115,11 @@ export function enumeration(
   values: readonly [string, ...string[]],
   description: string,
 ): DimensionColumn {
-  return { name, description, sql: identifier(name), role: "dimension", kind: "enum", values };
+  return { name, description, role: "dimension", kind: "enum", values };
 }
 
 export function time(name: string, kind: TimeColumn["kind"], description: string): TimeColumn {
-  return { name, description, sql: identifier(name), role: "time", kind };
+  return { name, description, role: "time", kind };
 }
 
 const EQUALITY = ["=", "!="] as const;

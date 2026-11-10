@@ -22,20 +22,15 @@ Time and dimension columns can be grouped by, and metrics can't. `operationsFor(
 
 ## Column SQL
 
-A column's SQL is a `TrustedSql`: SQL that came from source code and never from a request, so it's safe to put in a statement. Only `define.ts` creates one, in two ways:
+A column's SQL is a `TrustedSql`: SQL that came from source code and never from a request, so it's safe to put in a statement. Only a computed column has one. It writes its SQL in a `sql` template, which accepts only another `TrustedSql` or the `homeZone` marker between its text, so interpolating any other value fails to compile.
 
-- By default, a column's SQL is its own name as a quoted identifier.
-- A computed column writes its SQL in a `sql` template. The template accepts only another `TrustedSql` or the `homeZone` marker between its text, so interpolating any other value fails to compile.
+A plain column has no SQL: it's the table column of its own name, and whoever builds a statement quotes that name.
 
 ```ts
-const hourOfNight = dimension(
-  "hour_of_night",
-  "integer",
-  "Wall-clock hour in the home time zone.",
-  sql`extract(hour from ts at time zone ${homeZone})::int`,
-);
+const hour = sql`extract(hour from ts at time zone ${homeZone})::int`;
+const hourOfNight = dimension("hour_of_night", "integer", "Wall-clock hour in the home time zone.", hour);
 
-render(hourOfNight.sql, { homeZone: 3 });
+render(hour, { homeZone: 3 });
 // extract(hour from ts at time zone $3)::int
 ```
 
