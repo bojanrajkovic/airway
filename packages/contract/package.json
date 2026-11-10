@@ -10,6 +10,7 @@
     "typecheck": "tsc --project . && tsc --project tests"
   },
   "dependencies": {
+    "superjson": "catalog:",
     "zod": "catalog:"
   },
   "devDependencies": {

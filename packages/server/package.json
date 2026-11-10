@@ -3,6 +3,9 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
+  "exports": {
+    "./trpc": "./src/trpc/router.ts"
+  },
   "scripts": {
     "build": "rolldown --config rolldown.config.ts",
     "typecheck": "tsc --project . && tsc --project tests"
@@ -10,6 +13,7 @@
   "dependencies": {
     "@airway/contract": "workspace:*",
     "@hono/node-server": "catalog:",
+    "@hono/trpc-server": "catalog:",
     "@opentelemetry/api": "catalog:",
     "@opentelemetry/core": "catalog:",
     "@opentelemetry/instrumentation-http": "catalog:",
@@ -19,6 +23,7 @@
     "@opentelemetry/sdk-metrics": "catalog:",
     "@opentelemetry/sdk-node": "catalog:",
     "@opentelemetry/sdk-trace": "catalog:",
+    "@trpc/server": "catalog:",
     "drizzle-orm": "catalog:",
     "hono": "catalog:",
     "jose": "catalog:",
