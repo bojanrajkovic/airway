@@ -72,7 +72,8 @@ export function identifier(ctx: AppContext): Identify {
       return verify(headers, channel)
         .map((identity) => toAuthor(identity, channel))
         .mapErr((failure) => {
-          // The errors behind failures name the claim or key that failed, never a token's value.
+          // A jose claim error carries the token's decoded claims, email and name included; they're
+          // logged on purpose, to debug refusals. The raw token never is.
           log.warn({ channel, kind: failure.kind, err: failure.cause }, "request refused");
           if (failure.cause instanceof Error) {
             span.recordException(failure.cause);

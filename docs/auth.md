@@ -48,7 +48,7 @@ Each mode is a verifier: a function from a request's headers and channel to the 
 
 ## Failures
 
-Every failure answers with a JSON body naming its kind, such as `{"error": "expired"}`. It's logged at `warn` with the kind, the channel, and the jose or fetch error behind it, whose message names the claim or key that failed, and the span records that error too. The token itself is never logged.
+Every failure answers with a JSON body naming its kind, such as `{"error": "expired"}`. It's logged at `warn` with the kind, the channel, and the jose or fetch error behind it. That error names the check that failed (code, claim, reason, message) and, for a claim failure, carries the token's decoded claims, email and name included, on purpose: they're what debugging a refusal needs. The raw token is never logged. The span records the error's class, message, and stack, without the claims.
 
 | Kind | Status | Cause |
 |---|---|---|
