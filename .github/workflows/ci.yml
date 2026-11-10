@@ -126,11 +126,12 @@ jobs:
           build-args: GIT_SHA=${{ github.sha }}
           cache-from: type=gha
           cache-to: ${{ github.ref == 'refs/heads/main' && 'type=gha,mode=max' || '' }}
-      # The image tests run in Vitest, so the job needs the repo's tools and packages too. No mise
-      # cache: zizmor can't tell that this job publishes nothing, and the download is quick.
+      # The image tests run in Vitest, so the job needs the repo's tools and packages too. zizmor
+      # sees build-push-action and assumes this job publishes, but it only loads the image locally
+      # and pushes nothing.
       - uses: jdx/mise-action@f5be966e4a917d54244728e6a5fdcd1d93a35e6c # v5.2.6
-        with:
-          cache: false
+        with: # zizmor: ignore[cache-poisoning]
+          cache_save: ${{ github.ref == 'refs/heads/main' }}
       - id: pnpm-store
         run: echo "path=$(pnpm store path --silent)" >> "$GITHUB_OUTPUT"
       - uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
