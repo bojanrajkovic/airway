@@ -27,6 +27,16 @@
 - `pnpm install --frozen-lockfile` installs exactly what the lockfile says, and `pnpm audit signatures` fails if a package's registry signature doesn't verify.
 - Only pushes to `main` write caches (mise's tools, the pnpm store, and the image's layers). Pull requests only restore them.
 
+## Renovate
+
+[Renovate](https://docs.renovatebot.com) opens PRs for dependency updates, configured in `renovate.json`.
+
+- Minor, patch, and digest updates merge on their own once CI passes. Majors wait for review.
+- npm releases wait 3 days. pnpm's own `minimumReleaseAge` refuses anything less than a day old, so a younger version would fail the install.
+- Packages that must move together share one PR: OpenTelemetry, Hono, Vite with Rolldown, Oxlint, the React packages, the Drizzle packages, pg with its types, and Node across `mise.toml`, the `Dockerfile`, and `@types/node`. The Playwright image moves with the playwright package, the Postgres image in `scripts/db.sh` moves with the one in `ci.yml`, and pnpm in the `Dockerfile` moves with `mise.toml`.
+- Drizzle, pg, the MCP SDK, and ECharts never merge on their own, because each changes the SQL airway runs or what users and agents see. Node majors wait too: the distroless image's name holds the major, and Renovate can't rename it.
+- Update PRs are titled `chore`, so they don't cut a release on their own. Security alerts and new distroless digests are titled `fix`, so they release and reach the deployment.
+
 ## The ruleset on main
 
 `main` requires Check and PR title to pass. Branches don't have to be up to date, and admins can bypass it. The ruleset is managed in the homelab repo's Terraform, not here.

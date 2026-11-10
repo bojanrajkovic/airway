@@ -1,0 +1,133 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": [
+    "config:recommended",
+    "helpers:pinGitHubActionDigests",
+    ":automergeMinor",
+    ":automergeDigest",
+    "customManagers:dockerfileVersions",
+    "security:minimumReleaseAgeNpm"
+  ],
+  "labels": ["dependencies"],
+  "rangeStrategy": "bump",
+  "lockFileMaintenance": {
+    "enabled": true,
+    "automerge": true
+  },
+  "osvVulnerabilityAlerts": true,
+  "vulnerabilityAlerts": {
+    "semanticCommitType": "fix"
+  },
+  "customManagers": [
+    {
+      "customType": "regex",
+      "description": "The Postgres image scripts/db.sh runs locally, pinned by digest like the CI service image",
+      "managerFilePatterns": ["/^scripts/db\\.sh$/"],
+      "matchStrings": [
+        "IMAGE=(?<depName>[^:\\s]+):(?<currentValue>[^@\\s]+)@(?<currentDigest>sha256:[a-f0-9]+)"
+      ],
+      "datasourceTemplate": "docker"
+    }
+  ],
+  "packageRules": [
+    {
+      "description": "Dependency updates are chores, so they wait for the next feat or fix release instead of each cutting one. config:recommended would title production dependencies fix(deps). Later rules make a few of them fixes",
+      "matchPackageNames": ["*"],
+      "semanticCommitType": "chore"
+    },
+    {
+      "description": "A new distroless digest is how a fixed CVE in Node or Debian reaches the image, so it releases",
+      "matchPackageNames": ["gcr.io/distroless/*"],
+      "matchUpdateTypes": ["digest"],
+      "semanticCommitType": "fix"
+    },
+    {
+      "description": "Group the opentelemetry-js and opentelemetry-js-contrib monorepos. Their instrumentations pin the same exact 0.x @opentelemetry/instrumentation",
+      "matchPackageNames": ["@opentelemetry/*"],
+      "groupName": "OpenTelemetry"
+    },
+    {
+      "description": "Group Hono with its middleware and server packages, which declare peer ranges on it",
+      "matchPackageNames": ["hono", "@hono/*"],
+      "groupName": "Hono"
+    },
+    {
+      "description": "Group Vite with its plugins, which declare peer ranges on it, and Rolldown, which the server build uses directly",
+      "matchPackageNames": ["vite", "@vitejs/*", "rolldown", "@rolldown/*"],
+      "groupName": "vite"
+    },
+    {
+      "description": "Group Oxlint with its ESLint-rules plugin, which releases with it, and tsgolint, whose minimum version Oxlint sets",
+      "matchPackageNames": ["oxlint", "oxlint-*"],
+      "groupName": "Oxlint"
+    },
+    {
+      "description": "Add the React types to group:monorepos' React group",
+      "matchPackageNames": ["@types/react", "@types/react-dom"],
+      "groupName": "react monorepo"
+    },
+    {
+      "description": "Group pg with its types",
+      "matchPackageNames": ["pg", "@types/pg"],
+      "groupName": "pg"
+    },
+    {
+      "description": "Group the Drizzle packages, which move their APIs together",
+      "matchPackageNames": ["drizzle-orm", "drizzle-kit", "drizzle-zod"],
+      "groupName": "drizzle"
+    },
+    {
+      "description": "Group GitHub Actions updates",
+      "matchManagers": ["github-actions"],
+      "groupName": "GitHub Actions",
+      "automerge": true
+    },
+    {
+      "description": "Browser tests run in Playwright's image, whose browsers must match the playwright package. After the GitHub Actions group, so this group wins",
+      "matchPackageNames": ["mcr.microsoft.com/playwright"],
+      "groupName": "playwright monorepo"
+    },
+    {
+      "description": "One Postgres image in scripts/db.sh and the CI service, so local and CI tests run the same server. After the GitHub Actions group, so this group wins",
+      "matchPackageNames": ["postgres", "docker.io/library/postgres"],
+      "groupName": "Postgres image"
+    },
+    {
+      "description": "Leave engines.node alone while the new Node.js version still satisfies it. The global bump strategy would raise it to every new patch",
+      "matchDepTypes": ["engines"],
+      "rangeStrategy": "replace"
+    },
+    {
+      "description": "Group Node.js and its types across mise.toml, the Dockerfile, and package.json",
+      "matchPackageNames": ["node", "@types/node", "gcr.io/distroless/nodejs*"],
+      "groupName": "Node.js",
+      "automerge": true
+    },
+    {
+      "description": "Hold Node.js majors for review",
+      "matchPackageNames": ["node", "@types/node", "@tsconfig/node", "gcr.io/distroless/nodejs*"],
+      "matchUpdateTypes": ["major"],
+      "automerge": false,
+      "prBodyNotes": [
+        "Rename `gcr.io/distroless/nodejs<major>-debian13` in the `Dockerfile` to the new major and pin its digest before merging. Renovate can't change the name."
+      ]
+    },
+    {
+      "description": "Keep pnpm on one version in mise.toml and the Dockerfile",
+      "matchPackageNames": ["pnpm"],
+      "groupName": "pnpm"
+    },
+    {
+      "description": "Never automerge these, even minor and patch updates: the ORM and driver change the SQL airway runs, the MCP SDK changes what agents see, and ECharts changes every chart",
+      "matchPackageNames": [
+        "drizzle-orm",
+        "drizzle-kit",
+        "drizzle-zod",
+        "pg",
+        "@modelcontextprotocol/*",
+        "echarts"
+      ],
+      "automerge": false
+    }
+  ]
+}
