@@ -37,9 +37,9 @@ catalog:
   libpg-query: 18.2.2
   neverthrow: 8.2.0
   oxfmt: 0.77.0
-  oxlint: 1.90.0
-  oxlint-plugin-eslint: 1.90.0
-  oxlint-tsgolint: 7.0.2005
+  oxlint: 1.92.0
+  oxlint-plugin-eslint: 1.92.0
+  oxlint-tsgolint: 7.0.2006
   pg: 8.23.1
   pino: 10.4.0
   pino-pretty: 13.2.0
