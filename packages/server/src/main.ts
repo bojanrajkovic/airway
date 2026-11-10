@@ -2,6 +2,7 @@ import { existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { serve } from "@hono/node-server";
 import { loadConfig } from "./config.ts";
+import { createPools } from "./db/pools.ts";
 import { createApp } from "./http/app.ts";
 import { createLogger } from "./logger.ts";
 import type { AppContext } from "./runtime/context.ts";
@@ -17,9 +18,15 @@ if (result.isErr()) {
 
 const config = result.value;
 const logger = createLogger(config.logLevel);
-const ctx: AppContext = { config, logger, clock: () => Temporal.Now.instant() };
-// Everything opened below registers its cleanup here, and shutdown closes it in reverse order.
+// Everything opened below registers its cleanup here, and shutdown closes it in reverse order: the
+// listener stops taking requests before the pools close.
 const resources = new AsyncDisposableStack();
+const ctx: AppContext = {
+  config,
+  logger,
+  clock: () => Temporal.Now.instant(),
+  db: resources.use(createPools(config, logger)),
+};
 
 // The listener comes first, so the pod answers /healthz while later startup work runs.
 const builtWebRoot = fileURLToPath(new URL("./public/", import.meta.url));

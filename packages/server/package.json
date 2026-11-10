@@ -13,12 +13,16 @@
     "@opentelemetry/api": "catalog:",
     "@opentelemetry/core": "catalog:",
     "@opentelemetry/instrumentation-http": "catalog:",
+    "@opentelemetry/instrumentation-pg": "catalog:",
     "@opentelemetry/instrumentation-runtime-node": "catalog:",
     "@opentelemetry/sdk-metrics": "catalog:",
     "@opentelemetry/sdk-node": "catalog:",
     "@opentelemetry/sdk-trace": "catalog:",
+    "drizzle-orm": "catalog:",
     "hono": "catalog:",
+    "libpg-query": "catalog:",
     "neverthrow": "catalog:",
+    "pg": "catalog:",
     "pino": "catalog:",
     "zod": "catalog:"
   },
@@ -27,6 +31,7 @@
     "@tsconfig/node": "catalog:",
     "@tsconfig/strictest": "catalog:",
     "@types/node": "catalog:",
+    "@types/pg": "catalog:",
     "rolldown": "catalog:",
     "vitest": "catalog:"
   }

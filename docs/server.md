@@ -24,7 +24,29 @@ The listener starts before anything else, so the pod answers `/healthz` while sl
 
 ## Shared dependencies
 
-`src/runtime/context.ts` defines `AppContext`: the config, the root logger, and a clock. `main.ts` builds it once and passes it whole. A service takes the context plus its own arguments, and logs through `ctx.logger.child({ module })`. Tests build a context with `testContext()` from `tests/support/context.ts`, which has synthetic config, a silent logger, and a fixed clock.
+`src/runtime/context.ts` defines `AppContext`: the config, the root logger, a clock, and the database pools. `main.ts` builds it once and passes it whole. A service takes the context plus its own arguments, and logs through `ctx.logger.child({ module })`. Tests build a context with `testContext()` from `tests/support/context.ts`, which has synthetic config, a silent logger, a fixed clock, and pools that never connect unless a test queries them.
+
+## Database pools
+
+`createPools(config, logger)` in `src/db/pools.ts` opens three pools, and `main.ts` puts them on `ctx.db`:
+
+| Pool | Role | Size | `statement_timeout` | Used for |
+|---|---|---|---|---|
+| `owner` | owner, through `DATABASE_URL` | 5 | none | every write, through Drizzle (`ctx.db.owner.db`) |
+| `api` | reader, through `AIRWAY_READER_DATABASE_URL` | 5 | 10 s | the web API's queries |
+| `agent` | reader, through `AIRWAY_READER_DATABASE_URL` | 3 | 15 s | agents' queries over MCP |
+
+Each pool's connections show in `pg_stat_activity` as `airway-<pool>`. The reader role's own limits (read-only, `search_path`, `work_mem`, `temp_file_limit`) are set on the role by the deployment, as [Operations](operations.md) describes, not by the pools.
+
+Pools connect on their first query, so a server with no database still starts and answers `/healthz`. Shutdown closes them after the listener stops. An idle connection that drops is logged with its error code and replaced on the next query.
+
+Each pool parses three Postgres types into airway's own:
+
+- `timestamptz` to `Temporal.Instant`
+- `date` to `Temporal.PlainDate`
+- `int8`, such as `count(*)`, to `number`. A value past 2^53 throws a `RangeError` instead of rounding.
+
+The parsers are set per pool, not on pg's global `types`, so other pg clients in the process, such as the test database fixture, keep pg's defaults.
 
 ## Routes
 

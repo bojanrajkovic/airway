@@ -1,4 +1,5 @@
 import type { Config } from "../config.ts";
+import type { Pools } from "../db/pools.ts";
 import type { Logger } from "../logger.ts";
 
 /**
@@ -10,4 +11,6 @@ export type AppContext = {
   logger: Logger;
   /** The current time, so tests can fix it. */
   clock: () => Temporal.Instant;
+  /** The owner, API, and agent database pools. */
+  db: Pools;
 };
