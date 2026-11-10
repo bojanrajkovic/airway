@@ -10,6 +10,18 @@ const VALID = {
   AIRWAY_CLOCK_OFFSETS: '[{"from":"2025-01-01","utcOffset":"-05:07"}]',
   AIRWAY_TIME_ZONE: "America/Chicago",
   AIRWAY_CPAP_DATA_PATH: "/cpap-data",
+  AIRWAY_AUTH: "none",
+  AIRWAY_LOCAL_AUTHOR_NAME: "Sam Rivera",
+  AIRWAY_LOCAL_AUTHOR_EMAIL: "sam@example.test",
+};
+
+const { AIRWAY_LOCAL_AUTHOR_NAME, AIRWAY_LOCAL_AUTHOR_EMAIL, ...SHARED } = VALID;
+const POMERIUM = {
+  ...SHARED,
+  AIRWAY_AUTH: "pomerium",
+  AIRWAY_UI_HOST: "airway.example.test",
+  AIRWAY_MCP_HOST: "airway-mcp.example.test",
+  AIRWAY_JWKS_URL: "http://pomerium.example.test/.well-known/pomerium/jwks.json",
 };
 
 const problems = (env: Record<string, string | undefined>): string[] => {
@@ -30,7 +42,38 @@ describe("parseConfig", () => {
       expect(result.value.patient.adultRulesFrom13).toBe(false);
       expect(result.value.patient.birthDate.equals("2012-06-15")).toBe(true);
       expect(result.value.clockOffsets[0]?.utcOffset).toBe("-05:07");
+      expect(result.value.auth).toEqual({
+        mode: "none",
+        author: { name: AIRWAY_LOCAL_AUTHOR_NAME, email: AIRWAY_LOCAL_AUTHOR_EMAIL },
+      });
     }
+  });
+
+  it("parses pomerium mode without the local author's settings", () => {
+    expect(parseConfig(POMERIUM)._unsafeUnwrap().auth).toEqual({
+      mode: "pomerium",
+      uiHost: "airway.example.test",
+      mcpHost: "airway-mcp.example.test",
+      jwksUrl: "http://pomerium.example.test/.well-known/pomerium/jwks.json",
+    });
+  });
+
+  it.each(["AIRWAY_UI_HOST", "AIRWAY_MCP_HOST", "AIRWAY_JWKS_URL"])(
+    "names %s when it's missing in pomerium mode",
+    (key) => {
+      expect(problems({ ...POMERIUM, [key]: undefined })).toEqual([`${key}: is required`]);
+    },
+  );
+
+  it.each([
+    ["AIRWAY_AUTH", "off"],
+    ["AIRWAY_UI_HOST", "https://airway.example.test"],
+    ["AIRWAY_MCP_HOST", "airway-mcp.example.test:443"],
+    ["AIRWAY_JWKS_URL", "file:///jwks.json"],
+  ])("names %s when it's malformed in pomerium mode", (key, value) => {
+    expect(problems({ ...POMERIUM, [key]: value })).toEqual([
+      expect.stringMatching(new RegExp(`^${key}: `, "v")),
+    ]);
   });
 
   it.each(Object.keys(VALID))("names %s when it's missing", (key) => {
@@ -52,6 +95,8 @@ describe("parseConfig", () => {
     ["AIRWAY_CPAP_DATA_PATH", "relative/cpap-data"],
     ["PORT", "70000"],
     ["LOG_LEVEL", "verbose"],
+    ["AIRWAY_LOCAL_AUTHOR_NAME", " "],
+    ["AIRWAY_LOCAL_AUTHOR_EMAIL", "sam"],
   ])("names %s when it's malformed", (key, value) => {
     expect(problems({ ...VALID, [key]: value })).toEqual([
       expect.stringMatching(new RegExp(`^${key}: `, "v")),

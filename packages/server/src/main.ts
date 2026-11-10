@@ -18,6 +18,11 @@ if (result.isErr()) {
 
 const config = result.value;
 const logger = createLogger(config.logLevel);
+
+if (config.auth.mode === "none") {
+  logger.warn("authentication is off: every request acts as the configured local author");
+}
+
 // Everything opened below registers its cleanup here, and shutdown closes it in reverse order: the
 // listener stops taking requests before the pools close.
 const resources = new AsyncDisposableStack();

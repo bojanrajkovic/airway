@@ -17,6 +17,7 @@ const CONFIG: Config = {
   cpapDataPath: "/cpap-data",
   port: 3000,
   logLevel: "info",
+  auth: { mode: "none", author: { name: "Sam Rivera", email: "sam@example.test" } },
 };
 
 /**

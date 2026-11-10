@@ -1,3 +1,4 @@
+import type { Author } from "@airway/contract/author";
 import { ClockOffsets, type ClockOffset } from "@airway/contract/clock";
 import { PlainDateString } from "@airway/contract/dates";
 import type { PatientProfile } from "@airway/contract/profile";
@@ -6,6 +7,21 @@ import { z } from "zod";
 
 const LOG_LEVELS = ["fatal", "error", "warn", "info", "debug", "trace"] as const;
 export type LogLevel = (typeof LOG_LEVELS)[number];
+
+/**
+ * How requests are authenticated. `pomerium` verifies the identity proxy's signed token; `none`
+ * treats every request as the configured local person.
+ */
+export type AuthConfig =
+  | {
+      mode: "pomerium";
+      /** The UI's public hostname: the `aud` and `iss` of tokens on /trpc. */
+      uiHost: string;
+      /** The MCP route's public hostname: the `aud` and `iss` of tokens on /mcp. */
+      mcpHost: string;
+      jwksUrl: string;
+    }
+  | { mode: "none"; author: Pick<Author, "name" | "email"> };
 
 export type Config = {
   databaseUrl: string;
@@ -17,6 +33,7 @@ export type Config = {
   cpapDataPath: string;
   port: number;
   logLevel: LogLevel;
+  auth: AuthConfig;
 };
 
 // The places Intl knows, by their ICU names. Fixed offsets such as -05:00, UTC, and Etc/GMT+5 aren't
@@ -60,9 +77,28 @@ const Env = z.object({
   LOG_LEVEL: z.enum(LOG_LEVELS).default("info"),
 });
 
+// Required with no default, so a deployment that forgets it stops instead of running open.
+const Auth = z.discriminatedUnion(
+  "AIRWAY_AUTH",
+  [
+    z.object({
+      AIRWAY_AUTH: z.literal("pomerium"),
+      AIRWAY_UI_HOST: z.hostname("must be a bare hostname"),
+      AIRWAY_MCP_HOST: z.hostname("must be a bare hostname"),
+      AIRWAY_JWKS_URL: z.url({ protocol: /^https?$/v, error: "must be an http(s):// URL" }),
+    }),
+    z.object({
+      AIRWAY_AUTH: z.literal("none"),
+      AIRWAY_LOCAL_AUTHOR_NAME: z.string().trim().min(1, "must not be blank").max(80),
+      AIRWAY_LOCAL_AUTHOR_EMAIL: z.email("must be an email address"),
+    }),
+  ],
+  { error: "must be pomerium or none" },
+);
+
 /** Parses airway's settings from `env`. Each problem names its key and what's wrong with it. */
 export function parseConfig(env: Record<string, string | undefined>): Result<Config, string[]> {
-  const result = Env.safeParse(env);
+  const result = z.intersection(Env, Auth).safeParse(env);
 
   if (!result.success) {
     return err(
@@ -89,6 +125,18 @@ export function parseConfig(env: Record<string, string | undefined>): Result<Con
     cpapDataPath: data.AIRWAY_CPAP_DATA_PATH,
     port: data.PORT,
     logLevel: data.LOG_LEVEL,
+    auth:
+      data.AIRWAY_AUTH === "pomerium"
+        ? {
+            mode: "pomerium",
+            uiHost: data.AIRWAY_UI_HOST,
+            mcpHost: data.AIRWAY_MCP_HOST,
+            jwksUrl: data.AIRWAY_JWKS_URL,
+          }
+        : {
+            mode: "none",
+            author: { name: data.AIRWAY_LOCAL_AUTHOR_NAME, email: data.AIRWAY_LOCAL_AUTHOR_EMAIL },
+          },
   });
 }
 

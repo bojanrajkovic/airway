@@ -6,6 +6,7 @@ import { createRequire } from "node:module";
 import { HttpInstrumentation } from "@opentelemetry/instrumentation-http";
 import { PgInstrumentation } from "@opentelemetry/instrumentation-pg";
 import { RuntimeNodeInstrumentation } from "@opentelemetry/instrumentation-runtime-node";
+import { UndiciInstrumentation } from "@opentelemetry/instrumentation-undici";
 import * as sdkMetrics from "@opentelemetry/sdk-metrics";
 import { NodeSDK } from "@opentelemetry/sdk-node";
 import { loadModule, normalizeSync } from "libpg-query";
@@ -27,12 +28,12 @@ function normalized(sql: string): string {
 }
 
 /**
- * Inbound HTTP with probes left out of spans and metrics and every query string dropped; Postgres
- * queries with normalized SQL and no bound values; and the Node runtime's metrics (event loop,
- * heap, GC). Async because the SQL parser loads its WebAssembly first.
+ * Inbound HTTP with probes left out of spans and metrics and every query string dropped; outbound
+ * fetch; Postgres queries with normalized SQL and no bound values; and the Node runtime's metrics
+ * (event loop, heap, GC). Async because the SQL parser loads its WebAssembly first.
  */
 export async function instrumentations(): Promise<
-  [HttpInstrumentation, PgInstrumentation, RuntimeNodeInstrumentation]
+  [HttpInstrumentation, UndiciInstrumentation, PgInstrumentation, RuntimeNodeInstrumentation]
 > {
   await loadModule();
 
@@ -44,9 +45,11 @@ export async function instrumentations(): Promise<
       requestHook: (span) => {
         span.setAttribute("url.query", "");
       },
-      // Outbound requests get their own instrumentation when airway makes any.
+      // airway's outbound requests use fetch, which the undici instrumentation covers.
       disableOutgoingRequestInstrumentation: true,
     }),
+    // fetch, such as the JWKS fetch behind token checks.
+    new UndiciInstrumentation(),
     new PgInstrumentation({
       // Runs after the instrumentation sets db.query.text, so this replaces it.
       requestHook: (span, { query }) => {

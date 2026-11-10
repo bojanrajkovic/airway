@@ -185,6 +185,9 @@ catalogs:
     '@opentelemetry/instrumentation-runtime-node':
       specifier: 0.38.0
       version: 0.38.0
+    '@opentelemetry/instrumentation-undici':
+      specifier: 0.35.0
+      version: 0.35.0
     '@opentelemetry/sdk-metrics':
       specifier: 3.1.0
       version: 3.1.0
@@ -233,6 +236,9 @@ catalogs:
     hono:
       specifier: 4.13.16
       version: 4.13.16
+    jose:
+      specifier: 6.2.16
+      version: 6.2.16
     libpg-query:
       specifier: 18.2.2
       version: 18.2.2
@@ -380,6 +386,9 @@ importers:
       '@opentelemetry/instrumentation-runtime-node':
         specifier: 'catalog:'
         version: 0.38.0(@opentelemetry/api@1.10.0)
+      '@opentelemetry/instrumentation-undici':
+        specifier: 'catalog:'
+        version: 0.35.0(@opentelemetry/api@1.10.0)
       '@opentelemetry/sdk-metrics':
         specifier: 'catalog:'
         version: 3.1.0(@opentelemetry/api@1.10.0)
@@ -395,6 +404,9 @@ importers:
       hono:
         specifier: 'catalog:'
         version: 4.13.16
+      jose:
+        specifier: 'catalog:'
+        version: 6.2.16
       libpg-query:
         specifier: 'catalog:'
         version: 18.2.2
@@ -791,6 +803,12 @@ packages:
 
   '@opentelemetry/instrumentation-runtime-node@0.38.0':
     resolution: {integrity: sha512-+q1AaCRYNujeNz/cY4lcw8l+Tnw6O6jmJd8Y+wd/7DaJpwNypHfDN7ZCwPzZXf5KgEJIdgISy/nAamkD4shb8g==}
+    engines: {node: '>=22.15.0'}
+    peerDependencies:
+      '@opentelemetry/api': ^1.10.0
+
+  '@opentelemetry/instrumentation-undici@0.35.0':
+    resolution: {integrity: sha512-nlGS3aR/RvcCqvyXXwqC7j5jhx7fT5Q1G2BZK5DHPHaBMSHUtGMFcMNhqjudnfJ3FVBbMM9NycReEfayL1QjcQ==}
     engines: {node: '>=22.15.0'}
     peerDependencies:
       '@opentelemetry/api': ^1.10.0
@@ -1929,6 +1947,9 @@ packages:
   isexe@2.0.0:
     resolution: {integrity: sha512-RHxMLp9lnKHGHRng9QFhRCMbYAcVpn69smSGcq3f36xjgVVWThj4qqLbTLlq7Ssj8B+fIQ1EuCEGI2lKsyQeIw==}
 
+  jose@6.2.16:
+    resolution: {integrity: sha512-4LSJpbuBuPdGrONCdZUy0xnxtLf8eEz+EY0SMXdHQEBU7bgUHDVblU/JAjryv3wID9/LK7/YuwFwq+AQNfMscQ==}
+
   joycon@3.1.1:
     resolution: {integrity: sha512-34wB/Y7MW7bzjKRjUKTa46I2Z7eV62Rkhva+KkopW7Qvv/OSWBqvkSY7vusOPrNuZcUG3tApvdVgNB8POj3SPw==}
     engines: {node: '>=10'}
@@ -2884,6 +2905,15 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
+  '@opentelemetry/instrumentation-undici@0.35.0(@opentelemetry/api@1.10.0)':
+    dependencies:
+      '@opentelemetry/api': 1.10.0
+      '@opentelemetry/core': 3.1.0(@opentelemetry/api@1.10.0)
+      '@opentelemetry/instrumentation': 0.301.0(@opentelemetry/api@1.10.0)
+      '@opentelemetry/semantic-conventions': 1.45.0
+    transitivePeerDependencies:
+      - supports-color
+
   '@opentelemetry/instrumentation@0.301.0(@opentelemetry/api@1.10.0)':
     dependencies:
       '@opentelemetry/api': 1.10.0
@@ -3668,6 +3698,8 @@ snapshots:
       is-extglob: 2.1.1
 
   isexe@2.0.0: {}
+
+  jose@6.2.16: {}
 
   joycon@3.1.1: {}
 
