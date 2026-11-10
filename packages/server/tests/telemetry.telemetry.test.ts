@@ -50,17 +50,21 @@ describe("inSpan", () => {
     expect(onlySpan().attributes["error.type"]).toBe("not_found");
   });
 
-  it("records a thrown error's class, without its message, and rethrows it", () => {
+  it("records a thrown error's class, message, and stack, and rethrows it", () => {
     expect(() =>
       inSpan("work", () => {
-        throw new PoolExhausted("secret value in the message");
+        throw new PoolExhausted("no connection within 5 s");
       }),
     ).toThrow(PoolExhausted);
 
     const span = onlySpan();
-    expect(span.status).toEqual({ code: SpanStatusCode.ERROR });
+    expect(span.status.code).toBe(SpanStatusCode.ERROR);
     expect(span.attributes["error.type"]).toBe("PoolExhausted");
-    expect(span.events).toEqual([]);
+    expect(span.events[0]?.name).toBe("exception");
+    expect(span.events[0]?.attributes?.["exception.message"]).toBe("no connection within 5 s");
+    expect(span.events[0]?.attributes?.["exception.stacktrace"]).toContain(
+      "telemetry.telemetry.test.ts",
+    );
   });
 
   it("makes its span the parent of spans started inside it", () => {

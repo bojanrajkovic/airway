@@ -52,7 +52,7 @@ function loadNight(ctx: AppContext, night: Temporal.PlainDate): ResultAsync<Nigh
 
 - An `Ok` ends the span with no status.
 - An `Err` sets the span's status to error and records its `kind` as `error.type`.
-- A throw sets the status to error, records the error's class as `error.type`, and rethrows. The message isn't recorded, because it can hold data, such as a Postgres error's bound values.
+- A throw sets the status to error, records the exception (its message and stack) with its class as `error.type`, and rethrows.
 
 The helpers never log; see [Errors](#errors). `untraced(fn)` turns tracing off inside `fn`, for idle polls that would otherwise send empty traces.
 

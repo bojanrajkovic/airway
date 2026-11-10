@@ -11,8 +11,8 @@ export type Tagged = { kind: string };
 
 /**
  * Runs `fn` in an active span named `name` and ends the span when `fn` returns. An `Err` marks the
- * span failed with its `kind` as `error.type`. A throw marks it failed with the error's class and
- * rethrows. Neither is logged here: the code that returns an `Err` logs it, and the HTTP app's
+ * span failed with its `kind` as `error.type`. A throw marks it failed, records the exception
+ * with its class as `error.type`, and rethrows. Neither is logged here: the code that returns an `Err` logs it, and the HTTP app's
  * error handler logs throws. `fn` sets its own attributes on `span`.
  */
 export function inSpan<T, E extends Tagged>(
@@ -55,11 +55,9 @@ function finish<T, E extends Tagged>(span: Span, result: Result<T, E>): Result<T
   return result;
 }
 
-/**
- * Marks `span` failed with the error's class, ends it, and rethrows. The message isn't recorded,
- * because it can hold data, such as a Postgres error's bound values.
- */
+/** Records the error on `span` (class, message, and stack), marks it failed, ends it, and rethrows. */
 function fail(span: Span, error: unknown): never {
+  span.recordException(error instanceof Error ? error : String(error));
   span.setStatus({ code: SpanStatusCode.ERROR });
   span.setAttribute("error.type", error instanceof Error ? error.constructor.name : typeof error);
   span.end();
