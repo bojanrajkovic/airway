@@ -2,7 +2,25 @@
 
 The datasets, the derived tables, their units, and derived_version.
 
-The column types, unit conversion, and the derived tables are built. The datasets aren't yet.
+## Datasets
+
+A dataset is what the builder and the agent tools query: a derived table of the same name, with each column described once. `DATASETS` in `@airway/contract/registry/datasets` lists the five.
+
+| Dataset | One row per | Columns |
+|---|---|---|
+| `nights` | Night | The machine's `STR.edf` statistics, then airway's: session counts, the longest stretch, event counts, the AHI check, the rule set, and the upload time |
+| `sessions` | Mask-on period | Start, end, duration, and whether it comes from the machine's mask-on times or from the recording files |
+| `events` | Event the machine flagged | Type, source, duration, and whether it fell outside every mask-on period |
+| `samples` | 2 seconds of therapy | The nine low-rate signals: pressures, leak, respiratory rate, tidal volume, minute ventilation, snore, and flow limitation |
+| `breaths` | Breath airway detects in the flow signal | Duration, amplitude, and inspiratory volume |
+
+`nights` keeps the machine's numbers apart from airway's. The machine's are the headline: `ahi` is the AHI the machine scored, and airway's event counts sit beside it under their own names.
+
+Values are spelled out, such as `obstructive_apnea`, never the machine's codes.
+
+`events`, `samples`, and `breaths` share three columns. `session` is the mask-on period's number within the night, so the builder can break any of them down by session without a join. `night` is the sleep day. `hour_of_night` is the wall-clock hour in the home time zone.
+
+`registry/columns.ts` holds the columns and units more than one dataset uses, and each dataset is one file beside it.
 
 ## Columns
 
@@ -100,7 +118,7 @@ A sample or breath references its segment together with the segment's session, s
 
 Signal values are `double precision`. A value written as the decimal text `0.4` is stored as exactly 0.4, and `leak = 0.4` matches it. A `real` column wouldn't match: Postgres widens it to compare, and its 0.4 becomes 0.4000000059604645.
 
-Text columns with a fixed set of values, such as an event's `type`, have a CHECK constraint, built from the lists in `derived/values.ts`.
+Text columns with a fixed set of values, such as an event's `type`, have a CHECK constraint, built from the lists in `derived/values.ts`. The registry's enum columns read the same lists.
 
 ### Indexes
 
