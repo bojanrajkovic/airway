@@ -1,14 +1,11 @@
 # Observability
 
-The server writes logs to stdout and sends traces and metrics over OTLP. Logs carry the trace and span IDs, so a log line links to its trace.
+The server writes logs to stdout and sends traces and metrics to an OTLP endpoint. Where they go from there is up to the deployment. Logs carry the trace and span IDs, so a log line links to its trace.
 
 ```mermaid
 flowchart LR
-  S[airway server] -- pino JSON on stdout --> L[Loki]
-  S -- OTLP traces --> A[Alloy]
-  S -- OTLP metrics --> A
-  A --> H[Honeycomb]
-  A --> P[Prometheus]
+  S[airway server] -- JSON lines on stdout --> L[the platform's log collector]
+  S -- OTLP traces and metrics --> C[OTEL_EXPORTER_OTLP_ENDPOINT]
 ```
 
 ## Logs
@@ -63,7 +60,7 @@ Span attributes follow the same rule as logs: IDs, counts, and outcomes, never v
 
 ## Metrics
 
-The SDK exports metrics every 60 seconds. Histograms are exponential, so Prometheus stores them as native histograms and no instrument picks bucket boundaries. Built-in metrics come from the instrumentations:
+The SDK exports metrics every 60 seconds. Histograms are exponential, so their buckets adapt to what's recorded and no instrument picks bucket boundaries. Built-in metrics come from the instrumentations:
 
 - `http.server.request.duration` for inbound requests, without probes
 - the Node runtime's event loop delay and utilization, heap, and GC

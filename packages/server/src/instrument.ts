@@ -35,14 +35,14 @@ if ((process.env["OTEL_EXPORTER_OTLP_ENDPOINT"] ?? "") !== "") {
 }
 
 function startSdk(): void {
-  // Logs reach Loki as pino JSON on stdout, not over OTLP.
+  // airway logs to stdout, not over OTLP.
   process.env["OTEL_LOGS_EXPORTER"] ??= "none";
   // Every trace starts at airway: a traceparent header from the internet isn't trusted.
   process.env["OTEL_PROPAGATORS"] ??= "none";
   const started = new NodeSDK({
     serviceName: "airway",
-    // Exponential histograms adapt their buckets to what's recorded, and Alloy forwards them to
-    // Prometheus as native histograms, so no instrument picks bucket boundaries.
+    // Exponential histograms adapt their buckets to what's recorded, so no instrument picks bucket
+    // boundaries.
     views: [
       {
         instrumentType: sdkMetrics.InstrumentType.HISTOGRAM,
