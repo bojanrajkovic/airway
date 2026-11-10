@@ -3,7 +3,7 @@
 # Postgres accepts connections. CI's service container in .github/workflows/ci.yml uses the same
 # image digest.
 set -eu
-IMAGE=docker.io/library/postgres:18@sha256:bd5dfa494a5a259704365813dbfa5fa6b3e69be7348d43b547f540c730478583
+IMAGE=docker.io/library/postgres:18@sha256:e3d24f6906d0760bf4da0dae872415391ededefad23fd471c47dc53b0ddf3c42
 runtime=$(command -v podman || command -v docker || true)
 if [ -z "$runtime" ]; then
   echo "Needs Podman or Docker." >&2
