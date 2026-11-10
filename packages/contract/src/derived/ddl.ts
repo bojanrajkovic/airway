@@ -1,4 +1,7 @@
 import { RULE_SETS } from "../profile.ts";
+import type { Dataset } from "../registry/define.ts";
+import { nights } from "../registry/nights.ts";
+import { samples } from "../registry/samples.ts";
 import {
   AHI_CHECKS,
   EVENT_SOURCES,
@@ -18,59 +21,11 @@ export const DERIVED_VERSION = 1;
 /** `derived` is the schema queries read. `derived_next` is where a replacement is built. */
 export type DerivedSchema = "derived" | "derived_next";
 
-/** The machine's nightly statistics from STR.edf, in the order the nights table holds them. */
-export const NIGHT_SIGNALS = [
-  "usage",
-  "machine_on",
-  "mask_events",
-  "ahi",
-  "hi",
-  "ai",
-  "oai",
-  "cai",
-  "uai",
-  "rin",
-  "csr",
-  "mask_pressure_p50",
-  "mask_pressure_p95",
-  "mask_pressure_max",
-  "target_ipap_p50",
-  "target_ipap_p95",
-  "target_ipap_max",
-  "target_epap_p50",
-  "target_epap_p95",
-  "target_epap_max",
-  "leak_p50",
-  "leak_p70",
-  "leak_p95",
-  "leak_max",
-  "minute_ventilation_p50",
-  "minute_ventilation_p95",
-  "minute_ventilation_max",
-  "respiratory_rate_p50",
-  "respiratory_rate_p95",
-  "respiratory_rate_max",
-  "tidal_volume_p50",
-  "tidal_volume_p95",
-  "tidal_volume_max",
-  "ambient_humidity_p50",
-  "humidifier_temperature_p50",
-  "tube_temperature_p50",
-  "humidifier_power_p50",
-  "tube_power_p50",
-] as const;
-/** The 2 s signals from a PLD file, in the order the samples table holds them. */
-export const SAMPLE_SIGNALS = [
-  "mask_pressure",
-  "pressure",
-  "epr_pressure",
-  "leak",
-  "respiratory_rate",
-  "tidal_volume",
-  "minute_ventilation",
-  "snore",
-  "flow_limitation",
-] as const;
+// A dataset's machine signals: the columns whose values come straight from the files.
+const signals = ({ columns }: Dataset): string[] =>
+  columns
+    .filter((column) => column.role === "metric" && column.unit === "from_header")
+    .map(({ name }) => name);
 
 const oneOf = (column: string, values: readonly string[]): string =>
   `check (${column} in (${values.map((value) => `'${value}'`).join(", ")}))`;
@@ -133,7 +88,7 @@ create unlogged table ${schema}.period_percentiles (
 create unlogged table ${schema}.nights (
   night date primary key,
   -- The machine's own numbers, null when STR.edf has no usage for the night.
-  ${doubles(NIGHT_SIGNALS)},
+  ${doubles(signals(nights))},
   -- airway's.
   sessions integer not null,
   expected_sessions integer not null,
@@ -202,7 +157,7 @@ create unlogged table ${schema}.samples (
   segment smallint not null,
   session smallint not null,
   ts timestamptz not null,
-  ${doubles(SAMPLE_SIGNALS)},
+  ${doubles(signals(samples))},
   foreign key (night, segment, session) references ${schema}.segments (night, segment, session)
     on delete cascade
 );

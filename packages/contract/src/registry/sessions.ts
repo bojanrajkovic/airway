@@ -1,4 +1,4 @@
-import { SESSION_SOURCES } from "../derived/ddl.ts";
+import { SESSION_SOURCES } from "../derived/values.ts";
 import { minutes, night, session, ts } from "./columns.ts";
 import { enumeration, metric, sql, time, type Dataset } from "./define.ts";
 

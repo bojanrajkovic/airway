@@ -1,4 +1,5 @@
-import { AHI_CHECKS, RULE_SETS } from "../derived/ddl.ts";
+import { AHI_CHECKS } from "../derived/values.ts";
+import { RULE_SETS } from "../profile.ts";
 import { count, minutes, night } from "./columns.ts";
 import {
   dimension,

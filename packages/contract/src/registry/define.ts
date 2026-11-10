@@ -80,7 +80,10 @@ export type Dataset = {
   columns: readonly Column[];
 };
 
-/** A value the machine recorded. */
+/**
+ * A value whose unit isn't fixed here but recorded when the files are imported: the machine's own
+ * unit from the EDF header, or one that follows from it.
+ */
 export function signal(name: string, description: string): MetricColumn {
   return {
     name,

@@ -1,4 +1,4 @@
-import { EVENT_SOURCES, EVENT_TYPES } from "../derived/ddl.ts";
+import { EVENT_SOURCES, EVENT_TYPES } from "../derived/values.ts";
 import { hourOfNight, night, seconds, session, ts } from "./columns.ts";
 import { dimension, enumeration, metric, type Dataset } from "./define.ts";
 
@@ -17,6 +17,10 @@ export const events: Dataset = {
       "boolean",
       "True when the event falls outside every mask-on period and was given to the nearest one.",
     ),
-    metric("duration", seconds, "How long the event lasted."),
+    metric(
+      "duration",
+      seconds,
+      "How long the event lasted. Empty for hypopneas and arousals, which the machine doesn't time.",
+    ),
   ],
 };

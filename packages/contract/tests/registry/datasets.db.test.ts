@@ -4,6 +4,7 @@ import { expect } from "vitest";
 import { derivedDdl } from "../../src/derived/ddl.ts";
 import { DATASETS } from "../../src/registry/datasets.ts";
 import { render, type Column } from "../../src/registry/define.ts";
+import { withClient } from "../support/postgres.ts";
 
 // The Postgres types a column of each kind may have. A numeric would reach the caller as a string.
 const { FLOAT8, INT2, INT4, BOOL, TIMESTAMPTZ, DATE, TEXT } = pg.types.builtins;
@@ -19,10 +20,7 @@ const TYPES: Record<Column["kind"], readonly number[]> = {
 test("every column's SQL runs against its dataset's table, and gives its kind's type", async ({
   databaseUrl,
 }) => {
-  const client = new pg.Client(databaseUrl);
-  await client.connect();
-
-  try {
+  await withClient(databaseUrl, async (client) => {
     await client.query(derivedDdl("derived"));
 
     for (const { name, columns } of DATASETS) {
@@ -39,7 +37,5 @@ test("every column's SQL runs against its dataset's table, and gives its kind's 
 
       expect(mistyped.map((column) => column.name)).toEqual([]);
     }
-  } finally {
-    await client.end();
-  }
+  });
 });

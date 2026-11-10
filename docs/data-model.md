@@ -4,7 +4,7 @@ The datasets, the derived tables, their units, and derived_version.
 
 ## Datasets
 
-A dataset is what the builder and the agent tools query: a derived table of the same name, with each column described once. `DATASETS` in `@airway/contract/registry/datasets` lists the five.
+A dataset is something to query: a derived table of the same name, with each column described once. `DATASETS` in `@airway/contract/registry/datasets` lists the five.
 
 | Dataset | One row per | Columns |
 |---|---|---|
@@ -18,9 +18,11 @@ A dataset is what the builder and the agent tools query: a derived table of the 
 
 Values are spelled out, such as `obstructive_apnea`, never the machine's codes.
 
-`events`, `samples`, and `breaths` share three columns. `session` is the mask-on period's number within the night, so the builder can break any of them down by session without a join. `night` is the sleep day. `hour_of_night` is the wall-clock hour in the home time zone.
+`events`, `samples`, and `breaths` share three columns. `session` is the mask-on period's number within the night, so any of them can be broken down by session without a join. `night` is the sleep day. `hour_of_night` is the wall-clock hour in the home time zone.
 
-`registry/columns.ts` holds the columns and units more than one dataset uses, and each dataset is one file beside it.
+A breath's amplitude and inspiratory volume are computed from the flow signal, so their units follow from flow's and are recorded with it in `column_units`: amplitude in flow's unit, and volume in litres when flow is in L/s.
+
+`registry/columns.ts` holds the columns and units more than one dataset uses, and each dataset is one file beside it. The `nights` and `samples` tables get their machine-signal columns from these files, so a signal is listed once.
 
 ## Columns
 
