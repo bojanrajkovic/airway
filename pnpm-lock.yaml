@@ -312,6 +312,8 @@ catalogs:
       specifier: 4.6.7
       version: 4.6.7
 
+packageExtensionsChecksum: sha256-cLN4CMLPqSVDZ9FR+1xIZ0MSE475TnwKIHC/o1lFO14=
+
 importers:
 
   .:
@@ -1399,6 +1401,8 @@ packages:
       fastify:
         optional: true
       next:
+        optional: true
+      typescript:
         optional: true
 
   '@tsconfig/node26@26.0.1':
@@ -3745,7 +3749,7 @@ snapshots:
       picomatch: 4.0.7
 
   '@trpc/server@11.25.2(typescript@7.0.2)':
-    dependencies:
+    optionalDependencies:
       typescript: 7.0.2
 
   '@tsconfig/node26@26.0.1': {}

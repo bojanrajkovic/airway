@@ -66,6 +66,14 @@ trustPolicy: no-downgrade
 # `pnpm add` writes exact versions, so the lockfile and the catalog say the same thing.
 savePrefix: ""
 
+# tRPC lists TypeScript as a peer only for its types. Marked optional, it stays out of the image's
+# production dependencies; the root's devDependency still satisfies it for type-checking.
+packageExtensions:
+  "@trpc/server":
+    peerDependenciesMeta:
+      typescript:
+        optional: true
+
 permissions:
   # Its postinstall only checks versions; the library works without it.
   protobufjs:
