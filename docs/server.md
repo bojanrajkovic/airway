@@ -60,6 +60,40 @@ The parsers are set per pool, not on pg's global `types`, so other pg clients in
 
 Each module that serves HTTP exports `routes(ctx): Hono` from its own folder, such as `src/mcp/routes.ts`, and `createApp` mounts it with `app.route(path, routes(ctx))`, before the deep-link fallback. A module's middleware stays inside its own sub-app. The one exception is `requireAuthor`, which `createApp` mounts on `/trpc/*` and `/mcp` itself, so no route under those paths can skip it ([Auth](auth.md)).
 
+## tRPC
+
+The web app calls the server through tRPC, mounted at `/trpc` by `createApp` behind `requireAuthor` ([Auth](auth.md)). `src/trpc/router.ts` holds `appRouter`, and the web app imports its type, `AppRouter`, from `@airway/server/trpc` to get a typed client. The web bundle imports no server code: the export is a type.
+
+Values cross the wire through `transformer` from `@airway/contract/transformer`, which is superjson with `Temporal.Instant` and `Temporal.PlainDate` registered, so a procedure can return either and the client gets the same type back. Queries may be sent as POST, because explorer queries can be too long for a URL.
+
+Every procedure builds on `procedure` from `src/trpc/init.ts`. Its `ctx` has:
+
+- `app`: the `AppContext`
+- `author`: who called, from `requireAuthor`
+- `signal`: aborts when the client goes away
+- `log`: a child logger bound to `module: "trpc"` and the procedure's path
+
+A procedure is a controller: it parses input, calls a service, and maps the result. A service returns a `Result` with its own error union and never imports tRPC. `toTRPC(result, codeFor)` in `src/trpc/errors.ts` returns the `Ok` value, or throws a `TRPCError` with the code `codeFor` picks. Each service has one `codeFor` that covers its whole union, so a new error case fails to compile until it's mapped:
+
+```ts
+const nightsCode = (error: NightsError): TRPC_ERROR_CODE_KEY => {
+  switch (error.kind) {
+    case "not_found":
+      return "NOT_FOUND";
+  }
+};
+
+export const nightsRouter = router({
+  get: procedure
+    .input(NightInput)
+    .query(({ ctx, input }) => toTRPC(getNight(ctx.app, input.night), nightsCode)),
+});
+```
+
+The `TRPCError` carries only its code. The service already logged the failure ([Observability](observability.md#errors)), and the details aren't the client's.
+
+Each call gets a span named `trpc.<path>` and a point on the `rpc.server.call.duration` histogram, both keyed by the procedure. A failure records its tRPC code as `error.type`, and only a server-side code, one that maps to a 5xx, marks the span as an error. Inputs are never recorded.
+
 ## The web build
 
 `pnpm build` builds the web app into `packages/server/dist/public/`, next to the server bundle, where `main.ts` looks for it. With no build there, as in `pnpm dev`, the server serves only the API, and Vite serves the web app.

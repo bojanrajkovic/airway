@@ -1,8 +1,11 @@
 import { CSP } from "@airway/contract/csp";
 import { serveStatic } from "@hono/node-server/serve-static";
-import { Hono } from "hono";
-import { requireAuthor } from "../auth/middleware.ts";
+import { trpcServer } from "@hono/trpc-server";
+import { Hono, type Context } from "hono";
+import { requireAuthor, type AuthorEnv } from "../auth/middleware.ts";
 import type { AppContext } from "../runtime/context.ts";
+import { createContext } from "../trpc/context.ts";
+import { appRouter } from "../trpc/router.ts";
 
 export type AppOptions = {
   /**
@@ -38,6 +41,17 @@ export function createApp(ctx: AppContext, { webRoot }: AppOptions): Hono {
   // hostnames anyway.
   app.use("/trpc/*", requireAuthor(ctx, "web"));
   app.use("/mcp", requireAuthor(ctx, "mcp"));
+
+  app.use(
+    "/trpc/*",
+    trpcServer({
+      router: appRouter,
+      endpoint: "/trpc",
+      // Explorer queries can be long, so the client may send them as POST.
+      allowMethodOverride: true,
+      createContext: (_options, c: Context<AuthorEnv>) => createContext(ctx, c),
+    }),
+  );
 
   if (webRoot !== undefined) {
     // Built assets have hashed names, so a missing one is a real 404, not a deep link.

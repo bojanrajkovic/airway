@@ -71,6 +71,7 @@ The SDK exports metrics every 60 seconds. Histograms are exponential, so their b
 
 - `http.server.request.duration` for inbound requests, without probes
 - `db.client.operation.duration` for queries, and each pool's connection counts
+- `rpc.server.call.duration` for each tRPC procedure, by procedure and error type ([Server](server.md#trpc))
 - the Node runtime's event loop delay and utilization, heap, and GC
 
 airway's own metrics are named `airway.<area>.<name>`, such as `airway.ingest.last_success`, with [semconv units](https://opentelemetry.io/docs/specs/semconv/general/metrics/#instrument-units) (`s`, `By`, `{night}`). Their attributes never carry values from the data.
