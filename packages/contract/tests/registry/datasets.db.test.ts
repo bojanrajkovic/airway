@@ -25,7 +25,8 @@ test("every column's SQL runs against its dataset's table, and gives its kind's 
 
     for (const { name, columns } of DATASETS) {
       const selected = columns.map(
-        (column, index) => `${render(column.sql, { homeZone: 1 })} as c${index.toFixed(0)}`,
+        ({ name: column, sql }, index) =>
+          `${sql === undefined ? pg.escapeIdentifier(column) : render(sql, { homeZone: 1 })} as c${index.toFixed(0)}`,
       );
       // The filter uses $1 in every statement, so the zone binds even where no column needs it.
       const statement = `select ${selected.join(", ")} from derived.${name} where $1::text is not null`;
