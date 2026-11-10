@@ -45,9 +45,11 @@ render(hourOfNight.sql, { homeZone: 3 });
 
 A stored value keeps the machine's unit. The app shows some units as others: L/s as L/min, and L as mL.
 
-A machine signal's unit and decimals aren't in the registry. Each EDF file's header declares a signal's unit and its physical and digital ranges, which give the step between two values: leak moves in steps of 0.02 L/s. `decimalsForStep(step)` turns the step into the decimals needed to write every value, 2 for leak. A column airway computes declares its unit and decimals in the registry.
+A machine signal's unit and decimals aren't in the registry. Each EDF file's header declares a signal's unit and its physical and digital ranges, which give the step between two values. `decimalsForStep(step)` turns the step into the decimals needed to write every value. For example, an AirSense 10 declares leak in L/s with a step of 0.02, so leak has 2 decimals. Another model or firmware can declare a different unit or step, and nothing in the code assumes these. A column airway computes declares its unit and decimals in the registry.
 
 `toDisplay(value, stored)` and `toStored(value, stored)` convert between the stored and display units, then round to six decimals more than the target unit needs. The rounding removes floating-point error, so a stored value converts to display and back exactly. The extra decimals leave a value between two steps alone: an average stays an average, and a filter bound of 25 L/min stays between 0.40 and 0.42 L/s.
+
+For example, with leak stored in L/s to 2 decimals and tidal volume in L to 2 decimals, as an AirSense 10 declares them:
 
 | Stored | Shown | Back |
 |---|---|---|
