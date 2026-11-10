@@ -2,6 +2,46 @@
 
 How airway is versioned, released, and published as an image.
 
+```mermaid
+flowchart LR
+  M[PR merged to main] --> RP[Release Please updates the release PR]
+  RP --> N[maintainer writes the notes and merges it]
+  N --> T[tag v0.x.y on main]
+  T --> P[Publish: build, test, scan, push, attest]
+  P --> G[ghcr.io/bojanrajkovic/airway:0.x.y]
+```
+
+## Versions
+
+airway has one version, kept in the root `package.json` and every package's `package.json`. [Release Please](https://github.com/googleapis/release-please) works it out from the Conventional Commit titles merged to `main` since the last tag. Before 1.0, a `feat` bumps the patch version and a breaking change (`!`) bumps the minor version. `fix` bumps the patch version. Other types, such as `chore`, `ci`, and `docs`, don't cut a release on their own; they ship with the next one.
+
+A change that raises `derived_version` or migrates the notes schema is breaking, so its title carries `!`. Its release notes say what happens to the data.
+
+## Release PRs
+
+`.github/workflows/release.yml` runs Release Please on every push to `main`. It keeps one release PR open with the next version and the generated notes. It runs with the releaser GitHub App's token, from the `release` environment, which only `main` can use. A PR or tag made with the workflow's own token wouldn't start CI.
+
+Release PRs don't merge on their own. To release:
+
+1. Run the `release-notes` skill. It drafts plain-language notes from the PRs since the last tag, shows them to you, and writes them into the release PR.
+2. Merge the release PR. Release Please tags the merge commit `v<version>` and creates the GitHub release from the PR's notes.
+
+There's no `CHANGELOG.md`; the GitHub releases are the changelog.
+
+## Publishing
+
+The tag starts `.github/workflows/publish.yml`. It builds the image once, without any cache, so nothing an earlier run wrote can reach a release. It runs the image tests and the Grype scan on that build, then pushes it to `ghcr.io/bojanrajkovic/airway:<version>` and attaches signed [build provenance](https://docs.github.com/en/actions/security-for-github-actions/using-artifact-attestations). It's the only job with write access to packages. Only releases are published.
+
+The first publish creates the package as private. Make it public once, in the package's settings on GitHub, so it can be pulled without credentials.
+
+To check where an image came from:
+
+```sh
+gh attestation verify oci://ghcr.io/bojanrajkovic/airway:0.1.0 --repo bojanrajkovic/airway
+```
+
+It fails unless this repo's Publish workflow built that exact digest.
+
 ## The image
 
 The `Dockerfile` builds the image in two stages.
