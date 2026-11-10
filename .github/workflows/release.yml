@@ -1,6 +1,4 @@
-# Keeps a release PR open from the Conventional Commits on main. Merging it tags v<version>, and the
-# tag starts publish.yml, which publishes the image. Release PRs merge by hand, after the
-# release-notes skill has written their notes.
+# Keeps a release PR open. Merging it tags v<version>, which starts publish.yml.
 name: Release
 
 on:
@@ -18,7 +16,6 @@ jobs:
     name: Release Please
     runs-on: ubuntu-slim
     timeout-minutes: 5
-    # Holds the releaser App's key, and deploys only from main.
     environment: release
     permissions: {}
     steps:

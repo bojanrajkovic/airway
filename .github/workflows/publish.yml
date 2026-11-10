@@ -1,6 +1,4 @@
-# Publishes a release tag's image. Release Please creates the tag when its PR merges, on a commit
-# CI has already tested on main. The image is built once without caches, so nothing an earlier run
-# wrote reaches it, then tested, scanned, pushed, and attested as that same image.
+# Builds a release tag's image once, without caches, then tests, scans, pushes, and attests it.
 name: Publish
 
 on:
@@ -41,7 +39,6 @@ jobs:
           build-args: |
             VERSION=${{ steps.version.outputs.version }}
             GIT_SHA=${{ github.sha }}
-          # Links the package to this repo, so it shows on the repo's page.
           labels: org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
           no-cache: true
       - uses: jdx/mise-action@f5be966e4a917d54244728e6a5fdcd1d93a35e6c # v5.2.6
