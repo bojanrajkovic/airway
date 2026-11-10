@@ -14,6 +14,12 @@ In development, `pnpm dev` loads `.env.example`, then `.env` if it exists, so yo
 | `AIRWAY_CLOCK_OFFSETS` | yes | JSON array | The CPAP clock's UTC offsets, described below |
 | `AIRWAY_TIME_ZONE` | yes | a place's zone name, such as `America/Chicago`; not a fixed offset such as `-05:00` or `UTC` | The home time zone: night boundaries, alert times, and every time the app shows |
 | `AIRWAY_CPAP_DATA_PATH` | yes | absolute path | The folder holding a read-only copy of the CPAP's SD card |
+| `AIRWAY_AUTH` | yes | `pomerium` or `none` | How requests are authenticated ([Auth](auth.md)). `none` is for local dev and running with no proxy |
+| `AIRWAY_UI_HOST` | with `pomerium` | a bare hostname, such as `airway.example.ts.net` | The web app's public hostname: tokens on `/trpc` must name it as `aud` and `iss` |
+| `AIRWAY_MCP_HOST` | with `pomerium` | a bare hostname | The MCP route's public hostname: tokens on `/mcp` must name it as `aud` and `iss` |
+| `AIRWAY_JWKS_URL` | with `pomerium` | `http://` or `https://` URL | Where the proxy publishes its signing keys |
+| `AIRWAY_LOCAL_AUTHOR_NAME` | with `none` | 1 to 80 characters | The author of every request when auth is off |
+| `AIRWAY_LOCAL_AUTHOR_EMAIL` | with `none` | an email address | The local author's email |
 | `PORT` | no, `3000` | 1 to 65535 | The HTTP port |
 | `LOG_LEVEL` | no, `info` | `fatal`, `error`, `warn`, `info`, `debug`, or `trace` | The lowest level logged |
 

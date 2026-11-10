@@ -1,6 +1,7 @@
 import { CSP } from "@airway/contract/csp";
 import { serveStatic } from "@hono/node-server/serve-static";
 import { Hono } from "hono";
+import { requireAuthor } from "../auth/middleware.ts";
 import type { AppContext } from "../runtime/context.ts";
 
 export type AppOptions = {
@@ -12,8 +13,8 @@ export type AppOptions = {
 };
 
 /**
- * airway's HTTP app. Lanes mount their own sub-apps here with `app.route(path, routes(ctx))`,
- * before the deep-link fallback.
+ * airway's HTTP app. Modules that serve HTTP mount their own sub-apps here with
+ * `app.route(path, routes(ctx))`, before the deep-link fallback.
  */
 export function createApp(ctx: AppContext, { webRoot }: AppOptions): Hono {
   const app = new Hono();
@@ -31,6 +32,12 @@ export function createApp(ctx: AppContext, { webRoot }: AppOptions): Hono {
   });
 
   app.get("/healthz", (c) => c.json({ status: "ok" }));
+
+  // Mounted here rather than in each module, so no route under these paths can skip it. Static
+  // files and /healthz need no author: the bundle holds no data, and the proxy guards both
+  // hostnames anyway.
+  app.use("/trpc/*", requireAuthor(ctx, "web"));
+  app.use("/mcp", requireAuthor(ctx, "mcp"));
 
   if (webRoot !== undefined) {
     // Built assets have hashed names, so a missing one is a real 404, not a deep link.

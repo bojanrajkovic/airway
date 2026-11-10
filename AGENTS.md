@@ -15,7 +15,7 @@ This repo, its issues, PR bodies and comments, test plans, and screenshots are a
 - Each workspace package lives in `packages/<name>/`, with its code in `src/` and its tests in `tests/`, mirroring `src/`.
 - Test helpers that more than one package uses go in `@airway/testing`.
 - Every dependency's version lives in the catalog in `pnpm-workspace.yaml`.
-- Server code gets its config, logger, and clock from the `AppContext` it's given, never from `process.env` or globals. A lane that serves HTTP exports `routes(ctx): Hono` from its folder.
+- Server code gets its config, logger, and clock from the `AppContext` it's given, never from `process.env` or globals. A module that serves HTTP, such as MCP, exports `routes(ctx): Hono` from its folder.
 - A night is a `Temporal.PlainDate`.
 - A function that can fail returns neverthrow's `Result` (or `ResultAsync`) instead of throwing.
 

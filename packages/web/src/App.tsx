@@ -1,6 +1,6 @@
 import "./styles/base.css";
 
-/** The app shell. The UI lane adds routes, the header, and the pages. */
+/** The app shell: the root component the web app renders. */
 export function App(): React.JSX.Element {
   return (
     <main>
