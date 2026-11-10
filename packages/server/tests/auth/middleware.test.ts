@@ -41,18 +41,18 @@ const mint = async (options: MintOptions): Promise<string> => await issuer.mint(
 describe("requireAuthor with Pomerium", () => {
   // A token for another host has the wrong iss and aud; jose checks iss first.
   it.each<[string, string, () => Promise<Record<string, string>>, string]>([
-    ["no token", "/trpc/ping", async () => await Promise.resolve({}), "missing_token"],
+    ["no token", "/trpc/ping", async () => await Promise.resolve({}), "missing_identity"],
     [
       "a token from another key",
       "/trpc/ping",
       async () => ({ [TOKEN_HEADER]: await mint({ host: UI_HOST, foreignKey: true }) }),
-      "invalid_token",
+      "invalid_identity",
     ],
     [
       "an alg none token",
       "/trpc/ping",
       async () => await Promise.resolve({ [TOKEN_HEADER]: issuer.unsigned(NOW, UI_HOST) }),
-      "invalid_token",
+      "invalid_identity",
     ],
     [
       "an expired token",
@@ -99,7 +99,7 @@ describe("requireAuthor with Pomerium", () => {
     });
 
     expect(response.status).toBe(503);
-    expect(await response.json()).toEqual({ error: "jwks_unavailable" });
+    expect(await response.json()).toEqual({ error: "provider_unavailable" });
   });
 
   it.each([

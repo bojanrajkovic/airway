@@ -42,18 +42,22 @@ The server never compares the token with the `Host` or `X-Forwarded-Host` header
 
 The author's name is the token's `name` claim. When it's empty, as it is for a Google profile with no name, the name falls back to the email's local part.
 
+## How it's built
+
+Each mode is a verifier: a function from a request's headers and channel to the identity it vouches for, an email and maybe a name. `src/auth/identity.ts` picks the verifier at startup and does everything else the same way for every mode: the span, the refusal log, and turning the identity into an author with the name fallback. `src/auth/pomerium.ts` is the Pomerium verifier. A new provider is a new verifier and a new `AIRWAY_AUTH` value.
+
 ## Failures
 
 Every failure answers with a JSON body naming its kind, such as `{"error": "expired"}`. It's logged at `warn` with the kind, the channel, and the jose or fetch error behind it, whose message names the claim or key that failed, and the span records that error too. The token itself is never logged.
 
 | Kind | Status | Cause |
 |---|---|---|
-| `missing_token` | 403 | no `X-Pomerium-Jwt-Assertion` header |
-| `invalid_token` | 403 | a bad signature, an unknown key, an algorithm other than ES256 (including `none`), a malformed token, or no email |
+| `missing_identity` | 403 | no `X-Pomerium-Jwt-Assertion` header |
+| `invalid_identity` | 403 | a bad signature, an unknown key, an algorithm other than ES256 (including `none`), a malformed token, or no email |
 | `expired` | 403 | past its `exp` |
 | `wrong_issuer` | 403 | `iss` isn't the channel's host. A token for another host fails here first, because jose checks `iss` before `aud` |
 | `wrong_audience` | 403 | `aud` isn't the channel's host |
-| `jwks_unavailable` | 503 | the JWKS couldn't be fetched or read. The token may be fine, so this is the server's fault, not the caller's |
+| `provider_unavailable` | 503 | the identity provider couldn't be reached; with Pomerium, the JWKS couldn't be fetched or read. The token may be fine, so this is the server's fault, not the caller's |
 
 airway never answers 401. Only Pomerium does, when a session has expired. The web app reloads on a 401, which sends the browser back through sign-in. A 401 from airway would reload the page, Pomerium would serve it on its still-valid session, and the reload would repeat forever.
 
