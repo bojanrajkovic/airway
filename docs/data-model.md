@@ -6,7 +6,7 @@ The column types and unit conversion are built. The datasets and the derived tab
 
 ## Columns
 
-A dataset is a list of columns, and each column is described once, in `@airway/contract/registry`. The builder, the SQL compiler, and the agent tools all read that description.
+A dataset is a list of columns, and each column is described once, in `@airway/contract/registry`. Everything that queries a dataset reads that one description.
 
 `registry/define.ts` has one function per kind of column:
 
@@ -22,7 +22,7 @@ Time and dimension columns can be grouped by, and metrics can't. `operationsFor(
 
 ## Column SQL
 
-A column's SQL is a `TrustedSql`: SQL that came from source code and never from a request, so the compiler can put it in a statement. Only `define.ts` creates one, in two ways:
+A column's SQL is a `TrustedSql`: SQL that came from source code and never from a request, so it's safe to put in a statement. Only `define.ts` creates one, in two ways:
 
 - By default, a column's SQL is its own name as a quoted identifier.
 - A computed column writes its SQL in a `sql` template. The template accepts only another `TrustedSql` or the `homeZone` marker between its text, so interpolating any other value fails to compile.
@@ -51,8 +51,8 @@ A machine signal's unit and decimals aren't in the registry. Each EDF file's hea
 
 | Stored | Shown | Back |
 |---|---|---|
-| 0.4 L/s | 0.4 × 60 = 24 L/min | 24 ÷ 60 = 0.39999999999999997, rounded to 0.4 L/s |
+| 0.4 L/s | 24 L/min | 0.4 L/s |
 | 1.14 L/s | 1.14 × 60 = 68.39999999999999, rounded to 68.4 L/min | 68.4 ÷ 60 = 1.1400000000000001, rounded to 1.14 L/s |
 | 0.3 L | 300 mL | 0.3 L |
 
-Builder filters take display units, so `leak > 24` compares against a stored 0.4. SQL sees stored units.
+`toStored` is how a value typed in display units becomes one to compare with stored values: a leak of 24 L/min is a stored 0.4.

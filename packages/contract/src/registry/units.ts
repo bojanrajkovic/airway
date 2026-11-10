@@ -1,6 +1,6 @@
 /**
- * A column's unit and how many decimals its values have. For a machine signal, ingest reads both
- * from the EDF header; a column airway computes declares its own.
+ * A column's unit and how many decimals its values have. For a machine signal, both come from
+ * the EDF header; a column airway computes declares its own.
  */
 export type ColumnUnit = { unit: string; decimals: number };
 
@@ -16,8 +16,8 @@ const MAX_DECIMALS = 6;
 
 const conversionFor = (unit: string): Conversion => DISPLAY[unit] ?? { unit, factor: 1 };
 
-// Rounding removes the error a float multiply or divide leaves: 24 / 60 is 0.39999999999999997,
-// then 0.4. The extra decimals keep a value between two steps, such as an average or a filter
+// Rounding removes the error a float multiply or divide leaves: 68.4 / 60 is 1.1400000000000001,
+// then 1.14. The extra decimals keep a value between two steps, such as an average or a filter
 // bound, where it is instead of moving it onto a step.
 const GUARD_DECIMALS = 6;
 const round = (value: number, decimals: number): number =>
@@ -48,7 +48,7 @@ export function toDisplay(value: number, stored: ColumnUnit): number {
   return round(value * conversionFor(stored.unit).factor, displayUnit(stored).decimals);
 }
 
-/** Converts a value in the display unit, such as a builder filter's, to the stored unit. */
+/** Converts a value in the display unit, such as a filter's, to the stored unit. */
 export function toStored(value: number, stored: ColumnUnit): number {
   return round(value / conversionFor(stored.unit).factor, stored.decimals);
 }

@@ -7,7 +7,7 @@ type SqlPart = string | typeof homeZone;
 declare const trusted: unique symbol;
 /**
  * SQL that came from source code: text typed in a `sql` template, or a column name quoted as an
- * identifier. It never holds a value from a request, so the compiler can put it in a statement.
+ * identifier. It never holds a value from a request, so it's safe to put in a statement.
  */
 export type TrustedSql = { readonly parts: readonly SqlPart[]; readonly [trusted]: true };
 
@@ -54,7 +54,7 @@ function identifier(name: string): TrustedSql {
 
 type Described = {
   name: string;
-  /** Shown to agents by the vocabulary tool, and in the builder. */
+  /** What the column means, for a person or an agent choosing columns. */
   description: string;
   sql: TrustedSql;
 };
@@ -67,7 +67,7 @@ export type DimensionColumn = Described &
 export type MetricColumn = Described & {
   role: "metric";
   kind: "number";
-  /** `from_header` for a machine signal, whose unit ingest reads from the EDF header. */
+  /** `from_header` when the unit isn't fixed in code: it's recorded when the files are imported. */
   unit: ColumnUnit | "from_header";
 };
 /** One queryable column. Time and dimension columns can be grouped by; metrics can't. */
