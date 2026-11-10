@@ -58,7 +58,7 @@ The parsers are set per pool, not on pg's global `types`, so other pg clients in
 - Any other `GET` returns `index.html`, so a deep link such as `/explore?q=…` loads the web app, which reads the URL.
 - An unhandled error logs and answers 500 without details.
 
-Each lane that serves HTTP exports `routes(ctx): Hono` from its own folder, such as `src/mcp/routes.ts`, and `createApp` mounts it with `app.route(path, routes(ctx))`, before the deep-link fallback. A lane's middleware stays inside its own sub-app. The one exception is `requireAuthor`, which `createApp` mounts on `/trpc/*` and `/mcp` itself, so no lane can forget it ([Auth](auth.md)).
+Each module that serves HTTP exports `routes(ctx): Hono` from its own folder, such as `src/mcp/routes.ts`, and `createApp` mounts it with `app.route(path, routes(ctx))`, before the deep-link fallback. A module's middleware stays inside its own sub-app. The one exception is `requireAuthor`, which `createApp` mounts on `/trpc/*` and `/mcp` itself, so no route under those paths can skip it ([Auth](auth.md)).
 
 ## The web build
 

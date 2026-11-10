@@ -13,7 +13,7 @@ With `none`, the server logs a warning at every startup. [Configuration](configu
 
 ## What's checked
 
-`createApp` mounts `requireAuthor` on `/trpc/*` and `/mcp`, in one place, so no lane can forget it. Static files and `/healthz` need no author: the bundle is the public repo's code and holds no data, and the proxy guards both hostnames anyway.
+`createApp` mounts `requireAuthor` on `/trpc/*` and `/mcp`, in one place, so no route under those paths can skip it. Static files and `/healthz` need no author: the bundle is the public repo's code and holds no data, and the proxy guards both hostnames anyway.
 
 The path sets the author's channel: `/trpc` is `web`, and `/mcp` is `mcp`. The app shows an `mcp` author as "Agent for Sam".
 
