@@ -32,7 +32,7 @@ There's no `CHANGELOG.md`; the GitHub releases are the changelog.
 
 The tag starts `.github/workflows/publish.yml`. It builds the image once, without any cache, so nothing an earlier run wrote can reach a release. It runs the image tests and the Grype scan on that build, then pushes it to `ghcr.io/bojanrajkovic/airway:<version>` and attaches signed [build provenance](https://docs.github.com/en/actions/security-for-github-actions/using-artifact-attestations). It's the only job with write access to packages. Only releases are published.
 
-The first publish creates the package as private. Make it public once, in the package's settings on GitHub; the cluster pulls it without credentials.
+The first publish creates the package as private. Make it public once, in the package's settings on GitHub, so it can be pulled without credentials.
 
 To check where an image came from:
 
