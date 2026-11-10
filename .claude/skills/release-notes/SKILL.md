@@ -40,7 +40,7 @@ Show the maintainer the draft and wait for changes or approval. Don't write anyt
 
 ## 3. Write it into the PR
 
-The release PR body has this shape. Release Please reads the version from the `## [x.y.z]` heading when the PR merges, so keep the header, that heading, and the footer exactly as they are, and replace only the notes between the heading and the footer's `---`:
+The release PR body has this shape. Release Please reads the version from the `##` heading when the PR merges, so keep the header, that heading, and the footer exactly as they are, and replace only the notes between the heading and the footer's `---`. The first release's heading has no compare link (`## 0.1.0 (2026-01-02)`); later ones do:
 
 ```markdown
 :robot: I have created a release *beep* *boop*
@@ -55,7 +55,7 @@ The release PR body has this shape. Release Please reads the version from the `#
 This PR was generated with [Release Please](https://github.com/googleapis/release-please). See [documentation](https://github.com/googleapis/release-please#release-please).
 ```
 
-Save the new body to a file, check that the header line, the `## [` heading, and the footer line are all still there, then apply it:
+Save the new body to a file, check that the header line, the `##` version heading, and the footer line are all still there, then apply it:
 
 ```sh
 gh pr edit <N> --body-file <file>
