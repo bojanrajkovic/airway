@@ -1,32 +1,22 @@
-import type { RuleSet } from "../profile.ts";
+import { RULE_SETS } from "../profile.ts";
+import {
+  AHI_CHECKS,
+  EVENT_SOURCES,
+  EVENT_TYPES,
+  FILE_KINDS,
+  PERCENTILE_SIGNALS,
+  PERIODS,
+  SESSION_SOURCES,
+} from "./values.ts";
 
 /**
- * Covers the derived tables' shapes and the scoring rules. Startup rebuilds the tables when the
- * stored version differs from this one. docs/scoring.md records what each version changed.
+ * Covers the derived tables' shapes and the scoring rules. Tables built under another version are
+ * out of date. docs/scoring.md records what each version changed.
  */
 export const DERIVED_VERSION = 1;
 
-/** `derived` serves queries. A rebuild fills `derived_next`, then swaps it in. */
+/** `derived` is the schema queries read. `derived_next` is where a replacement is built. */
 export type DerivedSchema = "derived" | "derived_next";
-
-export const RULE_SETS = ["pediatric", "adult"] as const satisfies readonly RuleSet[];
-/** How a night's event count compares with the machine's own AHI. */
-export const AHI_CHECKS = ["match", "mismatch", "no_usage"] as const;
-/** `str` sessions come from STR.edf's mask-on and mask-off pairs; `derived` ones from BRP files. */
-export const SESSION_SOURCES = ["str", "derived"] as const;
-export const EVENT_TYPES = [
-  "obstructive_apnea",
-  "central_apnea",
-  "unclassified_apnea",
-  "hypopnea",
-  "arousal",
-  "other",
-] as const;
-export const EVENT_SOURCES = ["resmed", "airway_candidate"] as const;
-export const FILE_KINDS = ["brp", "pld", "eve", "str", "identification"] as const;
-export const PERIODS = ["week", "month"] as const;
-/** The sample signals whose weekly and monthly percentiles ingest stores. */
-export const PERCENTILE_SIGNALS = ["leak", "mask_pressure"] as const;
 
 /** The machine's nightly statistics from STR.edf, in the order the nights table holds them. */
 export const NIGHT_SIGNALS = [
@@ -88,8 +78,7 @@ const doubles = (names: readonly string[]): string =>
   names.map((name) => `${name} double precision`).join(",\n  ");
 
 /**
- * The statements that create every derived table in `schema`. This is all the derived DDL, so
- * ingest only writes rows.
+ * The statements that create every derived table in `schema`: all the derived DDL there is.
  *
  * The tables are UNLOGGED: they're rebuilt from the card's files, so they skip the WAL and
  * backups. Deleting a nights row removes that night from every table that holds a night's rows.
@@ -118,7 +107,7 @@ create unlogged table ${schema}.column_units (
   primary key (dataset, column_name)
 );
 
--- Every day STR.edf covers from the first imported night, used or not, for the low-usage alert.
+-- Every day STR.edf covers from the first imported night, used or not.
 create unlogged table ${schema}.daily_usage (
   day date primary key,
   usage double precision not null
@@ -186,8 +175,8 @@ create unlogged table ${schema}.segments (
   session smallint not null,
   ts timestamptz not null,
   ended_at timestamptz not null,
-  brp_path text not null references ${schema}.files on delete cascade,
-  pld_path text references ${schema}.files on delete cascade,
+  brp_path text not null references ${schema}.files,
+  pld_path text references ${schema}.files,
   primary key (night, segment),
   -- Lets samples and breaths reference a segment together with its session.
   unique (night, segment, session),
@@ -199,7 +188,7 @@ create unlogged table ${schema}.events (
   night date not null references ${schema}.nights on delete cascade,
   session smallint,
   ts timestamptz not null,
-  duration double precision not null,
+  duration double precision,
   type text not null ${oneOf("type", EVENT_TYPES)},
   label text,
   source text not null ${oneOf("source", EVENT_SOURCES)},

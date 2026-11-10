@@ -56,9 +56,9 @@ For example, with leak stored in L/s and tidal volume in L, as an AirSense 10 de
 
 ## Derived tables
 
-Everything airway derives from the card's files lives in one Postgres schema, `derived`. `derivedDdl(schema)` in `@airway/contract/derived/ddl` returns the statements that create it, so ingest only writes rows. It takes the schema's name because a rebuild fills `derived_next` and then swaps it in.
+Everything airway derives from the card's files lives in one Postgres schema, `derived`. `derivedDdl(schema)` in `@airway/contract/derived/ddl` returns the statements that create it, and no other code creates a derived table. It takes the schema's name, so the same tables can be built in `derived_next` beside the ones in use.
 
-Every table is UNLOGGED. The data can be rebuilt from the files, so it skips the write-ahead log and backups. A crash empties the tables, and startup rebuilds them.
+Every table is UNLOGGED. The data can be rebuilt from the files, so it skips the write-ahead log and backups. A crash empties them.
 
 ```mermaid
 erDiagram
@@ -77,7 +77,7 @@ erDiagram
 | `nights` | Night with a folder on the card: the machine's `STR.edf` statistics, then airway's own columns | `night` |
 | `sessions` | Mask-on period | `night, session` |
 | `segments` | BRP file with data, and the PLD file that overlaps it | `night, segment` |
-| `events` | Machine event. `session` is null when the night has no sessions | none |
+| `events` | Machine event. `session` is null when the night has no sessions, and `duration` when the machine gives none | none |
 | `samples` | 2 seconds of therapy: the nine PLD signals | none |
 | `breaths` | Breath detected in the flow signal | none |
 | `files` | Imported file, with its size, SHA-256, and ctime. `night` is null for `STR.edf` and `Identification.tgt` | `path` |
@@ -90,7 +90,7 @@ erDiagram
 
 ### Keys
 
-Deleting a `nights` row deletes that night's rows from `files`, `sessions`, `segments`, `events`, `samples`, and `breaths`, through `ON DELETE CASCADE` foreign keys. Ingest replaces a night with that one delete, then inserts parents before children.
+Deleting a `nights` row deletes that night's rows from `files`, `sessions`, `segments`, `events`, `samples`, and `breaths`, through `ON DELETE CASCADE` foreign keys. One delete removes a night, and its rows go back in parents first. A `files` row that a segment was read from can't be deleted while the segment stays.
 
 A sample or breath references its segment together with the segment's session, so its `session` can't disagree with the segment's.
 
@@ -98,7 +98,7 @@ A sample or breath references its segment together with the segment's session, s
 
 ### Values
 
-Signal values are `double precision`. Ingest writes each as decimal text rounded to its header's step, so a leak of 0.4 L/s is stored as exactly `0.4` and `leak = 0.4` matches it in SQL.
+Signal values are `double precision`. A value written as the decimal text `0.4` is stored as exactly 0.4, and `leak = 0.4` matches it. A `real` column wouldn't match: Postgres widens it to compare, and its 0.4 becomes 0.4000000059604645.
 
 Text columns with a fixed set of values, such as an event's `type`, have a CHECK constraint. `ddl.ts` exports each list.
 

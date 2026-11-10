@@ -1,25 +1,14 @@
 import { test } from "@airway/testing/postgres";
-import pg from "pg";
 import { expect } from "vitest";
 import { z } from "zod";
 import { derivedDdl } from "../../src/derived/ddl.ts";
+import { withClient } from "../support/postgres.ts";
 
 const NIGHT_TABLES = ["files", "sessions", "segments", "events", "samples", "breaths"] as const;
 const Tables = z.array(z.object({ name: z.string(), persistence: z.string() }));
 const Counts = z.array(
   z.object({ name: z.string(), night: z.string().nullable(), rows: z.number() }),
 );
-
-async function withClient<T>(url: string, run: (client: pg.Client) => Promise<T>): Promise<T> {
-  const client = new pg.Client(url);
-  await client.connect();
-
-  try {
-    return await run(client);
-  } finally {
-    await client.end();
-  }
-}
 
 /** One night with a row in every table that holds a night's rows. */
 const nightRows = (night: string): string => `
@@ -90,6 +79,11 @@ test("deleting a night removes its rows from every table, and no other night's",
       client.query(
         `insert into derived.samples (night, segment, session, ts) values ('2030-01-01', 1, 2, now())`,
       ),
+    ).rejects.toThrow(/foreign key/v);
+
+    // A file a segment was read from can't go while the segment stays.
+    await expect(
+      client.query(`delete from derived.files where path = 'DATALOG/2030-01-01/BRP.edf'`),
     ).rejects.toThrow(/foreign key/v);
 
     await client.query(`delete from derived.nights where night = '2030-01-01'`);

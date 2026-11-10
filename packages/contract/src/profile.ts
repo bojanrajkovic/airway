@@ -1,5 +1,6 @@
 /** Which scoring rules a night uses. AASM scores children and adults differently. */
-export type RuleSet = "pediatric" | "adult";
+export const RULE_SETS = ["pediatric", "adult"] as const;
+export type RuleSet = (typeof RULE_SETS)[number];
 
 export type PatientProfile = {
   /** Shown in the app's header and in the MCP instructions. */
