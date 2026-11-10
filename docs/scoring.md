@@ -15,4 +15,8 @@ Nothing else in scoring is built yet.
 
 ## derived_version
 
-Every change to how airway derives its tables raises `derived_version`, and gets an entry here: the version, what changed, and which numbers move. No version has shipped yet.
+Every change to how airway derives its tables raises `derived_version`, and gets an entry here: the version, what changed, and which numbers move.
+
+| Version | What changed |
+|---|---|
+| 1 | The first tables: the machine's `STR.edf` statistics and events, sessions and segments, 2 s samples, and breaths. [Data model](data-model.md#derived-tables) lists them |
