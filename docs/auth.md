@@ -44,7 +44,7 @@ The author's name is the token's `name` claim. When it's empty, as it is for a G
 
 ## Failures
 
-Every failure answers with a JSON body naming its kind, such as `{"error": "expired"}`, and is logged at `warn` with the kind and channel, never the token.
+Every failure answers with a JSON body naming its kind, such as `{"error": "expired"}`. It's logged at `warn` with the kind, the channel, and the jose or fetch error behind it, whose message names the claim or key that failed, and the span records that error too. The token itself is never logged.
 
 | Kind | Status | Cause |
 |---|---|---|

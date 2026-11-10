@@ -15,6 +15,8 @@ export type IdentityFailure = {
     | "wrong_audience"
     | "wrong_issuer"
     | "jwks_unavailable";
+  /** The jose or fetch error behind the failure, when there is one, for the log and the span. */
+  cause?: unknown;
 };
 
 /** Finds the author of a request from its identity token, which is undefined when it has none. */
@@ -102,11 +104,15 @@ export function identifier(ctx: AppContext): Identify {
                 issuer: hosts[channel],
                 currentDate: new Date(ctx.clock().epochMilliseconds),
               }),
-              classify,
+              (error) => ({ ...classify(error), cause: error }),
             ).andThen(({ payload }) => authorFromClaims(payload, channel));
 
       return verified.mapErr((failure) => {
-        log.warn({ channel, kind: failure.kind }, "request refused");
+        // jose's messages name the claim or key that failed, never the token or its values.
+        log.warn({ channel, kind: failure.kind, err: failure.cause }, "request refused");
+        if (failure.cause instanceof Error) {
+          span.recordException(failure.cause);
+        }
 
         return failure;
       });

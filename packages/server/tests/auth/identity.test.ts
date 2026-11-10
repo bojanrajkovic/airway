@@ -1,7 +1,12 @@
+import { Writable } from "node:stream";
 import { errors } from "jose";
+import { pino } from "pino";
 import { describe, expect, it } from "vitest";
 import { authorFromClaims, classify, identifier } from "../../src/auth/identity.ts";
 import { testContext } from "../support/context.ts";
+import { testIssuer, UI_HOST } from "../support/tokens.ts";
+
+const issuer = testIssuer();
 
 describe("classify", () => {
   const claimFailure = (claim: string): errors.JWTClaimValidationFailed =>
@@ -55,5 +60,43 @@ describe("identifier with auth off", () => {
       email: "sam@example.test",
       channel: "mcp",
     });
+  });
+});
+
+describe("identifier with Pomerium", () => {
+  it("logs why a token was refused, with jose's error and without the token", async () => {
+    const lines: string[] = [];
+    const sink = new Writable({
+      write(chunk: Buffer, _encoding, done) {
+        lines.push(chunk.toString());
+        done();
+      },
+    });
+    const now = Temporal.Instant.from("2026-01-15T12:00:00Z");
+    const base = testContext({ clock: () => now, logger: pino(sink) });
+    const identify = identifier({
+      ...base,
+      config: {
+        ...base.config,
+        auth: {
+          mode: "pomerium",
+          uiHost: UI_HOST,
+          mcpHost: "airway-mcp.example.test",
+          jwksUrl: issuer.jwksUrl(),
+        },
+      },
+    });
+    const token = await issuer.mint(now, {
+      host: UI_HOST,
+      expiresAt: now.subtract({ seconds: 1 }),
+    });
+
+    const result = await identify(token, "web");
+
+    expect(result._unsafeUnwrapErr().kind).toBe("expired");
+    expect(lines).toHaveLength(1);
+    expect(lines[0]).toContain('"kind":"expired"');
+    expect(lines[0]).toContain("ERR_JWT_EXPIRED");
+    expect(lines[0]).not.toContain(token);
   });
 });
