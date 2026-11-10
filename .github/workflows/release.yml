@@ -1,5 +1,5 @@
 # Keeps a release PR open from the Conventional Commits on main. Merging it tags v<version>, and the
-# tag's CI run publishes the image (ci.yml's Publish job). Release PRs merge by hand, after the
+# tag starts publish.yml, which publishes the image. Release PRs merge by hand, after the
 # release-notes skill has written their notes.
 name: Release
 
