@@ -8,7 +8,7 @@ type Brand = { name: string; owner: string };
 // constructor casts behind a disable comment that says why. This list is a second lock: a file
 // that disables no-unsafe-type-assertion for another cast still can't forge a brand. Add an entry
 // with each new brand.
-const BRANDS: Brand[] = [];
+const BRANDS: Brand[] = [{ name: "TrustedSql", owner: "packages/contract/src/registry/define.ts" }];
 // An object shape spelled out where a function's return type goes, including inside
 // `Promise<…>`, arrays, and unions. A named type says what the result is and reads at a glance.
 const INLINE_RETURN_TYPE = {
