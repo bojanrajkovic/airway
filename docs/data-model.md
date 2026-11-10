@@ -100,7 +100,7 @@ A sample or breath references its segment together with the segment's session, s
 
 Signal values are `double precision`. A value written as the decimal text `0.4` is stored as exactly 0.4, and `leak = 0.4` matches it. A `real` column wouldn't match: Postgres widens it to compare, and its 0.4 becomes 0.4000000059604645.
 
-Text columns with a fixed set of values, such as an event's `type`, have a CHECK constraint. `ddl.ts` exports each list.
+Text columns with a fixed set of values, such as an event's `type`, have a CHECK constraint, built from the lists in `derived/values.ts`.
 
 ### Indexes
 
