@@ -6,7 +6,7 @@ import type { ReadableSpan } from "@opentelemetry/sdk-trace";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { instrumentations } from "../src/instrument.ts";
 
-const { spans } = inMemoryTelemetry({ instrumentations: instrumentations() });
+const { spans } = inMemoryTelemetry({ instrumentations: await instrumentations() });
 
 // Inbound patching is on the Server prototype, so a server created before the SDK starts is traced.
 const server = http.createServer((_req, res) => res.end("ok"));

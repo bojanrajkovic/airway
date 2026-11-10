@@ -1,5 +1,6 @@
 import { pino } from "pino";
 import type { Config } from "../../src/config.ts";
+import { createPools } from "../../src/db/pools.ts";
 import type { AppContext } from "../../src/runtime/context.ts";
 
 // Synthetic values only: this is a public repo.
@@ -18,12 +19,18 @@ const CONFIG: Config = {
   logLevel: "info",
 };
 
-/** An AppContext for tests: synthetic config, a silent logger, and a fixed clock. */
+/**
+ * An AppContext for tests: synthetic config, a silent logger, a fixed clock, and pools on the
+ * synthetic URLs, which never connect unless a test queries them.
+ */
 export function testContext(overrides: Partial<AppContext> = {}): AppContext {
+  const logger = pino({ level: "silent" });
+
   return {
     config: CONFIG,
-    logger: pino({ level: "silent" }),
+    logger,
     clock: () => Temporal.Instant.from("2026-01-15T12:00:00Z"),
+    db: createPools(CONFIG, logger),
     ...overrides,
   };
 }

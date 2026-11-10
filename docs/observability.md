@@ -36,6 +36,13 @@ The SDK starts only when `OTEL_EXPORTER_OTLP_ENDPOINT` is set. It reads the stan
 
 Inbound HTTP requests get a span each, except kubelet probes (`/healthz`). Every span's `url.query` is blanked, because the explorer's URL holds the user's query.
 
+Each Postgres query gets a client span, and taking a connection from a pool gets one too. The span keeps the query's SQL text, normalized by `libpg-query` the way `pg_stat_statements` shows it: every literal becomes `$1`, `$2`, and so on. A slow query is findable by its text, and SQL typed into the SQL view or by an agent keeps none of its values. SQL that doesn't parse is recorded blank. Bound values are never recorded.
+
+```
+typed:     select night, ahi from nights where ahi > 5
+recorded:  select night, ahi from nights where ahi > $1
+```
+
 Services add their own spans with `inSpan` and `inSpanAsync` from `packages/server/src/telemetry.ts`:
 
 ```ts
@@ -63,6 +70,7 @@ Span attributes follow the same rule as logs: IDs, counts, and outcomes, never v
 The SDK exports metrics every 60 seconds. Histograms are exponential, so their buckets adapt to what's recorded and no instrument picks bucket boundaries. Built-in metrics come from the instrumentations:
 
 - `http.server.request.duration` for inbound requests, without probes
+- `db.client.operation.duration` for queries, and each pool's connection counts
 - the Node runtime's event loop delay and utilization, heap, and GC
 
 airway's own metrics are named `airway.<area>.<name>`, such as `airway.ingest.last_success`, with [semconv units](https://opentelemetry.io/docs/specs/semconv/general/metrics/#instrument-units) (`s`, `By`, `{night}`). Their attributes never carry values from the data.

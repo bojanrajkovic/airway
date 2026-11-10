@@ -10,6 +10,7 @@ catalog:
   "@opentelemetry/api": 1.10.0
   "@opentelemetry/core": 3.1.0
   "@opentelemetry/instrumentation-http": 0.301.0
+  "@opentelemetry/instrumentation-pg": 0.78.0
   "@opentelemetry/instrumentation-runtime-node": 0.38.0
   "@opentelemetry/sdk-metrics": 3.1.0
   "@opentelemetry/sdk-node": 0.301.0
@@ -26,7 +27,9 @@ catalog:
   "@vitejs/plugin-react": 6.2.1
   "@vitest/browser-playwright": 5.1.0
   babel-plugin-react-compiler: 1.0.0
+  drizzle-orm: 0.45.4
   hono: 4.13.16
+  libpg-query: 18.2.2
   neverthrow: 8.2.0
   oxfmt: 0.75.0
   oxlint: 1.90.0
