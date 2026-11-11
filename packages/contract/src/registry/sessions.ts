@@ -5,6 +5,7 @@ import { enumeration, metric, sql, time, type Dataset } from "./define.ts";
 export const sessions: Dataset = {
   name: "sessions",
   description: "One row per mask-on period.",
+  grain: "2s",
   columns: [
     night,
     ts("When the mask went on."),

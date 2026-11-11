@@ -39,6 +39,7 @@ export const nights: Dataset = {
   name: "nights",
   description:
     "One row per night. The machine's own statistics come first, then the numbers airway derives.",
+  grain: "night",
   columns: [
     night,
 

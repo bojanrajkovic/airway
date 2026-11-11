@@ -5,6 +5,7 @@ import { dimension, enumeration, metric, type Dataset } from "./define.ts";
 export const events: Dataset = {
   name: "events",
   description: "One row per breathing event the machine flagged.",
+  grain: "2s",
   columns: [
     night,
     ts("When the machine marked the event."),
