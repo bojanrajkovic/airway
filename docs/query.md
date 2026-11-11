@@ -128,10 +128,10 @@ So for `{"dataset": "events", "filters": [{"column": "type", "op": ">"}]}`, zod 
 `canonicalize(spec)` in `@airway/contract/query/canonical` gives a query its one spelling, so two specs that ask the same thing share a link and a short code:
 
 - Keys come in a fixed order.
-- Anything equal to its default is left out.
+- Anything equal to its default is left out, and so is `filter_combination` when there are fewer than two filters.
 - Each `in` and `not-in` list is sorted, without repeats.
 - Each time is written in UTC, so `02:00:00-04:00` and `06:00:00Z` are the same text.
 
 Calculations, filters, breakdowns, orders, and havings keep the order they were written in. That order is the order of the builder's rows and of the charts.
 
-`canonicalJson(spec)` is the canonical spec as compact JSON. A canonical spec parses back to the spec it came from.
+`canonicalJson(spec)` is the canonical spec as compact JSON. A canonical spec is itself a valid spec, and parsing it gives the same canonical form again. It isn't always the spec as first written: a list may be reordered and a time rewritten.

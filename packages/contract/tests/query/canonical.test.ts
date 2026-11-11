@@ -45,6 +45,17 @@ describe("canonicalize", () => {
     });
   });
 
+  it("leaves out OR when there are fewer than two filters to combine", () => {
+    const one = { column: "session", op: ">", value: 1 };
+    const written = { v: 1, dataset: "events", nights: { last: 7 }, filter_combination: "OR" };
+
+    expect(canonicalize(parsed({ ...written, filters: [one] })).filter_combination).toBeUndefined();
+    expect(
+      canonicalize(parsed({ ...written, filters: [one, { column: "type", op: "exists" }] }))
+        .filter_combination,
+    ).toBe("OR");
+  });
+
   it("writes keys in one order, however they were written", () => {
     const written = {
       granularity: "night",

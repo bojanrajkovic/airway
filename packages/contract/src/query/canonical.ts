@@ -65,7 +65,10 @@ export function canonicalize(spec: QuerySpec): QuerySpecInput {
           ),
         }),
     ...(filters.length === 0 ? {} : { filters: filters.map(canonicalFilter) }),
-    ...(spec.filter_combination === "AND" ? {} : { filter_combination: spec.filter_combination }),
+    // With fewer than two filters there's nothing to combine, so OR asks the same as AND.
+    ...(spec.filter_combination === "AND" || filters.length < 2
+      ? {}
+      : { filter_combination: spec.filter_combination }),
     ...(breakdowns.length === 0 ? {} : { breakdowns: [...breakdowns] }),
     ...(orders.length === 0
       ? {}
