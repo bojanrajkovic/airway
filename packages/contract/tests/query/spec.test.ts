@@ -225,6 +225,28 @@ describe("parseSpec", () => {
       says: '"night"|"week"|"month"',
     },
     {
+      mistake: "30s buckets over 30 nights",
+      input: { ...events, nights: { last: 30 }, granularity: "30s" },
+      path: "granularity",
+      says: "30s covers at most 7 nights, and this range has 30. A range this long allows 5m, 15m, 1h, night, week, month",
+    },
+    {
+      mistake: "2s buckets over two dates",
+      input: {
+        ...events,
+        nights: { from: "2031-03-01", to: "2031-03-02" },
+        granularity: "2s",
+      },
+      path: "granularity",
+      says: "2s covers at most 1 night, and this range has 2",
+    },
+    {
+      mistake: "a date range longer than ten years",
+      input: { ...events, nights: { from: "2020-01-01", to: "2031-01-01" } },
+      path: "nights.to",
+      says: "at most 3660 nights",
+    },
+    {
       mistake: "a limit over 1,000",
       input: { ...events, limit: 1001 },
       path: "limit",
@@ -254,6 +276,16 @@ describe("parseSpec", () => {
 
     expect(issue?.path).toBe(path);
     expect(issue?.message).toContain(says);
+  });
+
+  it.for([
+    { granularity: "2s", nights: { last: 1 } },
+    { granularity: "2s", nights: { from: "2031-03-01", to: "2031-03-01" } },
+    { granularity: "30s", nights: { last: 7 } },
+    { granularity: "1h", nights: { from: "2031-01-01", to: "2032-01-01" } },
+    { granularity: "month", nights: { last: 3660 } },
+  ])("accepts $granularity buckets over the longest range they cover", (range) => {
+    expect(parseSpec({ ...events, ...range }).isOk()).toBe(true);
   });
 
   it("accepts every spec the generator writes", () => {

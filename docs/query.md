@@ -43,9 +43,25 @@ The schema is generated from the [registry](data-model.md#columns), one variant 
 - **Calculations.** `COUNT` takes no column. `COUNT_DISTINCT` takes any column. `SUM`, `AVG`, and the percentiles (`P001` to `P999`) take a metric. `MIN` and `MAX` take any number, integer, timestamp, or date column, and give a value of that kind. `columnsFor(dataset, op)` lists the columns an operation takes.
 - **Filters.** Each column allows the operations of its kind ([`operationsFor`](data-model.md#columns)), with values of its kind: a number, an integer, a boolean, one of an enum's values, a date, or a time. A time must carry its offset, such as `2026-06-01T02:00:00-04:00`. `in` and `not-in` take a list of up to 50 values, and `exists` and `does-not-exist` take none.
 - **Breakdowns.** Any time or dimension column.
-- **Granularity.** The dataset's grain or longer. `nights` allows `night`, `week`, and `month`. The other four also allow `2s`, `30s`, `1m`, `5m`, `15m`, and `1h`.
+- **Granularity.** The dataset's grain or longer. `nights` allows `night`, `week`, and `month`. The other four also allow `2s`, `30s`, `1m`, `5m`, `15m`, and `1h`. Each step covers a limited range ([Range limits](#range-limits)).
 
 Numbers in filters and havings are in display units: a leak filter is in L/min ([Units](data-model.md#units)).
+
+### Range limits
+
+A query covers at most 3,660 nights, about ten years, however its range is written. A finer step covers fewer, so a fine step over a long range is refused before anything runs:
+
+| Granularity | Most nights |
+|---|---|
+| `2s` | 1 |
+| `30s` | 7 |
+| `1m` | 14 |
+| `5m` | 31 |
+| `15m` | 92 |
+| `1h` | 366 |
+| `night`, `week`, `month` | 3,660 |
+
+Each limit keeps one group's series to about 10,000 to 20,000 buckets if the machine ran around the clock, and about a third of that on an ordinary night. The issue names the limit and lists the steps the range does allow. `granularitiesFor(dataset, nights)` gives the same list to the builder.
 
 ### What must agree within a spec
 

@@ -24,9 +24,42 @@ export const GRANULARITIES = [
 ] as const;
 export type Granularity = (typeof GRANULARITIES)[number];
 
-/** The steps a dataset allows: its grain and every longer one. */
-export function granularitiesFor(dataset: Dataset): readonly Granularity[] {
-  return GRANULARITIES.slice(GRANULARITIES.indexOf(dataset.grain));
+/**
+ * The most nights a query can cover at each step: a night, a week, a fortnight, a month, a
+ * quarter, a year, and then ten years. A fine step over a long range would be millions of buckets.
+ */
+export const MAX_NIGHTS: Record<Granularity, number> = {
+  "2s": 1,
+  "30s": 7,
+  "1m": 14,
+  "5m": 31,
+  "15m": 92,
+  "1h": 366,
+  night: 3660,
+  week: 3660,
+  month: 3660,
+};
+
+/** A query's night range: the most recent n nights, or two dates, both included. */
+export type Nights = { last: number } | { from: string; to: string };
+
+/** How many nights a range covers. */
+export function nightCount(nights: Nights): number {
+  return "last" in nights
+    ? nights.last
+    : Temporal.PlainDate.from(nights.from).until(nights.to).days + 1;
+}
+
+/**
+ * The steps a dataset allows: its grain and every longer one. Given a night range, only the steps
+ * that can cover that many nights.
+ */
+export function granularitiesFor(dataset: Dataset, nights?: Nights): readonly Granularity[] {
+  const steps = GRANULARITIES.slice(GRANULARITIES.indexOf(dataset.grain));
+
+  return nights === undefined
+    ? steps
+    : steps.filter((step) => nightCount(nights) <= MAX_NIGHTS[step]);
 }
 
 export const PERCENTILES = [
@@ -60,8 +93,8 @@ export const LIMITS = {
   list: 50,
   /** Groups a query returns. */
   limit: 1000,
-  /** Nights `{last: n}` reaches back: ten years. */
-  last: 3660,
+  /** Nights a query covers: ten years. */
+  nights: 3660,
 } as const;
 export const DEFAULT_LIMIT = 100;
 
@@ -78,16 +111,20 @@ const date = z.iso.date();
 const nights = z
   .union(
     [
-      z.strictObject({ last: z.int().min(1).max(LIMITS.last) }),
+      z.strictObject({ last: z.int().min(1).max(LIMITS.nights) }),
       z.strictObject({ from: date, to: date }),
     ],
     {
-      error: `expected {"last": 1 to ${LIMITS.last.toFixed(0)}} or {"from", "to"} with two dates such as 2026-06-01`,
+      error: `expected {"last": 1 to ${LIMITS.nights.toFixed(0)}} or {"from", "to"} with two dates such as 2026-06-01`,
     },
   )
   .refine((range) => "last" in range || range.from <= range.to, {
     path: ["to"],
     error: "to must not be before from",
+  })
+  .refine((range) => nightCount(range) <= LIMITS.nights, {
+    path: ["to"],
+    error: `a query covers at most ${LIMITS.nights.toFixed(0)} nights`,
   });
 
 type Scalar = number | string | boolean;
@@ -206,6 +243,9 @@ export function calculationKind(
   return kind === "integer" || kind === "timestamp" || kind === "date" ? kind : "number";
 }
 
+const nightsText = (count: number): string =>
+  count === 1 ? "1 night" : `${count.toFixed(0)} nights`;
+
 const HAVING_VALUES = {
   number: { schema: z.number(), expected: "a number" },
   integer: { schema: z.number(), expected: "a number" },
@@ -269,6 +309,18 @@ function specSchema(dataset: Dataset) {
       granularity: z.enum(granularitiesFor(dataset)).optional(),
     })
     .superRefine((spec, context) => {
+      const count = nightCount(spec.nights);
+
+      if (spec.granularity !== undefined && count > MAX_NIGHTS[spec.granularity]) {
+        const most = MAX_NIGHTS[spec.granularity];
+
+        context.addIssue({
+          code: "custom",
+          path: ["granularity"],
+          message: `${spec.granularity} covers at most ${nightsText(most)}, and this range has ${count.toFixed(0)}. A range this long allows ${granularitiesFor(dataset, spec.nights).join(", ")}`,
+        });
+      }
+
       const labels = spec.calculations.map(calculationLabel);
       const repeated = (values: readonly string[], field: string): void => {
         values.forEach((value, index) => {

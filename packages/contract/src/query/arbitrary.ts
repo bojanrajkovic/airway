@@ -108,6 +108,11 @@ function references(
   );
 }
 
+const length = fc.oneof(
+  fc.integer({ min: 1, max: 31 }),
+  fc.integer({ min: 1, max: LIMITS.nights }),
+);
+
 function specOf(dataset: Dataset): fc.Arbitrary<QuerySpecInput> {
   const groupable = dataset.columns.filter(({ role }) => role !== "metric").map(({ name }) => name);
   const filter = fc.constantFrom(...dataset.columns).chain(filterOf);
@@ -115,11 +120,14 @@ function specOf(dataset: Dataset): fc.Arbitrary<QuerySpecInput> {
     {
       v: fc.constant(1 as const),
       dataset: fc.constant(dataset.name),
+      // Short ranges come up as often as long ones, so the fine steps get used.
       nights: fc.oneof(
-        fc.record({ last: fc.integer({ min: 1, max: LIMITS.last }) }),
-        fc.tuple(date, date).map(([one, other]) => ({
-          from: one < other ? one : other,
-          to: one < other ? other : one,
+        fc.record({ last: length }),
+        fc.tuple(date, length).map(([from, nights]) => ({
+          from,
+          to: Temporal.PlainDate.from(from)
+            .add({ days: nights - 1 })
+            .toString(),
         })),
       ),
       calculations: fc.uniqueArray(calculationOf(dataset), {
@@ -131,15 +139,20 @@ function specOf(dataset: Dataset): fc.Arbitrary<QuerySpecInput> {
       filter_combination: fc.constantFrom("AND" as const, "OR" as const),
       breakdowns: fc.shuffledSubarray(groupable, { maxLength: LIMITS.breakdowns }),
       limit: fc.integer({ min: 1, max: LIMITS.limit }),
-      granularity: fc.constantFrom(...granularitiesFor(dataset)),
     },
     { requiredKeys: ["v", "dataset", "nights"] },
   );
 
   return clauses.chain((spec) =>
-    references(dataset, spec.calculations ?? [{ op: "COUNT" }], spec.breakdowns ?? []).map(
-      (named) => ({ ...spec, ...named }),
-    ),
+    fc
+      .tuple(
+        references(dataset, spec.calculations ?? [{ op: "COUNT" }], spec.breakdowns ?? []),
+        fc.record(
+          { granularity: fc.constantFrom(...granularitiesFor(dataset, spec.nights)) },
+          { requiredKeys: [] },
+        ),
+      )
+      .map(([named, step]) => ({ ...spec, ...named, ...step })),
   );
 }
 
