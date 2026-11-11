@@ -74,12 +74,21 @@ export const instant = z.iso
   .refine((text) => readInstant(text).isOk(), { error: TIME });
 const date = z.iso.date();
 
-const nights = z.union([
-  z.strictObject({ last: z.int().min(1).max(LIMITS.last) }),
-  z
-    .strictObject({ from: date, to: date })
-    .refine(({ from, to }) => from <= to, { path: ["to"], error: "to must not be before from" }),
-]);
+// A union reports only its own message when no member fits, so it says what the members are.
+const nights = z
+  .union(
+    [
+      z.strictObject({ last: z.int().min(1).max(LIMITS.last) }),
+      z.strictObject({ from: date, to: date }),
+    ],
+    {
+      error: `expected {"last": 1 to ${LIMITS.last.toFixed(0)}} or {"from", "to"} with two dates such as 2026-06-01`,
+    },
+  )
+  .refine((range) => "last" in range || range.from <= range.to, {
+    path: ["to"],
+    error: "to must not be before from",
+  });
 
 type Scalar = number | string | boolean;
 
@@ -140,8 +149,11 @@ function filterSchema(column: Column) {
 
 const ORDERED_KINDS: readonly Column["kind"][] = ["number", "integer", "timestamp", "date"];
 const namesOf = (columns: readonly Column[]): string[] => columns.map(({ name }) => name);
-const isOneOf = <Value extends string>(values: readonly Value[], value: string): value is Value =>
-  values.some((one) => one === value);
+/** Narrows text to one of a fixed list of values. */
+export const isOneOf = <Value extends string>(
+  values: readonly Value[],
+  value: string,
+): value is Value => values.some((one) => one === value);
 
 /** The columns a calculation can take. COUNT takes none. */
 export function columnsFor({ columns }: Dataset, op: CalculationOp): string[] {
@@ -272,6 +284,21 @@ function specSchema(dataset: Dataset) {
 
       repeated(labels, "calculations");
       repeated(spec.breakdowns, "breakdowns");
+      repeated(
+        spec.orders.map(({ op, column }) =>
+          op === undefined ? (column ?? "") : calculationLabel({ op, column }),
+        ),
+        "orders",
+      );
+      // A filter or having written twice changes nothing, and would give the query a second link.
+      repeated(
+        spec.filters.map((filter) => JSON.stringify(filter)),
+        "filters",
+      );
+      repeated(
+        spec.havings.map((having) => JSON.stringify(having)),
+        "havings",
+      );
 
       spec.orders.forEach(({ op, column }, index) => {
         const named =
@@ -312,11 +339,11 @@ function specSchema(dataset: Dataset) {
     });
 }
 
+const [firstDataset, ...otherDatasets] = DATASETS;
 /**
  * A builder query: what to compute over which rows of one dataset. It accepts only what the
  * registry describes, so a parsed spec names real columns with operations and values that fit them.
  */
-const [firstDataset, ...otherDatasets] = DATASETS;
 export const querySpec = z.discriminatedUnion("dataset", [
   specSchema(firstDataset),
   ...otherDatasets.map(specSchema),

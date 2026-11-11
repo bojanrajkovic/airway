@@ -182,6 +182,52 @@ describe("parseSpec", () => {
       says: "COUNT, type",
     },
     {
+      mistake: "an order written twice, even in opposite directions",
+      input: {
+        ...events,
+        breakdowns: ["type"],
+        orders: [{ column: "type" }, { column: "type", order: "ascending" }],
+      },
+      path: "orders[1]",
+      says: "type is already in orders",
+    },
+    {
+      mistake: "a filter written twice",
+      input: {
+        ...events,
+        filters: [
+          { column: "session", op: ">", value: 1 },
+          { column: "session", op: ">", value: 1 },
+        ],
+      },
+      path: "filters[1]",
+      says: "is already in filters",
+    },
+    {
+      mistake: "a having written twice",
+      input: {
+        ...events,
+        havings: [
+          { calculate_op: "COUNT", op: ">", value: 1 },
+          { calculate_op: "COUNT", op: ">", value: 1 },
+        ],
+      },
+      path: "havings[1]",
+      says: "is already in havings",
+    },
+    {
+      mistake: "nights as text",
+      input: { ...events, nights: { last: "7" } },
+      path: "nights",
+      says: '{"last": 1 to 3660} or {"from", "to"}',
+    },
+    {
+      mistake: "nights written both ways",
+      input: { ...events, nights: { last: 7, from: "2031-03-01", to: "2031-03-02" } },
+      path: "nights",
+      says: '{"last": 1 to 3660} or {"from", "to"}',
+    },
+    {
       mistake: "a having on a calculation the query doesn't have",
       input: {
         ...events,

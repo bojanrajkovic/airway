@@ -10,7 +10,6 @@
     "typecheck": "tsc --project . && tsc --project tests"
   },
   "dependencies": {
-    "fast-check": "catalog:",
     "neverthrow": "catalog:",
     "superjson": "catalog:",
     "zod": "catalog:"
@@ -20,6 +19,7 @@
     "@tsconfig/strictest": "catalog:",
     "@types/node": "catalog:",
     "@types/pg": "catalog:",
+    "fast-check": "catalog:",
     "pg": "catalog:",
     "vitest": "catalog:"
   }

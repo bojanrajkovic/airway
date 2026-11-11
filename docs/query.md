@@ -49,7 +49,7 @@ Numbers in filters and havings are in display units: a leak filter is in L/min (
 
 ### What must agree within a spec
 
-- A calculation or a breakdown appears once.
+- A calculation, breakdown, order, filter, or having appears once. A repeat changes nothing, and would give the same query a second link.
 - An order names a calculation of the same spec by its `op` and `column`, or a breakdown by its `column`.
 - A having names a calculation of the same spec, and its value fits what the calculation gives: a number, or a time or date for `MIN` and `MAX` of one.
 

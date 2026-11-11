@@ -16,6 +16,7 @@ import {
   calculationLabel,
   columnsFor,
   granularitiesFor,
+  isOneOf,
   parseSpec,
   type Calculation,
   type Filter,
@@ -43,9 +44,6 @@ function valueOf(column: Column): fc.Arbitrary<number | string | boolean> {
 
   return column.kind === "enum" ? fc.constantFrom(...column.values) : VALUES[column.kind];
 }
-
-const isOneOf = <Value extends string>(values: readonly Value[], value: string): value is Value =>
-  values.some((one) => one === value);
 
 function filterOf(column: Column): fc.Arbitrary<Filter> {
   const { name } = column;
@@ -102,7 +100,13 @@ function references(
     );
 
   return fc.record(
-    { orders, havings: fc.array(having, { maxLength: LIMITS.havings }) },
+    {
+      orders,
+      havings: fc.uniqueArray(having, {
+        maxLength: LIMITS.havings,
+        selector: (one) => JSON.stringify(one),
+      }),
+    },
     { requiredKeys: [] },
   );
 }
@@ -126,7 +130,10 @@ function specOf(dataset: Dataset): fc.Arbitrary<QuerySpecInput> {
         maxLength: LIMITS.calculations,
         selector: calculationLabel,
       }),
-      filters: fc.array(filter, { maxLength: LIMITS.filters }),
+      filters: fc.uniqueArray(filter, {
+        maxLength: LIMITS.filters,
+        selector: (one) => JSON.stringify(one),
+      }),
       filter_combination: fc.constantFrom("AND" as const, "OR" as const),
       breakdowns: fc.shuffledSubarray(groupable, { maxLength: LIMITS.breakdowns }),
       limit: fc.integer({ min: 1, max: LIMITS.limit }),
