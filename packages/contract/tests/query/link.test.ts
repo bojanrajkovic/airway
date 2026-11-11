@@ -20,11 +20,10 @@ describe("toExploreUrl", () => {
   });
 
   it("refuses a spec whose link would pass the limit", () => {
-    const sessions = Array.from({ length: 50 }, (_, index) => 1_000_000 + index);
-    const filters = Array.from({ length: 20 }, () => ({
+    const filters = Array.from({ length: 20 }, (_, filter) => ({
       column: "session",
       op: "in",
-      value: sessions,
+      value: Array.from({ length: 50 }, (__, index) => 1_000_000 + filter * 50 + index),
     }));
     const long = parseSpec({ ...events, filters })._unsafeUnwrap();
 

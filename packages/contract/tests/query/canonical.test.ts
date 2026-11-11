@@ -87,6 +87,48 @@ describe("canonicalize", () => {
     ]);
   });
 
+  it("writes a repeated filter or having once", () => {
+    const written = {
+      v: 1,
+      dataset: "events",
+      nights: { last: 1 },
+      filters: [
+        { column: "session", op: "in", value: [2, 1] },
+        { column: "type", op: "exists" },
+        { column: "session", op: "in", value: [1, 2] },
+      ],
+      havings: [
+        { calculate_op: "COUNT", op: ">", value: 5 },
+        { calculate_op: "COUNT", op: ">", value: 5 },
+      ],
+    };
+    const canonical = canonicalize(parsed(written));
+
+    expect(canonical.filters).toEqual([
+      { column: "session", op: "in", value: [1, 2] },
+      { column: "type", op: "exists" },
+    ]);
+    expect(canonical.havings).toEqual([{ calculate_op: "COUNT", op: ">", value: 5 }]);
+  });
+
+  it("leaves out OR when its filters are one filter written twice", () => {
+    const filter = { column: "type", op: "exists" };
+    const written = {
+      v: 1,
+      dataset: "events",
+      nights: { last: 1 },
+      filters: [filter, filter],
+      filter_combination: "OR",
+    };
+
+    expect(canonicalize(parsed(written))).toEqual({
+      v: 1,
+      dataset: "events",
+      nights: { last: 1 },
+      filters: [filter],
+    });
+  });
+
   it("writes every time in UTC, so one instant has one spelling", () => {
     const written = {
       v: 1,

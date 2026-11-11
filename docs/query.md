@@ -131,6 +131,7 @@ So for `{"dataset": "events", "filters": [{"column": "type", "op": ">"}]}`, zod 
 - Anything equal to its default is left out, and so is `filter_combination` when there are fewer than two filters.
 - Each `in` and `not-in` list is sorted, without repeats.
 - Each time is written in UTC, so `02:00:00-04:00` and `06:00:00Z` are the same text.
+- A filter or having written twice is written once.
 
 Calculations, filters, breakdowns, orders, and havings keep the order they were written in. That order is the order of the builder's rows and of the charts.
 
