@@ -34,7 +34,8 @@ type Capped<Row> =
 /**
  * Keeps the leading rows that fit: at most `AGENT_ROW_LIMIT`, and at most `budget` characters as
  * JSON with a comma between rows. A row is kept whole or left out. The budget is what's left of
- * `AGENT_CHARACTER_LIMIT` after everything else in the result.
+ * `AGENT_CHARACTER_LIMIT` after everything else in the result, with room for `AGENT_HINT` already
+ * taken out: a cut result carries it.
  */
 export function capForAgent<Row extends readonly AgentCell[]>(
   rows: readonly Row[],
