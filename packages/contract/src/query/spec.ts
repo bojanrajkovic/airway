@@ -290,15 +290,6 @@ function specSchema(dataset: Dataset) {
         ),
         "orders",
       );
-      // A filter or having written twice changes nothing, and would give the query a second link.
-      repeated(
-        spec.filters.map((filter) => JSON.stringify(filter)),
-        "filters",
-      );
-      repeated(
-        spec.havings.map((having) => JSON.stringify(having)),
-        "havings",
-      );
 
       spec.orders.forEach(({ op, column }, index) => {
         const named =

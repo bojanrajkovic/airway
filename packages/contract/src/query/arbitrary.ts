@@ -102,10 +102,7 @@ function references(
   return fc.record(
     {
       orders,
-      havings: fc.uniqueArray(having, {
-        maxLength: LIMITS.havings,
-        selector: (one) => JSON.stringify(one),
-      }),
+      havings: fc.array(having, { maxLength: LIMITS.havings }),
     },
     { requiredKeys: [] },
   );
@@ -130,10 +127,7 @@ function specOf(dataset: Dataset): fc.Arbitrary<QuerySpecInput> {
         maxLength: LIMITS.calculations,
         selector: calculationLabel,
       }),
-      filters: fc.uniqueArray(filter, {
-        maxLength: LIMITS.filters,
-        selector: (one) => JSON.stringify(one),
-      }),
+      filters: fc.array(filter, { maxLength: LIMITS.filters }),
       filter_combination: fc.constantFrom("AND" as const, "OR" as const),
       breakdowns: fc.shuffledSubarray(groupable, { maxLength: LIMITS.breakdowns }),
       limit: fc.integer({ min: 1, max: LIMITS.limit }),

@@ -192,30 +192,6 @@ describe("parseSpec", () => {
       says: "type is already in orders",
     },
     {
-      mistake: "a filter written twice",
-      input: {
-        ...events,
-        filters: [
-          { column: "session", op: ">", value: 1 },
-          { column: "session", op: ">", value: 1 },
-        ],
-      },
-      path: "filters[1]",
-      says: "is already in filters",
-    },
-    {
-      mistake: "a having written twice",
-      input: {
-        ...events,
-        havings: [
-          { calculate_op: "COUNT", op: ">", value: 1 },
-          { calculate_op: "COUNT", op: ">", value: 1 },
-        ],
-      },
-      path: "havings[1]",
-      says: "is already in havings",
-    },
-    {
       mistake: "nights as text",
       input: { ...events, nights: { last: "7" } },
       path: "nights",
