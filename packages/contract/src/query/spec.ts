@@ -243,6 +243,41 @@ export function calculationKind(
   return kind === "integer" || kind === "timestamp" || kind === "date" ? kind : "number";
 }
 
+// How many buckets of each step one night makes, if the machine ran around the clock.
+const BUCKETS_PER_NIGHT: Record<Granularity, number> = {
+  "2s": 43_200,
+  "30s": 2880,
+  "1m": 1440,
+  "5m": 288,
+  "15m": 96,
+  "1h": 24,
+  night: 1,
+  week: 1 / 7,
+  month: 1 / 30,
+};
+/** The most buckets `auto` gives one group: about what a chart can show. */
+export const AUTO_BUCKETS = 300;
+
+/**
+ * The step a spec buckets by, if any. `auto` is the finest step the dataset and night range allow
+ * that makes at most `AUTO_BUCKETS` buckets. It depends only on the spec, so a link's step never
+ * changes under it.
+ */
+export function granularityOf(
+  dataset: Dataset,
+  { nights, granularity }: { nights: Nights; granularity?: Granularity | "auto" | undefined },
+): Granularity | undefined {
+  if (granularity !== "auto") {
+    return granularity;
+  }
+
+  const fits = (step: Granularity): boolean =>
+    nightCount(nights) * BUCKETS_PER_NIGHT[step] <= AUTO_BUCKETS;
+
+  // Ten years of months is 122 buckets, so the longest step always fits.
+  return granularitiesFor(dataset, nights).find(fits) ?? "month";
+}
+
 const nightsText = (count: number): string =>
   count === 1 ? "1 night" : `${count.toFixed(0)} nights`;
 
@@ -306,18 +341,22 @@ function specSchema(dataset: Dataset) {
         .max(LIMITS.havings)
         .default([]),
       limit: z.int().min(1).max(LIMITS.limit).default(DEFAULT_LIMIT),
-      granularity: z.enum(granularitiesFor(dataset)).optional(),
+      granularity: z.enum([...granularitiesFor(dataset), "auto"]).optional(),
     })
     .superRefine((spec, context) => {
       const count = nightCount(spec.nights);
 
-      if (spec.granularity !== undefined && count > MAX_NIGHTS[spec.granularity]) {
+      if (
+        spec.granularity !== undefined &&
+        spec.granularity !== "auto" &&
+        count > MAX_NIGHTS[spec.granularity]
+      ) {
         const most = MAX_NIGHTS[spec.granularity];
 
         context.addIssue({
           code: "custom",
           path: ["granularity"],
-          message: `${spec.granularity} covers at most ${nightsText(most)}, and this range has ${count.toFixed(0)}. A range this long allows ${granularitiesFor(dataset, spec.nights).join(", ")}`,
+          message: `${spec.granularity} covers at most ${nightsText(most)}, and this range has ${count.toFixed(0)}. A range this long allows ${granularitiesFor(dataset, spec.nights).join(", ")}, or auto`,
         });
       }
 

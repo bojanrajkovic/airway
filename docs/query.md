@@ -32,7 +32,7 @@ The field names and operation names are Honeycomb's, because agents already writ
 | `orders` | `{op, column, order}` for a calculation, or `{column, order}` for a breakdown | none |
 | `havings` | Up to 10 of `{calculate_op, column, op, value}`, which keep the groups whose total passes | none |
 | `limit` | The most groups to return, up to 1,000 | 100 |
-| `granularity` | The time step to bucket by | none: totals only |
+| `granularity` | The time step to bucket by, or `auto` | none: totals only |
 
 `parseSpec` returns the spec with every default filled in, or a list of issues. Each issue has the path of the wrong field, such as `filters[0].op`, and a message that lists what's allowed there. An unknown field is an issue too, so a misspelled clause isn't silently dropped.
 
@@ -60,6 +60,8 @@ A query covers at most 3,660 nights, about ten years, however its range is writt
 | `15m` | 92 |
 | `1h` | 366 |
 | `night`, `week`, `month` | 3,660 |
+
+`auto` picks the step: the finest one the dataset and the range allow that gives one group at most 300 buckets, about what a chart can show. One night of samples gets `5m`, a week gets `1h`, a month gets `night`, and a year gets `week`. The pick depends only on the spec, so a link's step never changes under it, and `granularityOf(dataset, spec)` returns it.
 
 Each limit keeps one group's series to about 10,000 to 20,000 buckets if the machine ran around the clock, and about a third of that on an ordinary night. The issue names the limit and lists the steps the range does allow. `granularitiesFor(dataset, nights)` gives the same list to the builder.
 

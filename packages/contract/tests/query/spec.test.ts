@@ -1,7 +1,9 @@
 import fc from "fast-check";
 import { describe, expect, it } from "vitest";
 import { spec, specInput } from "../../src/query/arbitrary.ts";
-import { parseSpec } from "../../src/query/spec.ts";
+import { granularityOf, parseSpec } from "../../src/query/spec.ts";
+import { nights as nightsDataset } from "../../src/registry/nights.ts";
+import { samples } from "../../src/registry/samples.ts";
 
 const events = { v: 1, dataset: "events", nights: { last: 7 } };
 
@@ -222,13 +224,13 @@ describe("parseSpec", () => {
       mistake: "2s buckets on nights",
       input: { v: 1, dataset: "nights", nights: { last: 7 }, granularity: "2s" },
       path: "granularity",
-      says: '"night"|"week"|"month"',
+      says: '"night"|"week"|"month"|"auto"',
     },
     {
       mistake: "30s buckets over 30 nights",
       input: { ...events, nights: { last: 30 }, granularity: "30s" },
       path: "granularity",
-      says: "30s covers at most 7 nights, and this range has 30. A range this long allows 5m, 15m, 1h, night, week, month",
+      says: "30s covers at most 7 nights, and this range has 30. A range this long allows 5m, 15m, 1h, night, week, month, or auto",
     },
     {
       mistake: "2s buckets over two dates",
@@ -284,6 +286,7 @@ describe("parseSpec", () => {
     { granularity: "30s", nights: { last: 7 } },
     { granularity: "1h", nights: { from: "2031-01-01", to: "2032-01-01" } },
     { granularity: "month", nights: { last: 3660 } },
+    { granularity: "auto", nights: { last: 3660 } },
   ])("accepts $granularity buckets over the longest range they cover", (range) => {
     expect(parseSpec({ ...events, ...range }).isOk()).toBe(true);
   });
@@ -302,5 +305,32 @@ describe("parseSpec", () => {
         expect(parseSpec(parsed)._unsafeUnwrap()).toEqual(parsed);
       }),
     );
+  });
+});
+
+describe("granularityOf", () => {
+  it.for([
+    { dataset: samples, last: 1, step: "5m" },
+    { dataset: samples, last: 7, step: "1h" },
+    { dataset: samples, last: 12, step: "1h" },
+    { dataset: samples, last: 13, step: "night" },
+    { dataset: samples, last: 300, step: "night" },
+    { dataset: samples, last: 301, step: "week" },
+    { dataset: samples, last: 2100, step: "week" },
+    { dataset: samples, last: 2101, step: "month" },
+    { dataset: samples, last: 3660, step: "month" },
+    { dataset: nightsDataset, last: 1, step: "night" },
+    { dataset: nightsDataset, last: 300, step: "night" },
+    { dataset: nightsDataset, last: 301, step: "week" },
+  ] as const)(
+    "picks $step for auto over $last nights of $dataset.name",
+    ({ dataset, last, step }) => {
+      expect(granularityOf(dataset, { nights: { last }, granularity: "auto" })).toBe(step);
+    },
+  );
+
+  it("leaves a named step, and no step, as they are", () => {
+    expect(granularityOf(samples, { nights: { last: 1 }, granularity: "2s" })).toBe("2s");
+    expect(granularityOf(samples, { nights: { last: 1 } })).toBeUndefined();
   });
 });

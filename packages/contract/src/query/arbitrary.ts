@@ -148,7 +148,12 @@ function specOf(dataset: Dataset): fc.Arbitrary<QuerySpecInput> {
       .tuple(
         references(dataset, spec.calculations ?? [{ op: "COUNT" }], spec.breakdowns ?? []),
         fc.record(
-          { granularity: fc.constantFrom(...granularitiesFor(dataset, spec.nights)) },
+          {
+            granularity: fc.constantFrom(
+              ...granularitiesFor(dataset, spec.nights),
+              "auto" as const,
+            ),
+          },
           { requiredKeys: [] },
         ),
       )
