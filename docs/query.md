@@ -122,3 +122,16 @@ So for `{"dataset": "events", "filters": [{"column": "type", "op": ">"}]}`, zod 
 ### Generated specs
 
 `@airway/contract/query/arbitrary` has two fast-check arbitraries built from the registry: `specInput`, a valid spec as written with optional fields left out at random, and `spec`, the same after parsing. Tests of anything that takes a spec use them.
+
+## Canonical form
+
+`canonicalize(spec)` in `@airway/contract/query/canonical` gives a query its one spelling, so two specs that ask the same thing share a link and a short code:
+
+- Keys come in a fixed order.
+- Anything equal to its default is left out.
+- Each `in` and `not-in` list is sorted, without repeats.
+- Each time is written in UTC, so `02:00:00-04:00` and `06:00:00Z` are the same text.
+
+Calculations, filters, breakdowns, orders, and havings keep the order they were written in. That order is the order of the builder's rows and of the charts.
+
+`canonicalJson(spec)` is the canonical spec as compact JSON. A canonical spec parses back to the spec it came from.
