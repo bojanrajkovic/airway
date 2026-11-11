@@ -1,4 +1,5 @@
 import type { Column } from "../registry/define.ts";
+import type { Granularity } from "../query/spec.ts";
 import type { ColumnUnit } from "../registry/units.ts";
 
 /** The most rows a web result carries: a builder query's series, or a SQL result. */
@@ -43,8 +44,13 @@ export type QueryResult = {
   columns: ResultColumn[];
   /** In the query's order. A query with no breakdowns has one group. */
   groups: Group[];
-  /** Only for a query with a granularity. Rows are in group order, then time order. */
-  series?: SeriesRow[];
+  /** Only for a query with a granularity. */
+  series?: {
+    /** The step the rows are bucketed by: the spec's, or the one `auto` picked. */
+    granularity: Granularity;
+    /** In group order, then time order. */
+    rows: SeriesRow[];
+  };
   /** True when there were more groups than the limit, or more series rows than the web limit. */
   truncated: boolean;
 };
