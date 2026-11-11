@@ -27,6 +27,8 @@ export type Granularity = (typeof GRANULARITIES)[number];
 /**
  * The most nights a query can cover at each step: a night, a week, a fortnight, a month, a
  * quarter, a year, and then ten years. A fine step over a long range would be millions of buckets.
+ * These are chosen round spans, not worked out from `AUTO_BUCKETS`: they bound what a spec may
+ * ask for, and `auto` then picks within them.
  */
 export const MAX_NIGHTS: Record<Granularity, number> = {
   "2s": 1,
