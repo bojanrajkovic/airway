@@ -1,4 +1,4 @@
-import { err, ok, type Result } from "neverthrow";
+import { err, ok, Result } from "neverthrow";
 import { z } from "zod";
 import { DATASETS } from "../registry/datasets.ts";
 import {
@@ -65,11 +65,13 @@ export const LIMITS = {
 } as const;
 export const DEFAULT_LIMIT = 100;
 
-// A time must carry its offset, so the same text always means the same instant.
-const instant = z.iso.datetime({
-  offset: true,
-  error: "expected a time with its offset, such as 2026-06-01T02:00:00-04:00",
-});
+const TIME = "expected a time with its offset, such as 2026-06-01T02:00:00-04:00";
+const readInstant = Result.fromThrowable((text: string) => Temporal.Instant.from(text));
+// A time must carry its offset, so the same text always means the same instant. The second check
+// turns away the few texts the format allows and Temporal can't read, such as ten decimal places.
+export const instant = z.iso
+  .datetime({ offset: true, error: TIME })
+  .refine((text) => readInstant(text).isOk(), { error: TIME });
 const date = z.iso.date();
 
 const nights = z.union([

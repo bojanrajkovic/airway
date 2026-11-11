@@ -149,6 +149,15 @@ describe("parseSpec", () => {
       says: "offset",
     },
     {
+      mistake: "a time finer than a nanosecond",
+      input: {
+        ...events,
+        filters: [{ column: "ts", op: ">", value: "2031-03-02T02:00:00.1234567891Z" }],
+      },
+      path: "filters[0].value",
+      says: "offset",
+    },
+    {
       mistake: "a breakdown by a metric",
       input: { ...events, breakdowns: ["duration"] },
       path: "breakdowns[0]",
