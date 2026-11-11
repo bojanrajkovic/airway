@@ -61,7 +61,24 @@ A query covers at most 3,660 nights, about ten years, however its range is writt
 | `1h` | 366 |
 | `night`, `week`, `month` | 3,660 |
 
-`auto` picks the step: the finest one the dataset and the range allow that gives one group at most 300 buckets, about what a chart can show. One night of samples gets `5m`, a week gets `1h`, a month gets `night`, and a year gets `week`. The pick depends only on the spec, so a link's step never changes under it, and `granularityOf(dataset, spec)` returns it.
+`auto` picks the finest step the dataset and the range allow that satisfies
+
+```
+nights × 86,400 ÷ step seconds ≤ 300
+```
+
+The left side is how many buckets one group gets if the machine ran around the clock. 300 is `AUTO_BUCKETS`, about what a chart can show, and it's the only number to change: every boundary below follows from it and from each step's length in `STEP_SECONDS`.
+
+| Nights | `auto` picks | Buckets at most |
+|---|---|---|
+| 1 | `5m` | 288 |
+| 2 to 3 | `15m` | 288 |
+| 4 to 12 | `1h` | 288 |
+| 13 to 300 | `night` | 300 |
+| 301 to 2,100 | `week` | 300 |
+| 2,101 to 3,660 | `month` | 122 |
+
+`nights` has no step under a night, so it gets `night` up to 300 nights. The pick depends only on the spec, so a link's step never changes under it, and `granularityOf(dataset, spec)` returns it.
 
 Each limit keeps one group's series to about 10,000 to 20,000 buckets if the machine ran around the clock, and about a third of that on an ordinary night. The issue names the limit and lists the steps the range does allow. `granularitiesFor(dataset, nights)` gives the same list to the builder.
 

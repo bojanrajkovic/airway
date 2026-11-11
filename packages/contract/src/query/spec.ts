@@ -243,24 +243,28 @@ export function calculationKind(
   return kind === "integer" || kind === "timestamp" || kind === "date" ? kind : "number";
 }
 
-// How many buckets of each step one night makes, if the machine ran around the clock.
-const BUCKETS_PER_NIGHT: Record<Granularity, number> = {
-  "2s": 43_200,
-  "30s": 2880,
-  "1m": 1440,
-  "5m": 288,
-  "15m": 96,
-  "1h": 24,
-  night: 1,
-  week: 1 / 7,
-  month: 1 / 30,
+/** How long each step is, in seconds. A month counts as 30 days. */
+export const STEP_SECONDS: Record<Granularity, number> = {
+  "2s": 2,
+  "30s": 30,
+  "1m": 60,
+  "5m": 300,
+  "15m": 900,
+  "1h": 3600,
+  night: 86_400,
+  week: 7 * 86_400,
+  month: 30 * 86_400,
 };
 /** The most buckets `auto` gives one group: about what a chart can show. */
 export const AUTO_BUCKETS = 300;
 
+/** The buckets one group gets at a step, if the machine ran around the clock every night. */
+export const bucketCount = (nights: Nights, step: Granularity): number =>
+  (nightCount(nights) * STEP_SECONDS.night) / STEP_SECONDS[step];
+
 /**
  * The step a spec buckets by, if any. `auto` is the finest step the dataset and night range allow
- * that makes at most `AUTO_BUCKETS` buckets. It depends only on the spec, so a link's step never
+ * with `nights × 86,400 ÷ step seconds ≤ AUTO_BUCKETS`. It depends only on the spec, so a link's step never
  * changes under it.
  */
 export function granularityOf(
@@ -271,11 +275,11 @@ export function granularityOf(
     return granularity;
   }
 
-  const fits = (step: Granularity): boolean =>
-    nightCount(nights) * BUCKETS_PER_NIGHT[step] <= AUTO_BUCKETS;
-
-  // Ten years of months is 122 buckets, so the longest step always fits.
-  return granularitiesFor(dataset, nights).find(fits) ?? "month";
+  // Ten years of months is 122 buckets, so the longest step fits any target a chart would use.
+  return (
+    granularitiesFor(dataset, nights).find((step) => bucketCount(nights, step) <= AUTO_BUCKETS) ??
+    "month"
+  );
 }
 
 const nightsText = (count: number): string =>

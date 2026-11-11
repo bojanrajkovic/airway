@@ -311,6 +311,9 @@ describe("parseSpec", () => {
 describe("granularityOf", () => {
   it.for([
     { dataset: samples, last: 1, step: "5m" },
+    { dataset: samples, last: 2, step: "15m" },
+    { dataset: samples, last: 3, step: "15m" },
+    { dataset: samples, last: 4, step: "1h" },
     { dataset: samples, last: 7, step: "1h" },
     { dataset: samples, last: 12, step: "1h" },
     { dataset: samples, last: 13, step: "night" },
