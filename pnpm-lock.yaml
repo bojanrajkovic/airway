@@ -372,6 +372,9 @@ importers:
 
   packages/contract:
     dependencies:
+      neverthrow:
+        specifier: 'catalog:'
+        version: 8.2.0
       superjson:
         specifier: 'catalog:'
         version: 2.2.6

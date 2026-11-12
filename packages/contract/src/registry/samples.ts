@@ -4,6 +4,7 @@ import { signal, type Dataset } from "./define.ts";
 export const samples: Dataset = {
   name: "samples",
   description: "One row per 2 seconds of therapy, from the machine's low-rate signals.",
+  grain: "2s",
   columns: [
     night,
     ts("When the 2 seconds start."),

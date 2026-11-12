@@ -4,6 +4,7 @@ import { metric, signal, type Dataset } from "./define.ts";
 export const breaths: Dataset = {
   name: "breaths",
   description: "One row per breath airway detects in the 25 Hz flow signal.",
+  grain: "2s",
   columns: [
     night,
     ts("When the in-breath starts."),

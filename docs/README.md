@@ -23,7 +23,7 @@ One page per area. Each page describes how that area works now. A page whose are
 - [Data model](data-model.md): datasets, derived tables, units, and `derived_version`
 - [Scoring](scoring.md): how airway's numbers are computed and labeled
 - [Ingest](ingest.md): reading the CPAP data folder into the derived tables
-- [Query](query.md): compiling builder queries and running SQL read-only
+- [Query](query.md): the query spec, compiling builder queries, and running SQL read-only
 - [Notes](notes.md): notes, findings, and snapshots
 - [MCP](mcp.md): the MCP server and its tools
 

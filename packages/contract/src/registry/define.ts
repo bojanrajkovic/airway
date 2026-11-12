@@ -77,7 +77,9 @@ export type Dataset = {
   /** Also the name of the derived table its columns read. */
   name: string;
   description: string;
-  columns: readonly Column[];
+  /** The shortest time step its rows can be bucketed into. `nights` has no moment within a night. */
+  grain: "2s" | "night";
+  columns: readonly [Column, ...Column[]];
 };
 
 /**
@@ -126,11 +128,15 @@ export function time(name: string, kind: TimeColumn["kind"], description: string
 }
 
 const EQUALITY = ["=", "!="] as const;
-const ORDER = [...EQUALITY, ">", ">=", "<", "<="] as const;
-const MEMBERSHIP = ["in", "not-in"] as const;
-const NULL_CHECKS = ["exists", "does-not-exist"] as const;
+/** Operations that compare with one value. */
+export const COMPARISONS = [...EQUALITY, ">", ">=", "<", "<="] as const;
+/** Operations that compare with a list of values. */
+export const MEMBERSHIP = ["in", "not-in"] as const;
+/** Operations that take no value. */
+export const NULL_CHECKS = ["exists", "does-not-exist"] as const;
+export type Comparison = (typeof COMPARISONS)[number];
 export type FilterOperation =
-  | (typeof ORDER)[number]
+  | Comparison
   | (typeof MEMBERSHIP)[number]
   | (typeof NULL_CHECKS)[number];
 
@@ -140,11 +146,11 @@ export function operationsFor(column: Column): readonly FilterOperation[] {
     case "number":
     case "timestamp":
     case "date": {
-      return [...ORDER, ...NULL_CHECKS];
+      return [...COMPARISONS, ...NULL_CHECKS];
     }
 
     case "integer": {
-      return [...ORDER, ...MEMBERSHIP, ...NULL_CHECKS];
+      return [...COMPARISONS, ...MEMBERSHIP, ...NULL_CHECKS];
     }
 
     case "enum": {

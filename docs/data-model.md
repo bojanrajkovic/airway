@@ -18,6 +18,8 @@ A dataset is something to query: a derived table of the same name, with each col
 
 Values are spelled out, such as `obstructive_apnea`, never the machine's codes.
 
+Each dataset has a grain, the shortest time step its rows can be bucketed into. `nights` has `night`, because a night's row has no moment within the night. The other four have `2s`. A [query](query.md#the-query-spec) can't bucket finer than the grain.
+
 `events`, `samples`, and `breaths` share three columns. `session` is the mask-on period's number within the night, so any of them can be broken down by session without a join. `night` is the sleep day. `hour_of_night` is the wall-clock hour in the home time zone.
 
 A breath's amplitude and inspiratory volume are computed from the flow signal, so their units follow from flow's and are recorded with it in `column_units`: amplitude in flow's unit, and volume in litres when flow is in L/s.
