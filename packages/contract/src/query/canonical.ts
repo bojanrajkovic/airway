@@ -8,12 +8,17 @@ import {
 
 type Value = number | string | boolean;
 
-// Text is a time only when it carries a time and an offset, which no date or enum value does.
+/**
+ * Rewrites a timestamp in UTC, so `02:00-04:00` and `06:00Z` become the same text. Any other value
+ * comes back unchanged. Dates and enum values never look like timestamps, because they have no
+ * time or offset.
+ */
 const sameInstantInUtc = <Scalar extends Value>(value: Scalar): Scalar | string =>
   typeof value === "string" && instant.safeParse(value).success
     ? Temporal.Instant.from(value).toString()
     : value;
 
+/** Sorts numbers, text, and booleans in ascending order, for `toSorted`. */
 function ascending(one: Value, other: Value): number {
   if (one === other) {
     return 0;
@@ -26,6 +31,10 @@ type ListFilter = Extract<Filter, { value: unknown[] }>;
 const hasList = (filter: Filter): filter is ListFilter =>
   "value" in filter && Array.isArray(filter.value);
 
+/**
+ * Rewrites one filter in canonical form. Its timestamps go to UTC, and an `in` or `not-in` list is
+ * sorted and loses its repeats.
+ */
 function canonicalFilter(filter: Filter): Filter {
   const { column } = filter;
 
@@ -42,16 +51,26 @@ function canonicalFilter(filter: Filter): Filter {
   return { column, op: filter.op, value: sameInstantInUtc(filter.value) };
 }
 
-// The first of each: a filter or having written twice asks nothing more than once.
+/**
+ * Drops each clause that's the same as an earlier one, keeping the first. A filter or having
+ * written twice filters nothing more than it does once.
+ */
 const distinct = <Clause>(clauses: readonly Clause[]): Clause[] => [
   ...new Map(clauses.map((clause) => [JSON.stringify(clause), clause])).values(),
 ];
 
 /**
- * The one spelling of a query: keys in a fixed order, defaults left out, each `in` list sorted
- * without repeats, each time in UTC, and a repeated filter or having written once. Two specs that ask the same thing give the same JSON, so
- * they share a link and a short code. Clauses keep the order they were written in, because that's
- * the order of the builder's rows and the charts.
+ * Rewrites a spec so that two specs asking the same thing come out identical, and so share a link
+ * and a short code. The result:
+ *
+ * - writes keys in a fixed order
+ * - leaves out every field that equals its default
+ * - sorts each `in` and `not-in` list and drops its repeats
+ * - writes every timestamp in UTC
+ * - drops a filter or having that repeats an earlier one
+ *
+ * Calculations, filters, breakdowns, orders, and havings keep the order they were written in,
+ * because the builder's rows and the charts follow that order.
  */
 export function canonicalize(spec: QuerySpec): QuerySpecInput {
   const { nights, calculations, breakdowns, orders, havings } = spec;
@@ -71,7 +90,7 @@ export function canonicalize(spec: QuerySpec): QuerySpecInput {
           ),
         }),
     ...(filters.length === 0 ? {} : { filters }),
-    // With fewer than two filters there's nothing to combine, so OR asks the same as AND.
+    // OR and AND give the same rows when there are fewer than two filters, so OR is left out too.
     ...(spec.filter_combination === "AND" || filters.length < 2
       ? {}
       : { filter_combination: spec.filter_combination }),
@@ -102,7 +121,7 @@ export function canonicalize(spec: QuerySpec): QuerySpecInput {
   };
 }
 
-/** The canonical spec as compact JSON: the text that goes in a link and that a short code hashes. */
+/** The canonical spec as compact JSON. Links carry this text, and short codes hash it. */
 export function canonicalJson(spec: QuerySpec): string {
   return JSON.stringify(canonicalize(spec));
 }
