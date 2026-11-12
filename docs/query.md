@@ -136,3 +136,28 @@ So for `{"dataset": "events", "filters": [{"column": "type", "op": ">"}]}`, zod 
 Calculations, filters, breakdowns, orders, and havings keep the order they were written in. That order is the order of the builder's rows and of the charts.
 
 `canonicalJson(spec)` is the canonical spec as compact JSON. A canonical spec is itself a valid spec, and parsing it gives the same canonical form again. It isn't always the spec as first written: a list may be reordered and a time rewritten.
+
+## Results
+
+`@airway/contract/api/query` defines what a builder query returns.
+
+```ts
+type QueryResult = {
+  columns: ResultColumn[]; // the breakdowns, then the calculations
+  groups: Group[];         // one per combination of breakdown values
+  series?: {               // only with a granularity
+    granularity: Granularity;
+    rows: SeriesRow[];
+  };
+  truncated: boolean;
+};
+```
+
+- **Columns.** Each has a key (`b0`, `b1` for breakdowns, then `c0`, `c1` for calculations), a label such as `hour_of_night` or `P95(leak)`, a kind, and a metric's display unit.
+- **Groups.** Each has its rank in the query's order, one value per breakdown, and one total per calculation. A total covers the whole night range. A query with no breakdowns has one group.
+- **Series.** The step the rows are bucketed by, which is the one `auto` picked when the spec asked for `auto`, and one row per group and time bucket: the bucket's start, the group's rank, and one value per calculation. Rows are in group order, then time order. A bucket with no rows has no series row. A bucket's start is an instant for steps under a night, and a date from `night` up.
+- **Truncated.** True when there were more groups than the query's `limit`, or more series rows than 10,000. Nothing stands in for the groups that were cut.
+
+A value is a number, text, a boolean, an instant, a date, or null. Numbers are in display units.
+
+A SQL statement's result (`@airway/contract/api/sql`) is a table: named columns, each with a kind, and at most 10,000 rows. SQL reads the tables directly, so its numbers are in stored units.
