@@ -31,6 +31,7 @@ catalog:
   "@vitejs/plugin-react": 6.3.0
   "@vitest/browser-playwright": 5.1.0
   babel-plugin-react-compiler: 1.0.0
+  drizzle-kit: 0.31.11
   drizzle-orm: 0.45.4
   fast-check: 4.10.2
   hono: 4.13.17
@@ -84,4 +85,8 @@ permissions:
   cpu-features:
     build: false
   ssh2:
+    build: false
+  # drizzle-kit's bundler. Its postinstall only checks the platform binary, which pnpm installs as an
+  # optional dependency, so drizzle-kit runs without it.
+  esbuild:
     build: false

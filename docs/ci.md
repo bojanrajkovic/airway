@@ -4,7 +4,7 @@
 
 | Job | What it runs |
 |---|---|
-| Lint and test | `pnpm audit signatures`, then `pnpm check` |
+| Lint and test | `pnpm audit signatures`, then `pnpm check`, then a check that every notes schema change has its migration ([Notes](notes.md#migrations)) |
 | Database tests | `pnpm test:db`, with Postgres 18 as a service container |
 | Browser tests | `pnpm test:browser` in Playwright's image, then uploads the screenshots |
 | Image | Builds the image, runs `pnpm test:image` against it, and scans it with Grype |

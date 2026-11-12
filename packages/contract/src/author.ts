@@ -1,5 +1,6 @@
 /** Where a request came from: the web app, or an agent over MCP. */
-export type Channel = "web" | "mcp";
+export const CHANNELS = ["web", "mcp"] as const;
+export type Channel = (typeof CHANNELS)[number];
 
 /** Who made a request, from the identity proxy's verified token or the configured local person. */
 export type Author = {

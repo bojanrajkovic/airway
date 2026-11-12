@@ -78,7 +78,7 @@ For example, with leak stored in L/s and tidal volume in L, as an AirSense 10 de
 
 ## Derived tables
 
-Everything airway derives from the card's files lives in one Postgres schema, `derived`. `derivedDdl(schema)` in `@airway/contract/derived/ddl` returns the statements that create it, and no other code creates a derived table. It takes the schema's name, so the same tables can be built in `derived_next` beside the ones in use.
+Everything airway derives from the card's files lives in one Postgres schema, `derived`. `derivedDdl(schema)` in `@airway/contract/derived/ddl` returns the statements that create it, and no other code creates a derived table. It takes the schema's name, so the same tables can be built in `derived_next` beside the ones in use. What people and agents write lives in a second schema, `notes`, which [Notes](notes.md) describes.
 
 Every table is UNLOGGED. The data can be rebuilt from the files, so it skips the write-ahead log and backups. A crash empties them.
 

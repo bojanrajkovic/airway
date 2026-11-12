@@ -7,9 +7,11 @@
     "./*": "./src/*.ts"
   },
   "scripts": {
-    "typecheck": "tsc --project . && tsc --project tests"
+    "typecheck": "tsc --project . && tsc --project tests",
+    "migrations:generate": "drizzle-kit generate"
   },
   "dependencies": {
+    "drizzle-orm": "catalog:",
     "neverthrow": "catalog:",
     "superjson": "catalog:",
     "zod": "catalog:"
@@ -19,6 +21,7 @@
     "@tsconfig/strictest": "catalog:",
     "@types/node": "catalog:",
     "@types/pg": "catalog:",
+    "drizzle-kit": "catalog:",
     "fast-check": "catalog:",
     "pg": "catalog:",
     "vitest": "catalog:"
