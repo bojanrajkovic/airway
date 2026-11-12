@@ -79,9 +79,9 @@ export const PERCENTILES = [
   "P99",
   "P999",
 ] as const;
-// Take a metric column, and give a number.
+// These take a metric column and return a number.
 const NUMERIC = ["SUM", "AVG", ...PERCENTILES] as const;
-// Take any column with an order, and give a value of that column's kind.
+// These take a number, integer, timestamp, or date column and return a value of the same kind.
 const EXTREMES = ["MIN", "MAX"] as const;
 export const CALCULATION_OPS = ["COUNT", "COUNT_DISTINCT", ...NUMERIC, ...EXTREMES] as const;
 export type CalculationOp = (typeof CALCULATION_OPS)[number];
@@ -102,14 +102,15 @@ export const DEFAULT_LIMIT = 100;
 
 const TIME = "expected a time with its offset, such as 2026-06-01T02:00:00-04:00";
 const readInstant = Result.fromThrowable((text: string) => Temporal.Instant.from(text));
-// A time must carry its offset, so the same text always means the same instant. The second check
-// turns away the few texts the format allows and Temporal can't read, such as ten decimal places.
+// We accept ISO timestamps with an offset, so a time never depends on the reader's time zone. A
+// few forms the ISO format allows, such as ten decimal places, are rejected because
+// Temporal.Instant can't parse them.
 export const instant = z.iso
   .datetime({ offset: true, error: TIME })
   .refine((text) => readInstant(text).isOk(), { error: TIME });
 const date = z.iso.date();
 
-// A union reports only its own message when no member fits, so it says what the members are.
+// When neither shape matches, zod reports only "Invalid input", so this message names both.
 const nights = z
   .union(
     [
@@ -159,8 +160,17 @@ function valueSchema(column: Column): z.ZodType<Scalar, Scalar> {
   }
 }
 
-/** A filter on one column: only the operations its kind allows, with values of its kind. */
-// oxlint-disable-next-line typescript/explicit-function-return-type -- a schema's type is its definition, and the spec's types are inferred from it
+/**
+ * The schema for a filter on one column. It has up to three shapes, picked by `op`:
+ *
+ * - a comparison (`=`, `>`, and so on) with one value
+ * - a null check (`exists`, `does-not-exist`) with no value
+ * - a list operation (`in`, `not-in`) with a list of values
+ *
+ * Each shape allows only the operations `operationsFor` gives the column, and its values have the
+ * column's type. docs/query.md has a diagram of how this fits into the whole spec.
+ */
+// oxlint-disable-next-line typescript/explicit-function-return-type -- zod infers this schema's type; writing it out would repeat the schema
 function filterSchema(column: Column) {
   const allowed = operationsFor(column);
   const only = <Operation extends string>(operations: readonly Operation[]): Operation[] =>
@@ -173,7 +183,8 @@ function filterSchema(column: Column) {
   return z.discriminatedUnion("op", [
     z.strictObject({ column: name, op: z.enum(only(COMPARISONS)), value }),
     z.strictObject({ column: name, op: z.enum(NULL_CHECKS) }),
-    // Left out for a column with no list operations: an option needs at least one op.
+    // Numbers, booleans, and times have no list operations, and zod rejects a shape with an empty
+    // `op` list, so they don't get this shape.
     ...(lists.length > 0
       ? [
           z.strictObject({
@@ -211,7 +222,12 @@ export function columnsFor({ columns }: Dataset, op: CalculationOp): string[] {
   );
 }
 
-// oxlint-disable-next-line typescript/explicit-function-return-type -- a schema's type is its definition, and the spec's types are inferred from it
+/**
+ * The schema for one calculation in a dataset. It has four shapes, picked by `op`, and each lists
+ * the columns its operations take (`columnsFor`): COUNT takes none, COUNT_DISTINCT takes any,
+ * SUM, AVG, and the percentiles take a metric, and MIN and MAX take a column with an order.
+ */
+// oxlint-disable-next-line typescript/explicit-function-return-type -- zod infers this schema's type; writing it out would repeat the schema
 function calculationSchema(dataset: Dataset) {
   return z.discriminatedUnion("op", [
     z.strictObject({ op: z.literal("COUNT") }),
@@ -260,32 +276,165 @@ export const STEP_SECONDS: Record<Granularity, number> = {
 /** The most buckets `auto` gives one group: about what a chart can show. */
 export const AUTO_BUCKETS = 300;
 
-/** The buckets one group gets at a step, if the machine ran around the clock every night. */
+/**
+ * The most buckets one group can get at a step: every night counted as a full 24 hours, noon to
+ * noon, though a real night has data only while the mask is on.
+ */
 export const bucketCount = (nights: Nights, step: Granularity): number =>
   (nightCount(nights) * STEP_SECONDS.night) / STEP_SECONDS[step];
 
+/** The fields of a spec that decide how it's bucketed. */
+type Bucketing = { nights: Nights; granularity?: Granularity | "auto" | undefined };
+
 /**
- * The step a spec buckets by, if any. `auto` is the finest step the dataset and night range allow
- * with `nights × 86,400 ÷ step seconds ≤ AUTO_BUCKETS`. It depends only on the spec, so a link's step never
- * changes under it.
+ * The step a spec buckets by, or undefined for totals only. `auto` picks the finest step the
+ * dataset and night range allow with `nights × 86,400 ÷ step seconds ≤ AUTO_BUCKETS`. The pick
+ * depends only on the spec, so a link's step never changes under it.
  */
 export function granularityOf(
   dataset: Dataset,
-  { nights, granularity }: { nights: Nights; granularity?: Granularity | "auto" | undefined },
+  { nights, granularity }: Bucketing,
 ): Granularity | undefined {
   if (granularity !== "auto") {
     return granularity;
   }
 
-  // Ten years of months is 122 buckets, so the longest step fits any target a chart would use.
+  // `month` over the longest range, 3,660 nights, is 122 buckets, so it fits unless AUTO_BUCKETS
+  // drops below that.
   return (
     granularitiesFor(dataset, nights).find((step) => bucketCount(nights, step) <= AUTO_BUCKETS) ??
     "month"
   );
 }
 
+/**
+ * Maps a list that has at least one item, keeping that in the type. zod's unions take a list typed
+ * as non-empty, and a plain `map` returns one typed as possibly empty.
+ */
+function mapNonEmpty<Item, Mapped>(
+  [first, ...rest]: readonly [Item, ...Item[]],
+  map: (item: Item) => Mapped,
+): [Mapped, ...Mapped[]] {
+  return [map(first), ...rest.map((item) => map(item))];
+}
+
+/** The fields of one dataset's spec, each checked on its own. */
+// oxlint-disable-next-line typescript/explicit-function-return-type -- zod infers this schema's type; writing it out would repeat the schema
+function fieldsSchema(dataset: Dataset) {
+  const columns = z.enum(namesOf(dataset.columns));
+
+  return z.strictObject({
+    v: z.literal(1),
+    dataset: z.literal(dataset.name),
+    nights,
+    calculations: z
+      .array(calculationSchema(dataset))
+      .min(1)
+      .max(LIMITS.calculations)
+      .default([{ op: "COUNT" }]),
+    filters: z
+      .array(z.discriminatedUnion("column", mapNonEmpty(dataset.columns, filterSchema)))
+      .max(LIMITS.filters)
+      .default([]),
+    filter_combination: z.enum(["AND", "OR"]).default("AND"),
+    breakdowns: z
+      .array(z.enum(namesOf(dataset.columns.filter(({ role }) => role !== "metric"))))
+      .max(LIMITS.breakdowns)
+      .default([]),
+    // An order names a calculation by its op and column, or a breakdown by its column alone.
+    orders: z
+      .array(
+        z.strictObject({
+          op: z.enum(CALCULATION_OPS).optional(),
+          column: columns.optional(),
+          order: z.enum(["ascending", "descending"]).default("descending"),
+        }),
+      )
+      .max(LIMITS.calculations + LIMITS.breakdowns)
+      .default([]),
+    havings: z
+      .array(
+        z.strictObject({
+          calculate_op: z.enum(CALCULATION_OPS),
+          column: columns.optional(),
+          op: z.enum(COMPARISONS),
+          value: z.union([z.number(), z.string()]),
+        }),
+      )
+      .max(LIMITS.havings)
+      .default([]),
+    limit: z.int().min(1).max(LIMITS.limit).default(DEFAULT_LIMIT),
+    granularity: z.enum([...granularitiesFor(dataset), "auto"]).optional(),
+  });
+}
+
+/** A spec whose fields each passed their own checks, before the checks across fields. */
+type Fields = z.output<ReturnType<typeof fieldsSchema>>;
+/** Something wrong with a spec, at a path such as `["orders", 1]`. */
+type Problem = { path: (string | number)[]; message: string };
+
 const nightsText = (count: number): string =>
   count === 1 ? "1 night" : `${count.toFixed(0)} nights`;
+
+/** A named step over more nights than it covers (`MAX_NIGHTS`). */
+function rangeProblems(dataset: Dataset, { nights, granularity }: Fields): Problem[] {
+  const count = nightCount(nights);
+
+  if (granularity === undefined || granularity === "auto" || count <= MAX_NIGHTS[granularity]) {
+    return [];
+  }
+
+  const allowed = granularitiesFor(dataset, nights).join(", ");
+
+  return [
+    {
+      path: ["granularity"],
+      message: `${granularity} covers at most ${nightsText(MAX_NIGHTS[granularity])}, and this range has ${count.toFixed(0)}. A range this long allows ${allowed}, or auto`,
+    },
+  ];
+}
+
+/** Each value after the first that's the same as an earlier one. */
+function repeats(values: readonly string[], field: string): Problem[] {
+  return values.flatMap((value, index) =>
+    values.indexOf(value) < index
+      ? [{ path: [field, index], message: `${value} is already in ${field}` }]
+      : [],
+  );
+}
+
+/** A calculation, breakdown, or order written twice. */
+function repeatProblems({ calculations, breakdowns, orders }: Fields): Problem[] {
+  const ordered = orders.map(({ op, column }) =>
+    op === undefined ? (column ?? "") : calculationLabel({ op, column }),
+  );
+
+  return [
+    ...repeats(calculations.map(calculationLabel), "calculations"),
+    ...repeats(breakdowns, "breakdowns"),
+    ...repeats(ordered, "orders"),
+  ];
+}
+
+/** An order that names neither a calculation nor a breakdown of the same spec. */
+function orderProblems({ calculations, breakdowns, orders }: Fields): Problem[] {
+  const labels = calculations.map(calculationLabel);
+  const names = (op: CalculationOp | undefined, column: string | undefined): boolean =>
+    op === undefined
+      ? breakdowns.some((one) => one === column)
+      : labels.includes(calculationLabel({ op, column }));
+
+  return orders.flatMap(({ op, column }, index) =>
+    names(op, column)
+      ? []
+      : [
+          {
+            path: ["orders", index],
+            message: `an order names a calculation or a breakdown of this query: ${[...labels, ...breakdowns].join(", ")}`,
+          },
+        ],
+  );
+}
 
 const HAVING_VALUES = {
   number: { schema: z.number(), expected: "a number" },
@@ -294,152 +443,59 @@ const HAVING_VALUES = {
   date: { schema: date, expected: "a date" },
 };
 
-// oxlint-disable-next-line typescript/explicit-function-return-type -- a schema's type is its definition, and the spec's types are inferred from it
-function specSchema(dataset: Dataset) {
-  const columns = z.enum(namesOf(dataset.columns));
-  const [firstColumn, ...otherColumns] = dataset.columns;
-  const calculation = calculationSchema(dataset);
+/**
+ * A having that names no calculation of the same spec, or compares with the wrong kind of value:
+ * a number for most calculations, and a time or date for MIN and MAX of one.
+ */
+function havingProblems(dataset: Dataset, { calculations, havings }: Fields): Problem[] {
+  const labels = calculations.map(calculationLabel);
 
-  return z
-    .strictObject({
-      v: z.literal(1),
-      dataset: z.literal(dataset.name),
-      nights,
-      calculations: z
-        .array(calculation)
-        .min(1)
-        .max(LIMITS.calculations)
-        .default([{ op: "COUNT" }]),
-      filters: z
-        .array(
-          z.discriminatedUnion("column", [
-            filterSchema(firstColumn),
-            ...otherColumns.map(filterSchema),
-          ]),
-        )
-        .max(LIMITS.filters)
-        .default([]),
-      filter_combination: z.enum(["AND", "OR"]).default("AND"),
-      breakdowns: z
-        .array(z.enum(namesOf(dataset.columns.filter(({ role }) => role !== "metric"))))
-        .max(LIMITS.breakdowns)
-        .default([]),
-      // An order names a calculation by its op and column, or a breakdown by its column alone.
-      orders: z
-        .array(
-          z.strictObject({
-            op: z.enum(CALCULATION_OPS).optional(),
-            column: columns.optional(),
-            order: z.enum(["ascending", "descending"]).default("descending"),
-          }),
-        )
-        .max(LIMITS.calculations + LIMITS.breakdowns)
-        .default([]),
-      havings: z
-        .array(
-          z.strictObject({
-            calculate_op: z.enum(CALCULATION_OPS),
-            column: columns.optional(),
-            op: z.enum(COMPARISONS),
-            value: z.union([z.number(), z.string()]),
-          }),
-        )
-        .max(LIMITS.havings)
-        .default([]),
-      limit: z.int().min(1).max(LIMITS.limit).default(DEFAULT_LIMIT),
-      granularity: z.enum([...granularitiesFor(dataset), "auto"]).optional(),
-    })
-    .superRefine((spec, context) => {
-      const count = nightCount(spec.nights);
+  return havings.flatMap(({ calculate_op: op, column, value }, index): Problem[] => {
+    const label = calculationLabel({ op, column });
 
-      if (
-        spec.granularity !== undefined &&
-        spec.granularity !== "auto" &&
-        count > MAX_NIGHTS[spec.granularity]
-      ) {
-        const most = MAX_NIGHTS[spec.granularity];
+    if (!labels.includes(label)) {
+      return [
+        {
+          path: ["havings", index],
+          message: `a having names a calculation of this query: ${labels.join(", ")}`,
+        },
+      ];
+    }
 
-        context.addIssue({
-          code: "custom",
-          path: ["granularity"],
-          message: `${spec.granularity} covers at most ${nightsText(most)}, and this range has ${count.toFixed(0)}. A range this long allows ${granularitiesFor(dataset, spec.nights).join(", ")}, or auto`,
-        });
-      }
+    const { schema, expected } = HAVING_VALUES[calculationKind(dataset, { op, column })];
 
-      const labels = spec.calculations.map(calculationLabel);
-      const repeated = (values: readonly string[], field: string): void => {
-        values.forEach((value, index) => {
-          if (values.indexOf(value) < index) {
-            context.addIssue({
-              code: "custom",
-              path: [field, index],
-              message: `${value} is already in ${field}`,
-            });
-          }
-        });
-      };
-
-      repeated(labels, "calculations");
-      repeated(spec.breakdowns, "breakdowns");
-      repeated(
-        spec.orders.map(({ op, column }) =>
-          op === undefined ? (column ?? "") : calculationLabel({ op, column }),
-        ),
-        "orders",
-      );
-
-      spec.orders.forEach(({ op, column }, index) => {
-        const named =
-          op === undefined
-            ? spec.breakdowns.some((breakdown) => breakdown === column)
-            : labels.includes(calculationLabel({ op, column }));
-
-        if (!named) {
-          context.addIssue({
-            code: "custom",
-            path: ["orders", index],
-            message: `an order names a calculation or a breakdown of this query: ${[...labels, ...spec.breakdowns].join(", ")}`,
-          });
-        }
-      });
-
-      spec.havings.forEach(({ calculate_op: op, column, value }, index) => {
-        if (!labels.includes(calculationLabel({ op, column }))) {
-          context.addIssue({
-            code: "custom",
-            path: ["havings", index],
-            message: `a having names a calculation of this query: ${labels.join(", ")}`,
-          });
-
-          return;
-        }
-
-        const { schema, expected } = HAVING_VALUES[calculationKind(dataset, { op, column })];
-
-        if (!schema.safeParse(value).success) {
-          context.addIssue({
-            code: "custom",
-            path: ["havings", index, "value"],
-            message: `${calculationLabel({ op, column })} compares with ${expected}`,
-          });
-        }
-      });
-    });
+    return schema.safeParse(value).success
+      ? []
+      : [{ path: ["havings", index, "value"], message: `${label} compares with ${expected}` }];
+  });
 }
 
-const [firstDataset, ...otherDatasets] = DATASETS;
+/** One dataset's spec: its fields, then the checks that look across them. */
+// oxlint-disable-next-line typescript/explicit-function-return-type -- zod infers this schema's type; writing it out would repeat the schema
+function specSchema(dataset: Dataset) {
+  return fieldsSchema(dataset).superRefine((fields, context) => {
+    const problems = [
+      ...rangeProblems(dataset, fields),
+      ...repeatProblems(fields),
+      ...orderProblems(fields),
+      ...havingProblems(dataset, fields),
+    ];
+
+    for (const { path, message } of problems) {
+      context.addIssue({ code: "custom", path, message });
+    }
+  });
+}
+
 /**
  * A builder query: what to compute over which rows of one dataset. It accepts only what the
  * registry describes, so a parsed spec names real columns with operations and values that fit them.
  */
-export const querySpec = z.discriminatedUnion("dataset", [
-  specSchema(firstDataset),
-  ...otherDatasets.map(specSchema),
-]);
+export const querySpec = z.discriminatedUnion("dataset", mapNonEmpty(DATASETS, specSchema));
 /** A query as it's written: only `v`, `dataset`, and `nights` are required. */
 export type QuerySpecInput = z.input<typeof querySpec>;
-/** A parsed query, with every default filled in. */
-export type QuerySpec = z.infer<typeof querySpec>;
+/** A query after parsing, with every default filled in. */
+export type QuerySpec = z.output<typeof querySpec>;
 export type Calculation = QuerySpec["calculations"][number];
 export type Filter = QuerySpec["filters"][number];
 export type Order = QuerySpec["orders"][number];

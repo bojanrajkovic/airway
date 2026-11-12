@@ -1,4 +1,6 @@
-// Random valid specs, built from the registry, for property tests of everything that takes one.
+// Random valid specs, generated from the registry. Property tests use them to check something
+// holds for thousands of specs, such as "parsing a parsed spec changes nothing", instead of a
+// few written by hand. A new column or operation reaches the tests with no new test code.
 import fc from "fast-check";
 import { DATASETS } from "../registry/datasets.ts";
 import {

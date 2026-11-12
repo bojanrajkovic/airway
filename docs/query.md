@@ -88,6 +88,37 @@ Each limit keeps one group's series to about 10,000 to 20,000 buckets if the mac
 - An order names a calculation of the same spec by its `op` and `column`, or a breakdown by its `column`.
 - A having names a calculation of the same spec, and its value fits what the calculation gives: a number, or a time or date for `MIN` and `MAX` of one.
 
+Each of these is a function in `spec.ts` that returns the problems it finds, and they run after every field has passed its own check.
+
+### How the schema is built
+
+The schema is unions nested three deep, and each level is built by mapping over the registry. zod picks a union's member by one field, called the discriminator, so a wrong value is reported at the field where it's wrong.
+
+```mermaid
+flowchart TD
+  datasets["DATASETS"] -->|"specSchema, once per dataset"| spec["querySpec<br/>union on dataset"]
+  spec --> calcs["calculations[]<br/>union on op, from calculationSchema"]
+  spec --> filters["filters[]<br/>union on column"]
+  filters -->|"filterSchema, once per column"| filter["one column's filter<br/>union on op"]
+  filter --> compare["comparison: =, !=, >, >=, <, <=<br/>one value"]
+  filter --> nulls["null check: exists, does-not-exist<br/>no value"]
+  filter --> list["list: in, not-in<br/>up to 50 values"]
+```
+
+`filterSchema(column)` starts from the operations `operationsFor` gives the column and the value type its kind gives, then sorts the operations into the three shapes. For example:
+
+| Column | Comparison | Null check | List |
+|---|---|---|---|
+| `type` (enum) | `=`, `!=` with one event type | yes | `in`, `not-in` with event types |
+| `duration` (number) | all six, with a number | yes | none |
+| `outside_mask_on` (boolean) | `=`, `!=` with a boolean | yes | none |
+
+A column with no list operations gets no list shape, because zod rejects a shape with no operations.
+
+`calculationSchema(dataset)` has four shapes on `op`, each listing the columns its operations take: `COUNT` takes none, `COUNT_DISTINCT` takes any, `SUM`, `AVG`, and the percentiles take a metric, and `MIN` and `MAX` take a column with an order.
+
+So for `{"dataset": "events", "filters": [{"column": "type", "op": ">"}]}`, zod picks the `events` spec by `dataset`, the `type` filter by `column`, and then finds no shape for `>`. The issue is at `filters[0].op` and lists `=`, `!=`, `exists`, `does-not-exist`, `in`, and `not-in`.
+
 ### Generated specs
 
 `@airway/contract/query/arbitrary` has two fast-check arbitraries built from the registry: `specInput`, a valid spec as written with optional fields left out at random, and `spec`, the same after parsing. Tests of anything that takes a spec use them.
