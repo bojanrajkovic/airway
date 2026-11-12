@@ -5,7 +5,7 @@ import type { ColumnUnit } from "../registry/units.ts";
 /** The most rows a web result carries: a builder query's series, or a SQL result. */
 export const WEB_ROW_LIMIT = 10_000;
 
-/** One value in a result. Empty is null. */
+/** One value in a result. A missing value is null. */
 export type Cell = number | string | boolean | Temporal.Instant | Temporal.PlainDate | null;
 
 /** A breakdown or a calculation of the query, in the order its values appear. */
@@ -15,7 +15,7 @@ export type ResultColumn = {
   /** The column's name, or the calculation as written: `P95(leak)`. */
   label: string;
   kind: Column["kind"];
-  /** The display unit of a metric's values. Absent for a machine signal before the first import. */
+  /** The display unit of a metric's values. Missing for a machine signal until the first import records its unit. */
   unit?: ColumnUnit;
 };
 
@@ -42,13 +42,13 @@ export type SeriesRow = {
 /** What a builder query returns. Numbers are in display units. */
 export type QueryResult = {
   columns: ResultColumn[];
-  /** In the query's order. A query with no breakdowns has one group. */
+  /** Ranked in the query's order. A query with no breakdowns has exactly one group. */
   groups: Group[];
   /** Only for a query with a granularity. */
   series?: {
     /** The step the rows are bucketed by: the spec's, or the one `auto` picked. */
     granularity: Granularity;
-    /** In group order, then time order. */
+    /** Sorted by group rank, then by time. */
     rows: SeriesRow[];
   };
   /** True when there were more groups than the limit, or more series rows than the web limit. */

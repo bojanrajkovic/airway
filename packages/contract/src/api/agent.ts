@@ -32,10 +32,13 @@ type Capped<Row> =
   | { rows: Row[]; truncated: true; hint: string };
 
 /**
- * Keeps the leading rows that fit: at most `AGENT_ROW_LIMIT`, and at most `budget` characters as
- * JSON with a comma between rows. A row is kept whole or left out. The budget is what's left of
- * `AGENT_CHARACTER_LIMIT` after everything else in the result, with room for `AGENT_HINT` already
- * taken out: a cut result carries it.
+ * Cuts rows down to what fits in one agent result. Keeps rows from the start until it reaches
+ * `AGENT_ROW_LIMIT` rows or `budget` characters, counting each row as JSON plus a comma between
+ * rows. A row is never cut in half.
+ *
+ * `budget` is the characters left after everything else in the result: the column names, the
+ * links, and `AGENT_HINT`. Subtract the hint even if the rows might fit, because a cut result
+ * carries it.
  */
 export function capForAgent<Row extends readonly AgentCell[]>(
   rows: readonly Row[],
