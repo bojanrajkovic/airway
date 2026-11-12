@@ -1,5 +1,5 @@
 # syntax=docker/dockerfile:1
-FROM node:26.13.0-slim@sha256:5adad64f9a1fca2d51972caa65983634c8a774eb300d72b20f7f2a0f60368072 AS build
+FROM node:26.13.1-slim@sha256:e6bedef217677b276c591795e169840edd9096dbf13f29df8ef8d1856b8820bc AS build
 # Node 25+ has no corepack. Renovate keeps this in step with mise.toml.
 # renovate: datasource=npm depName=pnpm
 ARG PNPM_VERSION=12.18.0
@@ -15,7 +15,7 @@ RUN pnpm --filter @airway/server deploy --prod --offline /out
 
 # Runs as UID 65532.
 # shortcut: the name holds the Node major, which Renovate can't change; rename it on a new major.
-FROM gcr.io/distroless/nodejs26-debian13:nonroot@sha256:33c86a63859efc2ebd88ea0a355863582ec6f1220d048de62baffb2584e709b3
+FROM gcr.io/distroless/nodejs26-debian13:nonroot@sha256:767ffb7e2ffa9f4280f1af7b99f7f0a1cafb79d0dcc0e0d3aba43843748008a5
 ENV NODE_ENV=production PORT=3000
 WORKDIR /app
 COPY --from=build /out/package.json ./
