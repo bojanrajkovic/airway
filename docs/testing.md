@@ -41,6 +41,8 @@ A package's tests live in its `tests/` folder and mirror `src/`: the tests for `
 
 Helpers that more than one package's tests need go in `@airway/testing`, imported as `@airway/testing/<file>`. A helper only one package uses stays in that package's `tests/support/`, such as the server's `testContext()` and the web's screenshot helper.
 
+For a moment in the home time zone, use `instantAt(zone, date, time)` from `@airway/testing/time`. `instantAt("America/New_York", "2030-03-10", "15:00")` is 15:00 New York time that day, as an instant, so a test can say what a clock shows instead of working out the UTC offset by hand.
+
 ## Database tests
 
 A database test is named `*.db.test.ts` and imports `test` from `@airway/testing/postgres` instead of from Vitest. That `test` adds a `databaseUrl` fixture: the connection URL of an empty database that belongs to the test file.
