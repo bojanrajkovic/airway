@@ -57,6 +57,14 @@ Ordinary variation comes from the seed: about 1 night in 8 is short, about 1 in 
 
 The AHI and its parts are `(600 × events) div minutes` in tenths, and MaskEvents is twice the sessions. The STR medians and leak percentiles are computed from the stored 2 s series. The maxima and pressure statistics are drawn near them instead. That's how the real machine's summary relates to its PLD files: its medians and leak percentiles match the 2 s data, but its maxima come from finer data.
 
+## The 25 Hz waveform
+
+`renderBrp(segment, night)` in `@airway/contract/synthetic/signals` draws a segment's 25 Hz flow and pressure when a file needs them. That saves storing about 6 MB a night in the model, and the segment's seed makes the result the same every time.
+
+`breaths(segment, night)` lays out the breaths first. Each breath's length follows the 2 s breathing rate at its start, and its volume follows the 2 s tidal volume, shrunk to 40% during a hypopnea. Breathing in takes 40% of a breath. No breath crosses a pause, so each pause lasts exactly as long as the model says. A breath shortened to fit before a pause moves proportionally less air, so its peak stays normal. The model starts every pause and event at least 10 s into its segment, so the first breaths always have room.
+
+Flow is a half sine wave up while breathing in and a half sine wave down while breathing out. The inhale's height is set so the area under it equals the breath's volume. During a pause, flow stays within ±0.004 L/s. That's under the pediatric step's 0.01 L/s crossing threshold and under 5% of a child's breath, so noise can't fake a breath. Pressure follows the 2 s pressure, and drops to the EPR pressure while breathing out.
+
 ## Writing EDF files
 
 `@airway/contract/edf/write` writes the bytes of any file type in the list. The synthetic generator uses it to write its files.
