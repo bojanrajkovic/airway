@@ -60,6 +60,9 @@ catalogs:
     '@tsconfig/strictest':
       specifier: 2.0.8
       version: 2.0.8
+    '@types/d3-random':
+      specifier: 3.0.4
+      version: 3.0.4
     '@types/node':
       specifier: 26.6.6
       version: 26.6.6
@@ -84,6 +87,9 @@ catalogs:
     crc:
       specifier: 4.3.2
       version: 4.3.2
+    d3-random:
+      specifier: 3.0.2
+      version: 3.0.2
     drizzle-kit:
       specifier: 0.31.11
       version: 0.31.11
@@ -226,6 +232,9 @@ importers:
       crc:
         specifier: 'catalog:'
         version: 4.3.2(buffer@6.0.3)
+      d3-random:
+        specifier: 'catalog:'
+        version: 3.0.2
       drizzle-orm:
         specifier: 'catalog:'
         version: 0.45.4(@opentelemetry/api@1.10.0)(@types/pg@8.23.1)(pg@8.23.1)
@@ -248,6 +257,9 @@ importers:
       '@tsconfig/strictest':
         specifier: 'catalog:'
         version: 2.0.8
+      '@types/d3-random':
+        specifier: 'catalog:'
+        version: 3.0.4
       '@types/node':
         specifier: 'catalog:'
         version: 26.6.6
@@ -1884,6 +1896,9 @@ packages:
   '@types/chai@5.2.3':
     resolution: {integrity: sha512-Mw558oeA9fFbv65/y4mHtXDs9bPnFMZAL/jxdPFUpOHHIXX91mcgEHbS5Lahr+pwZFR8A7GQleRWeI6cGFC2UA==}
 
+  '@types/d3-random@3.0.4':
+    resolution: {integrity: sha512-UHYId5WTCx4L4YNel7NU00XUXXgvgpgZOvp10PuvsQENjMDXhh2RyFc0KBjO7B45ne4Ha1yVH7ii0vnzKkuzWA==}
+
   '@types/deep-eql@4.0.2':
     resolution: {integrity: sha512-c9h9dVVMigMPc4bwTvC5dxqtqJZwQPePsWjPlpSOnojbor6pGqdk541lfA7AqFQr5pB1BRdq0juY9db81BwyFw==}
 
@@ -2356,6 +2371,10 @@ packages:
 
   csstype@3.2.3:
     resolution: {integrity: sha512-z1HGKcYy2xA8AGQfwrn0PAy+PB7X/GSj3UVJW9qKyn43xWa+gl5nXmU4qqLMRzWVLFC8KusUX8T/0kCiOYpAIQ==}
+
+  d3-random@3.0.2:
+    resolution: {integrity: sha512-PxJi9LNV+7mulaYO77nd+oGurXGL1fhedXjHnB3pWLUcqDnQtF4VASoqnQGHgoXLByVdv5QJ/2kfwkGn5HTS8g==}
+    engines: {node: '>=12'}
 
   dateformat@4.6.3:
     resolution: {integrity: sha512-2P0p0pFGzHS5EMnhdxQi7aJN+iMheud0UhG4dlE1DLAlvL8JHjJJTX/CSm4JXwV0Ka5nGk3zC5mcb5bUQUxxMA==}
@@ -4632,6 +4651,8 @@ snapshots:
       '@types/deep-eql': 4.0.2
       assertion-error: 2.0.1
 
+  '@types/d3-random@3.0.4': {}
+
   '@types/deep-eql@4.0.2': {}
 
   '@types/docker-modem@3.0.6':
@@ -5059,6 +5080,8 @@ snapshots:
       which: 2.0.2
 
   csstype@3.2.3: {}
+
+  d3-random@3.0.2: {}
 
   dateformat@4.6.3: {}
 
