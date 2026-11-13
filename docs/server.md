@@ -94,6 +94,25 @@ The `TRPCError` carries only its code. The service already logged the failure ([
 
 Each call gets a span named `trpc.<path>` and a point on the `rpc.server.call.duration` histogram, both keyed by the procedure. A failure records its tRPC code as `error.type`, and only a server-side code, one that maps to a 5xx, marks the span as an error. Inputs are never recorded.
 
+### The procedure catalog
+
+`@airway/contract/api/procedures` lists every procedure the API will serve, under its final name, so the web app, MCP, and the query engine can build against a procedure before the server has it.
+
+- `PROCEDURES` gives each one its kind and its input's zod schema, or null for one that takes nothing. A run that records history is a mutation, because it writes. The web app imports only the catalog's types: the notes inputs are built from the Drizzle tables, so importing `PROCEDURES` as a value would put Drizzle in the browser bundle.
+- `ProcedureOutputs` gives what each one returns. Outputs are types only: the server's own types guarantee them, and rows read from Postgres are parsed where they're read, so no response is validated again.
+
+| Area | Procedures |
+|---|---|
+| Queries | `query.run`, `query.tile`, `query.rows`, `sql.run`, `links.resolve`, `history.list` |
+| Notes | `notes.list`, `notes.get`, `notes.add`, `notes.update`, `notes.delete`, `notes.restore`, `findings.get`, `findings.runNow` |
+| Trends | `summary.lastNight`, `summary.range`, `summary.settingsChanges` |
+| Waveforms | `waveform.window`, `waveform.night` |
+| App | `app.status` |
+
+MCP's `save_finding` calls the findings service directly, so there's no `findings.save` procedure.
+
+`tests/trpc/procedures.test.ts` holds the router to the catalog with type checks, which `tsc --project tests` enforces. Every procedure the router serves must match its catalog entry's kind, input, and output exactly. An inferred return type fails that check when it's narrower than the catalog's, such as `null` where the catalog says `string | null`, so give each handler its catalog output type as its return type. The test also lists the procedures not served yet, and a PR that serves one removes it from that list.
+
 ## The web build
 
 `pnpm build` builds the web app into `packages/server/dist/public/`, next to the server bundle, where `main.ts` looks for it. With no build there, as in `pnpm dev`, the server serves only the API, and Vite serves the web app.
