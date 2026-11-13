@@ -11,6 +11,7 @@
     "migrations:generate": "drizzle-kit generate"
   },
   "dependencies": {
+    "crc": "catalog:",
     "drizzle-orm": "catalog:",
     "drizzle-zod": "catalog:",
     "neverthrow": "catalog:",
