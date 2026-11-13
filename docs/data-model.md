@@ -42,6 +42,8 @@ A dataset is a list of columns, and each column is described once, in `@airway/c
 
 Time and dimension columns can be grouped by, and metrics can't. `operationsFor(column)` gives the filter operations a column allows, which follow from its kind, so no column lists its own.
 
+Every `nights` metric also has `combine`: how a week or month of nights combines it, one of `rate`, `median`, `max`, or `mean`. The helpers in `nights.ts` set it from the kind of column they make, and [Trends](trends.md#how-nights-combine) explains each one.
+
 ## Column SQL
 
 A column's SQL is a `TrustedSql`: SQL that came from source code and never from a request, so it's safe to put in a statement. Only a computed column has one. It writes its SQL in a `sql` template, which accepts only another `TrustedSql` or the `homeZone` marker between its text, so interpolating any other value fails to compile.

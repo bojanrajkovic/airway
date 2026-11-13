@@ -64,12 +64,28 @@ export type DimensionColumn = Described &
     | { role: "dimension"; kind: "integer" | "boolean" }
     | { role: "dimension"; kind: "enum"; values: readonly [string, ...string[]] }
   );
+/**
+ * How a week or month combines a nights metric's nightly values, the way OSCAR combines a date
+ * range. Only used nights count.
+ *
+ * - `rate`: the mean weighted by each night's usage, for a per-hour index such as AHI. That's the
+ *   week's total events over its total hours, from the machine's own scores.
+ * - `median`: the median of the nightly values, for the machine's percentiles
+ * - `max`: the highest nightly value, for the machine's maxima
+ * - `mean`: the plain mean, for durations and counts, so a week's value is per night, like one night's
+ */
+export const COMBINE = ["rate", "median", "max", "mean"] as const;
+export type Combine = (typeof COMBINE)[number];
+
 export type MetricColumn = Described & {
   role: "metric";
   kind: "number";
   /** `from_header` when the unit isn't fixed in code: it's recorded when the files are imported. */
   unit: ColumnUnit | "from_header";
 };
+
+/** A nights metric. Only nights get summarized, so only their metrics say how they combine. */
+export type NightsMetric = MetricColumn & { combine: Combine };
 /** One queryable column. Time and dimension columns can be grouped by; metrics can't. */
 export type Column = TimeColumn | DimensionColumn | MetricColumn;
 
