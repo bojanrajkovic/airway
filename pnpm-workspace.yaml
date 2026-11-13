@@ -39,7 +39,7 @@ catalog:
   jose: 6.2.17
   libpg-query: 18.2.2
   neverthrow: 8.2.0
-  oxfmt: 0.77.0
+  oxfmt: 0.78.0
   oxlint: 1.92.0
   oxlint-plugin-eslint: 1.92.0
   oxlint-tsgolint: 7.0.2006
