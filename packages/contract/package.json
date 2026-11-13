@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "drizzle-orm": "catalog:",
+    "drizzle-zod": "catalog:",
     "neverthrow": "catalog:",
     "superjson": "catalog:",
     "zod": "catalog:"

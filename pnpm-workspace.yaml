@@ -33,6 +33,7 @@ catalog:
   babel-plugin-react-compiler: 1.0.0
   drizzle-kit: 0.31.11
   drizzle-orm: 0.45.4
+  drizzle-zod: 0.8.3
   fast-check: 4.10.2
   hono: 4.13.17
   jose: 6.2.17

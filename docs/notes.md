@@ -44,6 +44,28 @@ Text columns with a fixed set of values use CHECK constraints rather than Postgr
 
 Timestamps are `timestamptz` and nights are `date`. Drizzle's node-postgres driver sends its own type parsers with every query, and they return both types as text. They override the pool's parsers, so the pool's Temporal conversion never runs for Drizzle queries. `notes/columns.ts` has two custom column types that turn the text into a `Temporal.Instant` and a `Temporal.PlainDate`.
 
+## Inputs
+
+`@airway/contract/notes/api` holds the zod schemas that the note procedures and MCP's note tools take. They're built from the tables with drizzle-zod, so a column's type is written once. The web app imports their types only, which keeps Drizzle out of the browser bundle.
+
+| Schema | Taken by |
+|---|---|
+| `AddNote` | `notes.add`, `add_note` |
+| `UpdateNote` | `notes.update`: the note's ID plus the fields that change |
+| `NoteId` | `notes.get`, `notes.delete`, `notes.restore`, `findings.get`, `findings.runNow` |
+| `ListNotes` | `notes.list`, `list_notes`: an optional night range and category |
+| `SaveFinding` | `save_finding`: a builder query's short code and the finding's text |
+| `ListHistory` | `history.list`: a page of runs, newest first |
+| `HistoryEntry` | The server, when it records a run |
+
+None of them takes an author. The server sets it from the request, and an input that names one is rejected rather than ignored. `AddNote` also refuses the `finding` category, because a finding note is only made by saving a finding.
+
+A body needs some text other than spaces and is at most 32,000 characters. The input counts characters the way Postgres does, so an emoji counts once.
+
+Nights and times arrive as `Temporal` values, because tRPC's transformer rebuilds them on the server. The database checks how a note's dates fit together, so the inputs don't repeat those checks.
+
+A finding re-runs its query after a scoring change, so the query has to name its nights. `findingNights(spec)` returns the spec's first and last night, which the finding's note shows, and fails with `relative_nights` for a range like `{last: 14}`. MCP's `save_finding` converts such a range to dates before it saves.
+
 ## Migrations
 
 `drizzle-kit generate` writes the SQL migrations from the schema into `packages/contract/drizzle/`. After changing `notes/schema.ts`, run it and commit the new migration with the change:
