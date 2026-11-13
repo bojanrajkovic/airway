@@ -42,6 +42,12 @@ jobs:
       # Fails if a package's registry signature doesn't verify.
       - run: pnpm audit signatures
       - run: pnpm check
+      # If this step creates a migration, the schema changed without one.
+      - name: Check the notes migrations are up to date
+        run: |
+          pnpm --filter @airway/contract migrations:generate
+          git status --porcelain
+          test -z "$(git status --porcelain)"
 
   db:
     name: Database tests

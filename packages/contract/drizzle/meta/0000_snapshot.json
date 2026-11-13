@@ -1,0 +1,435 @@
+{
+  "id": "a8f3c085-4ca0-46d2-9b1c-3f0b8ab3299c",
+  "prevId": "00000000-0000-0000-0000-000000000000",
+  "version": "7",
+  "dialect": "postgresql",
+  "tables": {
+    "notes.finding_snapshots": {
+      "name": "finding_snapshots",
+      "schema": "notes",
+      "columns": {
+        "note_id": {
+          "name": "note_id",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "derived_version": {
+          "name": "derived_version",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "ran_at": {
+          "name": "ran_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "result": {
+          "name": "result",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "finding_snapshots_note_id_findings_note_id_fk": {
+          "name": "finding_snapshots_note_id_findings_note_id_fk",
+          "tableFrom": "finding_snapshots",
+          "tableTo": "findings",
+          "schemaTo": "notes",
+          "columnsFrom": ["note_id"],
+          "columnsTo": ["note_id"],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "finding_snapshots_note_id_derived_version_pk": {
+          "name": "finding_snapshots_note_id_derived_version_pk",
+          "columns": ["note_id", "derived_version"]
+        }
+      },
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "notes.findings": {
+      "name": "findings",
+      "schema": "notes",
+      "columns": {
+        "note_id": {
+          "name": "note_id",
+          "type": "bigint",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "category": {
+          "name": "category",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'finding'"
+        },
+        "short_code": {
+          "name": "short_code",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "findings_short_code_short_links_code_fk": {
+          "name": "findings_short_code_short_links_code_fk",
+          "tableFrom": "findings",
+          "tableTo": "short_links",
+          "schemaTo": "notes",
+          "columnsFrom": ["short_code"],
+          "columnsTo": ["code"],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "findings_note": {
+          "name": "findings_note",
+          "tableFrom": "findings",
+          "tableTo": "notes",
+          "schemaTo": "notes",
+          "columnsFrom": ["note_id", "category"],
+          "columnsTo": ["id", "category"],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "findings_category": {
+          "name": "findings_category",
+          "value": "\"notes\".\"findings\".\"category\" = 'finding'"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "notes.notes": {
+      "name": "notes",
+      "schema": "notes",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "bigint",
+          "primaryKey": true,
+          "notNull": true,
+          "identity": {
+            "type": "always",
+            "name": "notes_id_seq",
+            "schema": "notes",
+            "increment": "1",
+            "startWith": "1",
+            "minValue": "1",
+            "maxValue": "9223372036854775807",
+            "cache": "1",
+            "cycle": false
+          }
+        },
+        "first_night": {
+          "name": "first_night",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "last_night": {
+          "name": "last_night",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "date_precision": {
+          "name": "date_precision",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'day'"
+        },
+        "starts_at": {
+          "name": "starts_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "ends_at": {
+          "name": "ends_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "category": {
+          "name": "category",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "body": {
+          "name": "body",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "author_email": {
+          "name": "author_email",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "author_name": {
+          "name": "author_name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "author_channel": {
+          "name": "author_channel",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "updated_by_email": {
+          "name": "updated_by_email",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "updated_by_name": {
+          "name": "updated_by_name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "deleted_at": {
+          "name": "deleted_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "notes_id_category": {
+          "name": "notes_id_category",
+          "nullsNotDistinct": false,
+          "columns": ["id", "category"]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "notes_category": {
+          "name": "notes_category",
+          "value": "\"notes\".\"notes\".\"category\" in ('procedure', 'study', 'medication', 'illness', 'equipment', 'finding', 'other')"
+        },
+        "notes_author_channel": {
+          "name": "notes_author_channel",
+          "value": "\"notes\".\"notes\".\"author_channel\" in ('web', 'mcp')"
+        },
+        "notes_date_precision": {
+          "name": "notes_date_precision",
+          "value": "\"notes\".\"notes\".\"date_precision\" in ('day', 'month', 'year')"
+        },
+        "notes_dates_match_precision": {
+          "name": "notes_dates_match_precision",
+          "value": "\"notes\".\"notes\".\"first_night\" = date_trunc(\"notes\".\"notes\".\"date_precision\", \"notes\".\"notes\".\"first_night\"::timestamp)::date\n        and (\"notes\".\"notes\".\"last_night\" is null\n          or \"notes\".\"notes\".\"last_night\" = date_trunc(\"notes\".\"notes\".\"date_precision\", \"notes\".\"notes\".\"last_night\"::timestamp)::date)"
+        },
+        "notes_last_night_order": {
+          "name": "notes_last_night_order",
+          "value": "\"notes\".\"notes\".\"last_night\" >= \"notes\".\"notes\".\"first_night\""
+        },
+        "notes_time_range": {
+          "name": "notes_time_range",
+          "value": "(\"notes\".\"notes\".\"starts_at\" is null and \"notes\".\"notes\".\"ends_at\" is null)\n        or (\"notes\".\"notes\".\"starts_at\" is not null and \"notes\".\"notes\".\"ends_at\" is not null\n          and \"notes\".\"notes\".\"starts_at\" < \"notes\".\"notes\".\"ends_at\" and \"notes\".\"notes\".\"date_precision\" = 'day')"
+        },
+        "notes_body_length": {
+          "name": "notes_body_length",
+          "value": "\"notes\".\"notes\".\"body\" ~ '[^[:space:]]'\n        and char_length(\"notes\".\"notes\".\"body\") <= 32000"
+        },
+        "notes_updated_together": {
+          "name": "notes_updated_together",
+          "value": "(\"notes\".\"notes\".\"updated_at\" is null) = (\"notes\".\"notes\".\"updated_by_email\" is null)\n        and (\"notes\".\"notes\".\"updated_at\" is null) = (\"notes\".\"notes\".\"updated_by_name\" is null)"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "notes.query_history": {
+      "name": "query_history",
+      "schema": "notes",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "bigint",
+          "primaryKey": true,
+          "notNull": true,
+          "identity": {
+            "type": "always",
+            "name": "query_history_id_seq",
+            "schema": "notes",
+            "increment": "1",
+            "startWith": "1",
+            "minValue": "1",
+            "maxValue": "9223372036854775807",
+            "cache": "1",
+            "cycle": false
+          }
+        },
+        "short_code": {
+          "name": "short_code",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "author_email": {
+          "name": "author_email",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "author_name": {
+          "name": "author_name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "author_channel": {
+          "name": "author_channel",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "ran_at": {
+          "name": "ran_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "row_count": {
+          "name": "row_count",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "truncated": {
+          "name": "truncated",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "query_history_short_code_short_links_code_fk": {
+          "name": "query_history_short_code_short_links_code_fk",
+          "tableFrom": "query_history",
+          "tableTo": "short_links",
+          "schemaTo": "notes",
+          "columnsFrom": ["short_code"],
+          "columnsTo": ["code"],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "query_history_author_channel": {
+          "name": "query_history_author_channel",
+          "value": "\"notes\".\"query_history\".\"author_channel\" in ('web', 'mcp')"
+        },
+        "query_history_row_count": {
+          "name": "query_history_row_count",
+          "value": "\"notes\".\"query_history\".\"row_count\" >= 0"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "notes.short_links": {
+      "name": "short_links",
+      "schema": "notes",
+      "columns": {
+        "code": {
+          "name": "code",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "kind": {
+          "name": "kind",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "spec": {
+          "name": "spec",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "sql": {
+          "name": "sql",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "short_links_content_matches_kind": {
+          "name": "short_links_content_matches_kind",
+          "value": "(\"notes\".\"short_links\".\"kind\" = 'spec' and \"notes\".\"short_links\".\"spec\" is not null and \"notes\".\"short_links\".\"sql\" is null)\n        or (\"notes\".\"short_links\".\"kind\" = 'sql' and \"notes\".\"short_links\".\"sql\" is not null and \"notes\".\"short_links\".\"spec\" is null)"
+        }
+      },
+      "isRLSEnabled": false
+    }
+  },
+  "enums": {},
+  "schemas": {
+    "notes": "notes"
+  },
+  "sequences": {},
+  "roles": {},
+  "policies": {},
+  "views": {},
+  "_meta": {
+    "columns": {},
+    "schemas": {},
+    "tables": {}
+  }
+}
