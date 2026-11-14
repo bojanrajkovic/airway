@@ -101,9 +101,9 @@ erDiagram
 | `nights` | Night with a folder on the card: the machine's `STR.edf` statistics, then airway's own columns | `night` |
 | `sessions` | Mask-on period | `night, session` |
 | `segments` | BRP file with data, and the PLD file that overlaps it | `night, segment` |
-| `events` | Machine event. `session` is null when the night has no sessions, and `duration` when the machine gives none | none |
+| `events` | Machine event, at its start. `session` is null when the night has no sessions, and `duration` when the machine gives none | none |
 | `samples` | 2 seconds of therapy: the nine PLD signals | none |
-| `breaths` | Breath detected in the flow signal | none |
+| `breaths` | Breath detected in the flow signal. `amplitude` is the in-breath's peak flow, and `duration` ends when the out-breath does, so a pause is a gap between breaths | none |
 | `files` | Imported file, with its size, SHA-256, and ctime. `night` is null for `STR.edf` and `Identification.tgt` | `path` |
 | `device` | Machine: serial and model | `serial` |
 | `settings_changes` | Setting that changed on a night | `night, setting` |
