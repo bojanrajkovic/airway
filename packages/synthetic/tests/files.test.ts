@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { ClockOffsets } from "../../src/clock.ts";
-import { nightFiles, strFile, type NightFile } from "../../src/synthetic/files.ts";
-import { syntheticNights } from "../../src/synthetic/model.ts";
-import { readAnnotations, readEdf } from "../edf/test-reader.ts";
+import { ClockOffsets } from "@airway/contract/clock";
+import { nightFiles, strFile, type NightFile } from "../src/files.ts";
+import { syntheticNights } from "../src/model.ts";
+import { readAnnotations, readEdf } from "@airway/testing/edf";
 
 // The second entry starts on the third night, so nights 1-2 and 3-4 use different offsets.
 const offsets = ClockOffsets.parse([

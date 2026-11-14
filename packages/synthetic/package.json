@@ -1,0 +1,25 @@
+{
+  "name": "@airway/synthetic",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./*": "./src/*.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --project . && tsc --project tests"
+  },
+  "dependencies": {
+    "@airway/contract": "workspace:*",
+    "d3-random": "catalog:",
+    "neverthrow": "catalog:"
+  },
+  "devDependencies": {
+    "@airway/testing": "workspace:*",
+    "@tsconfig/node": "catalog:",
+    "@tsconfig/strictest": "catalog:",
+    "@types/d3-random": "catalog:",
+    "@types/node": "catalog:",
+    "vitest": "catalog:"
+  }
+}

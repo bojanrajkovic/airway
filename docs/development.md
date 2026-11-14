@@ -42,6 +42,8 @@ Adding a package takes four things:
 
 `@airway/testing` holds test helpers that more than one package uses. It never ships in the image. A package that uses it lists `"@airway/testing": "workspace:*"` in its `devDependencies`.
 
+`@airway/synthetic` generates the synthetic CPAP data that tests and local development use ([Synthetic data](synthetic-data.md)). Like `@airway/testing`, only tests and scripts import it, so it never ships in the image.
+
 ## Dependencies
 
 Every dependency's version lives once, in the `catalog` in `pnpm-workspace.yaml`. Each `package.json` says `"catalog:"` instead of a version. `catalogMode: strict` makes `pnpm add` go through the catalog. A version typed into a `package.json` by hand isn't caught, so review rejects it.

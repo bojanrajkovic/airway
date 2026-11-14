@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { AIRSENSE, type EdfFile } from "../../src/edf/airsense.ts";
 import { writeAnnotations, writeSignals, type EdfHeader } from "../../src/edf/write.ts";
-import { readAnnotations, readEdf } from "./test-reader.ts";
+import { readAnnotations, readEdf } from "@airway/testing/edf";
 
 const header: EdfHeader = {
   start: Temporal.PlainDateTime.from("2030-01-07T22:15:03"),
