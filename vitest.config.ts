@@ -37,7 +37,11 @@ export default defineConfig({
       },
       // Isolated, so one file's SDK never records another file's spans.
       { extends: true, test: { name: "telemetry", include: TELEMETRY } },
-      { extends: true, test: { name: "db", include: DB } },
+      // Creates the owner and reader roles the database tests connect as, once per run.
+      {
+        extends: true,
+        test: { name: "db", include: DB, globalSetup: ["packages/testing/src/roles.ts"] },
+      },
       { extends: true, test: { name: "image", include: IMAGE } },
       {
         extends: true,
