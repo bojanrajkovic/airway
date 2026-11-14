@@ -13,7 +13,8 @@
     "@airway/contract": "workspace:*",
     "d3-random": "catalog:",
     "neverthrow": "catalog:",
-    "pg": "catalog:"
+    "pg": "catalog:",
+    "pg-copy-streams": "catalog:"
   },
   "devDependencies": {
     "@airway/testing": "workspace:*",
@@ -22,6 +23,7 @@
     "@types/d3-random": "catalog:",
     "@types/node": "catalog:",
     "@types/pg": "catalog:",
+    "@types/pg-copy-streams": "catalog:",
     "vitest": "catalog:",
     "zod": "catalog:"
   }
