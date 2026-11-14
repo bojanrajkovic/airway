@@ -107,6 +107,47 @@ DATALOG/
 - Every file in `DATALOG` has a `.crc` beside it: the CRC-32 of the file's first 256 bytes, then of the rest, each 4 bytes little-endian. `Identification.crc` is the CRC-32 of the whole `.tgt`. `STR.edf` has none, as on the card.
 - A night with no segments writes no files, so it has no folder.
 
+## Derived rows
+
+`synthesize(nights, offsets, { patient, uploadedAt })` in `@airway/synthetic/synthesize` returns the CPAP data folder together with the rows ingest should derive from it, one list per derived table. Both come from the same nights, so a test that edits a night gets files and rows that agree. The row types live in `@airway/contract/derived/rows`, and ingest writes the same shapes.
+
+```ts
+const nights = syntheticNights({ seed: 7, nights: 10 });
+const result = synthesize(nights, offsets, { patient: "child", uploadedAt });
+
+if (result.isErr()) {
+  throw new Error(`can't synthesize: ${result.error.kind}`);
+}
+
+const { files, rows } = result.value;
+// rows.nights[0].ahi_check is "match"; rows.samples holds one row per 2 s.
+```
+
+The rows follow ingest's rules:
+
+- Sessions come from `buildSessions` and events get their session from `assignEvents`, the functions ingest calls ([Ingest](ingest.md#sessions)).
+- An event starts at its EVE onset minus its duration, with the onset rounded to the whole second EVE keeps.
+- Samples start at the PLD file's start, 1 s after the segment's, every 2 s.
+- Breaths are the model's own. `amplitude` is the in-breath's peak flow, and `duration` covers the in-breath and out-breath, so a pause is a gap between breaths.
+- `files` lists Identification.tgt, STR.edf, and each BRP, PLD, and EVE file, with its size and SHA-256. Ingest skips SAD, CSL, and `.crc` files.
+- `column_units` has each STR and PLD signal's header unit and decimals. A breath's `amplitude` (L/s) and `inspiratory_volume` (L) come from the 25 Hz flow signal, so they take its decimals.
+- `daily_usage` covers every day from the first night to the last, with 0 on a day with no night.
+- `settings_changes` has a row for each setting that differs from the previous night's.
+- A night with no segments has no folder, so ingest never sees it. It gets only its `daily_usage` row.
+- `uploadedAt` fills every `ctime` and `uploaded_at`.
+
+### Ingest's acceptance target
+
+Ingesting `synthesize`'s files must produce its rows. The comparison skips `ctime`, `uploaded_at`, and `built_at`, which depend on when the import ran. Ingest finds breaths with its own detector, so breaths are compared within these tolerances, measured with a prototype detector on synthetic nights:
+
+| Measure | Tolerance |
+|---|---|
+| Breaths per segment | equal, or off by one |
+| Start | 0.1 s |
+| Volume | 2% |
+| Amplitude | 3% |
+| Duration | 3% |
+
 ## Writing EDF files
 
 `@airway/contract/edf/write` writes the bytes of any file type in the list. The synthetic generator uses it to write its files.

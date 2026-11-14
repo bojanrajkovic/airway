@@ -47,6 +47,42 @@ const compact = (date: Temporal.PlainDate): string => date.toString().replaceAll
 const fileName = ({ kind, start }: NightFile): string =>
   `${compact(start.toPlainDate())}_${start.toPlainTime().toString().replaceAll(":", "").slice(0, 6)}_${kind.toUpperCase()}`;
 
+/** A night's EDF file with its path in the folder, without the extension. */
+export type DatalogFile = NightFile & { path: string };
+
+/** A night's EDF files with their DATALOG paths, in `nightFiles`'s order. */
+export function datalogFiles(
+  night: SyntheticNight,
+  offsets: readonly ClockOffset[],
+): Result<DatalogFile[], SyntheticFileError> {
+  return nightFiles(night, offsets).map((files) =>
+    files.map((file) => ({ ...file, path: `DATALOG/${compact(night.night)}/${fileName(file)}` })),
+  );
+}
+
+/** The top-level and per-night files of the folder, with a .crc beside each night file. */
+export function folderFiles(str: Uint8Array, datalog: readonly DatalogFile[]): CpapFile[] {
+  // Each line starts with CRLF and ends with LF, as on the card.
+  const identification = encoder.encode(
+    IDENTIFICATION.map(([key, value]) => `\r\n#${key} ${value}\n`).join(""),
+  );
+
+  return [
+    { path: "Identification.tgt", bytes: identification },
+    // The top-level .crc covers the whole companion file.
+    { path: "Identification.crc", bytes: littleEndian(crc32(identification)) },
+    { path: "STR.edf", bytes: str },
+    ...datalog.flatMap(({ path, bytes }): CpapFile[] => [
+      { path: `${path}.edf`, bytes },
+      // A night file's .crc covers its 256-byte fixed header, then the rest.
+      {
+        path: `${path}.crc`,
+        bytes: littleEndian(crc32(bytes.subarray(0, 256)), crc32(bytes.subarray(256))),
+      },
+    ]),
+  ];
+}
+
 /**
  * The whole CPAP data folder for `nights`, as an SD card lays it out: Identification.tgt and its
  * .crc, STR.edf, and a DATALOG folder per night holding each EDF file and its .crc. A night with no
@@ -56,34 +92,8 @@ export function cpapData(
   nights: readonly SyntheticNight[],
   offsets: readonly ClockOffset[],
 ): Result<CpapFile[], SyntheticFileError> {
-  // Each line starts with CRLF and ends with LF, as on the card.
-  const identification = encoder.encode(
-    IDENTIFICATION.map(([key, value]) => `\r\n#${key} ${value}\n`).join(""),
-  );
-  const top: CpapFile[] = [
-    { path: "Identification.tgt", bytes: identification },
-    // The top-level .crc covers the whole companion file.
-    { path: "Identification.crc", bytes: littleEndian(crc32(identification)) },
-  ];
-
   return Result.combine([
-    strFile(nights, offsets).map((bytes): CpapFile[] => [{ path: "STR.edf", bytes }]),
-    ...nights.map((night) =>
-      nightFiles(night, offsets).map((files) =>
-        files.flatMap((file): CpapFile[] => {
-          const path = `DATALOG/${compact(night.night)}/${fileName(file)}`;
-          // A night file's .crc covers its 256-byte fixed header, then the rest.
-          const crc = littleEndian(
-            crc32(file.bytes.subarray(0, 256)),
-            crc32(file.bytes.subarray(256)),
-          );
-
-          return [
-            { path: `${path}.edf`, bytes: file.bytes },
-            { path: `${path}.crc`, bytes: crc },
-          ];
-        }),
-      ),
-    ),
-  ]).map((groups) => [...top, ...groups.flat()]);
+    strFile(nights, offsets),
+    Result.combine(nights.map((night) => datalogFiles(night, offsets))),
+  ]).map(([str, datalog]) => folderFiles(str, datalog.flat()));
 }
