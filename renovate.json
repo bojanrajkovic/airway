@@ -5,8 +5,7 @@
     "helpers:pinGitHubActionDigests",
     ":automergeMinor",
     ":automergeDigest",
-    "customManagers:dockerfileVersions",
-    "security:minimumReleaseAgeNpm"
+    "customManagers:dockerfileVersions"
   ],
   "labels": ["dependencies"],
   "rangeStrategy": "bump",
