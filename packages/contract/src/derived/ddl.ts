@@ -33,12 +33,13 @@ const doubles = (names: readonly string[]): string =>
   names.map((name) => `${name} double precision`).join(",\n  ");
 
 /**
- * The statements that create every derived table in `schema`: all the derived DDL there is.
+ * The statements that create `schema` and every derived table in it, without the indexes and the
+ * two largest tables' foreign keys. This and `derivedIndexesAndKeys` hold all the derived DDL.
  *
  * The tables are UNLOGGED: they're rebuilt from the card's files, so they skip the WAL and
  * backups. Deleting a nights row removes that night from every table that holds a night's rows.
  */
-export function derivedDdl(schema: DerivedSchema): string {
+export function derivedTables(schema: DerivedSchema): string {
   return `
 create schema ${schema};
 
@@ -150,22 +151,14 @@ create unlogged table ${schema}.events (
   outside_mask_on boolean not null,
   foreign key (night, session) references ${schema}.sessions on delete cascade
 );
-create index events_night_ts on ${schema}.events (night, ts);
 
 create unlogged table ${schema}.samples (
   night date not null,
   segment smallint not null,
   session smallint not null,
   ts timestamptz not null,
-  ${doubles(signals(samples))},
-  foreign key (night, segment, session) references ${schema}.segments (night, segment, session)
-    on delete cascade
+  ${doubles(signals(samples))}
 );
-create index samples_night_ts on ${schema}.samples (night, ts);
--- "Latest samples" queries would otherwise scan the table.
-create index samples_ts on ${schema}.samples (ts);
--- Feeds percentile_cont sorted values, one night at a time.
-${PERCENTILE_SIGNALS.map((signal) => `create index samples_night_${signal} on ${schema}.samples (night, ${signal});`).join("\n")}
 
 create unlogged table ${schema}.breaths (
   night date not null,
@@ -174,10 +167,25 @@ create unlogged table ${schema}.breaths (
   ts timestamptz not null,
   duration double precision not null,
   amplitude double precision not null,
-  inspiratory_volume double precision not null,
-  foreign key (night, segment, session) references ${schema}.segments (night, segment, session)
-    on delete cascade
+  inspiratory_volume double precision not null
 );
+`;
+}
+
+/**
+ * The derived tables' indexes, and the foreign keys from `samples` and `breaths` to their segment.
+ * A load runs this after its rows are in: building an index once is faster than updating it for
+ * every row, and adding a key checks every row in one pass instead of one row at a time.
+ */
+export function derivedIndexesAndKeys(schema: DerivedSchema): string {
+  return `
+${["samples", "breaths"].map((table) => `alter table ${schema}.${table} add foreign key (night, segment, session)\n  references ${schema}.segments (night, segment, session) on delete cascade;`).join("\n")}
+create index events_night_ts on ${schema}.events (night, ts);
+create index samples_night_ts on ${schema}.samples (night, ts);
+-- "Latest samples" queries would otherwise scan the table.
+create index samples_ts on ${schema}.samples (ts);
+-- Feeds percentile_cont sorted values, one night at a time.
+${PERCENTILE_SIGNALS.map((signal) => `create index samples_night_${signal} on ${schema}.samples (night, ${signal});`).join("\n")}
 create index breaths_night_ts on ${schema}.breaths (night, ts);
 `;
 }
