@@ -36,8 +36,8 @@ const nights = syntheticNights({ seed: 7, nights: 30 });
 ```
 
 Each night holds:
-- `periods`: one to three mask-on periods, as UTC instants. Each is one session.
-- `segments`: the BRP files' stretches, a whole number of minutes each, 60 to 120 s apart within a period. Each segment stores PLD's nine 2 s series and a seed for its 25 Hz detail.
+- `periods`: the mask-on periods, as UTC instants. Each is one session.
+- `segments`: the BRP files' stretches, a whole number of minutes each. Each segment stores PLD's nine 2 s series and a seed for its 25 Hz detail.
 - `events`: what the machine scores and writes to EVE.
 - `pauses`: gaps in breathing the flow signal shows. There are three kinds:
 
@@ -51,7 +51,18 @@ Each night holds:
 
 Unused days are days with no night in the list.
 
-`patient` is `child` (the default) or `adult`, and sets only the breathing numbers in `@airway/synthetic/patients`: rate, breath size, event and pause rates, leak, and settings. All are invented round numbers. The scoring rules still come from the configured birth date.
+`patient` is `child` (the default) or `adult`, and sets only the numbers in `@airway/synthetic/patients`: mask-on periods, file gaps, rate, breath size, event and pause rates, leak, and settings. All are invented round numbers. The scoring rules still come from the configured birth date.
+
+Mask-on periods and file gaps differ by patient:
+
+| | Child | Adult |
+|---|---|---|
+| Mask-on periods | 1 to 10, or 11 to 20 on about 1 night in 6 | 1 to 6 |
+| Gap between BRP files in one period | 5 to 120 s, mostly 30 to 90 s | 5 to 90 s |
+
+STR.edf has slots for 10 periods, so on a child's longer nights ingest rebuilds the rest from BRP files, joining files 90 s or less apart. A child's file gaps fall on both sides of 90 s, so those nights test the join's mistakes too. Adult nights stay inside the slots and under 90 s, so ingest's sessions always match their periods.
+
+Breaks between periods are 60 s plus a long-tailed draw: a median near 200 s, sometimes 25 minutes or more, at most 3 hours. On a night with many periods, the breaks shrink so the last mask-off comes by 11:00. Files after noon would belong to the next night.
 
 Ordinary variation comes from the seed: about 1 night in 8 is short, about 1 in 10 is bad with four times the events, events sometimes cluster, and leak spikes for a few minutes now and then.
 
