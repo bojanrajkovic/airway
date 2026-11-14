@@ -1,12 +1,12 @@
 import { err, Result } from "neverthrow";
-import { offsetForNight, type BeforeFirstOffset, type ClockOffset } from "../clock.ts";
-import { AIRSENSE, dataSignals } from "../edf/airsense.ts";
+import { offsetForNight, type BeforeFirstOffset, type ClockOffset } from "@airway/contract/clock";
+import { AIRSENSE, dataSignals } from "@airway/contract/edf/airsense";
 import {
   writeAnnotations,
   writeSignals,
   type EdfHeader,
   type EdfWriteError,
-} from "../edf/write.ts";
+} from "@airway/contract/edf/write";
 import type { SyntheticNight } from "./model.ts";
 import type { MachineEventType } from "./patients.ts";
 import { renderBrp } from "./signals.ts";
