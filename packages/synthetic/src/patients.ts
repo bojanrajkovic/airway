@@ -16,7 +16,14 @@ export const MACHINE_EVENT_TYPES = [
 ] as const satisfies readonly (typeof EVENT_TYPES)[number][];
 export type MachineEventType = (typeof MACHINE_EVENT_TYPES)[number];
 
+/** Whole-number ranges, each picked in proportion to its weight. `max` is included. */
+export type Spread = readonly { weight: number; min: number; max: number }[];
+
 export type Breathing = {
+  /** Mask-on periods per night. */
+  periods: Spread;
+  /** Seconds between consecutive BRP files inside one mask-on period. */
+  fileGaps: Spread;
   /** Breaths per minute: the night's mean, and how much it varies between nights. */
   rate: { mean: number; sd: number };
   /** Litres per breath. */
@@ -64,7 +71,19 @@ const comfort = {
 
 export const BREATHING: Readonly<Record<Patient, Breathing>> = {
   // Children breathe faster and smaller, and their pauses reach 2 breaths well before 10 s.
+  // A child gets many short mask-off breaks, so some nights pass STR.edf's 10 slots, and file gaps
+  // fall on both sides of ingest's 90 s join.
   child: {
+    periods: [
+      { weight: 5, min: 1, max: 10 },
+      { weight: 1, min: 11, max: 20 },
+    ],
+    fileGaps: [
+      { weight: 15, min: 5, max: 30 },
+      { weight: 35, min: 30, max: 60 },
+      { weight: 40, min: 60, max: 90 },
+      { weight: 10, min: 90, max: 120 },
+    ],
     rate: { mean: 22, sd: 1.5 },
     tidalVolume: { mean: 0.22, sd: 0.02 },
     eventsPerHour: {
@@ -81,7 +100,10 @@ export const BREATHING: Readonly<Record<Patient, Breathing>> = {
     epr: 2,
     settings: { ...CODES, ...comfort, "S.C.Press": 8 },
   },
+  // Few periods and short gaps, so ingest's sessions always match the periods.
   adult: {
+    periods: [{ weight: 1, min: 1, max: 6 }],
+    fileGaps: [{ weight: 1, min: 5, max: 90 }],
     rate: { mean: 14, sd: 1 },
     tidalVolume: { mean: 0.5, sd: 0.04 },
     eventsPerHour: {

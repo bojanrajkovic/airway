@@ -146,6 +146,74 @@ describe("syntheticNights", () => {
     expect(kinds).toEqual(new Set(["machine_apnea", "pediatric", "dip"]));
   });
 
+  describe("mask-on periods", () => {
+    const children = syntheticNights({ seed: 3, nights: 120 });
+    const grownUps = syntheticNights({ seed: 3, nights: 120, patient: "adult" });
+
+    // The gaps between consecutive BRP files inside each period.
+    const gaps = (list: SyntheticNight[]): number[] =>
+      list.flatMap((night) =>
+        night.periods.flatMap(({ on, off }) => {
+          const inside = night.segments.filter(
+            ({ start, end }) => seconds(on, start) >= 0 && seconds(end, off) >= 0,
+          );
+
+          return inside.slice(1).map((segment, i) => seconds(inside[i]?.end ?? on, segment.start));
+        }),
+      );
+    const breaks = (list: SyntheticNight[]): number[] =>
+      list.flatMap((night) =>
+        night.periods
+          .slice(1)
+          .map((period, i) => seconds(night.periods[i]?.off ?? period.on, period.on)),
+      );
+
+    it("gives a child up to 20 periods, sometimes more than STR.edf's 10 slots", () => {
+      const counts = children.map((night) => night.periods.length);
+
+      expect(Math.min(...counts)).toBeGreaterThanOrEqual(1);
+      expect(Math.max(...counts)).toBeLessThanOrEqual(20);
+      expect(counts.some((count) => count > 10)).toBe(true);
+    });
+
+    it("puts a child's file gaps on both sides of ingest's 90 s join", () => {
+      const all = gaps(children);
+
+      expect(Math.min(...all)).toBeGreaterThanOrEqual(5);
+      expect(Math.max(...all)).toBeLessThanOrEqual(120);
+      expect(all.some((gap) => gap > 90)).toBe(true);
+      expect(all.some((gap) => gap <= 90)).toBe(true);
+    });
+
+    it("gives an adult 1 to 6 periods with file gaps of 90 s or less", () => {
+      const counts = grownUps.map((night) => night.periods.length);
+
+      expect(Math.max(...counts)).toBeLessThanOrEqual(6);
+      expect(Math.max(...gaps(grownUps))).toBeLessThanOrEqual(90);
+      expect(Math.min(...gaps(grownUps))).toBeGreaterThanOrEqual(5);
+    });
+
+    it("keeps breaks between periods from 60 s to 3 hours", () => {
+      const all = [...breaks(children), ...breaks(grownUps)];
+
+      expect(Math.min(...all)).toBeGreaterThanOrEqual(60);
+      expect(Math.max(...all)).toBeLessThanOrEqual(3 * 3600);
+    });
+
+    // A night that ran past noon would put its last files in the next night's folder.
+    it("ends every night by 11:00", () => {
+      for (const night of [...children, ...grownUps]) {
+        const last = night.periods.at(-1)?.off;
+        const deadline = night.night
+          .add({ days: 1 })
+          .toZonedDateTime({ timeZone: "America/Chicago", plainTime: "11:00" })
+          .toInstant();
+
+        expect(last === undefined ? 0 : seconds(last, deadline)).toBeGreaterThanOrEqual(0);
+      }
+    });
+  });
+
   it("breathes slower and deeper for an adult", () => {
     const mid = (list: SyntheticNight[], label: string): number =>
       median(list.map((night) => night.str.get(label) ?? 0));
