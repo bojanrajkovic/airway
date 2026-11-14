@@ -78,7 +78,7 @@ const APNEAS: ReadonlySet<MachineEventType> = new Set([
   "unclassified_apnea",
 ]);
 
-type Random = {
+export type Random = {
   uniform: (min: number, max: number) => number;
   /** An integer from `min` up to, but not including, `max`. */
   int: (min: number, max: number) => number;
@@ -88,7 +88,7 @@ type Random = {
 };
 
 // Every draw comes from one LCG, so one seed reproduces the whole model.
-function random(seed: number): Random {
+export function random(seed: number): Random {
   const source = randomLcg(seed);
   // Each distribution is built once, because building one per draw made a night of 2 s samples slow.
   const unit = randomUniform.source(source)(0, 1);
