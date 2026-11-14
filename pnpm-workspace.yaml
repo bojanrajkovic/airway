@@ -22,7 +22,7 @@ catalog:
   "@stylistic/eslint-plugin": 5.10.0
   "@trpc/server": 11.28.0
   # An alias, so a Node major bump changes only this line, not every tsconfig that extends it.
-  "@tsconfig/node": npm:@tsconfig/node26@26.0.1
+  "@tsconfig/node": npm:@tsconfig/node26@26.0.2
   "@tsconfig/strictest": 2.0.8
   "@types/d3-random": 3.0.4
   "@types/node": 26.6.6
