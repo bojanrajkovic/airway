@@ -47,7 +47,7 @@ Each night holds:
   | `pediatric` | 2 breaths to 10 s | no | only airway's pediatric step |
   | `dip` | under 2 breaths | no | nothing |
 
-- `str`: the night's STR.edf values by label, rounded to each signal's step. `NaN` marks values the machine writes as -1, such as SpO2 without an oximeter. Date, MaskOn, MaskOff, and Crc16 are left out because they depend on the device clock or the file.
+- `str`: the night's STR.edf values by label, rounded to each signal's step. `NaN` marks values the machine writes as -1, such as SpO2 without an oximeter. `strFile` fills in Date, MaskOn, and MaskOff, which depend on the device clock, and the writer adds each record's Crc16.
 
 Unused days are days with no night in the list.
 
@@ -64,6 +64,15 @@ The AHI and its parts are `(600 × events) div minutes` in tenths, and MaskEvent
 `breaths(segment, night)` lays out the breaths first. Each breath's length follows the 2 s breathing rate at its start, and its volume follows the 2 s tidal volume, shrunk to 40% during a hypopnea. Breathing in takes 40% of a breath. No breath crosses a pause, so each pause lasts exactly as long as the model says. A breath shortened to fit before a pause moves proportionally less air, so its peak stays normal. The model starts every pause and event at least 10 s into its segment, so the first breaths always have room.
 
 Flow is a half sine wave up while breathing in and a half sine wave down while breathing out. The inhale's height is set so the area under it equals the breath's volume. During a pause, flow stays within ±0.004 L/s. That's under the pediatric step's 0.01 L/s crossing threshold and under 5% of a child's breath, so noise can't fake a breath. Pressure follows the 2 s pressure, and drops to the EPR pressure while breathing out.
+
+## A night's files
+
+`@airway/contract/synthetic/files` turns the model into EDF bytes, one file at a time. Each file comes with its start time on the device's clock, and a later step turns those times into file and folder names. The device's clock runs on the night's fixed offset from `AIRWAY_CLOCK_OFFSETS` and doesn't change for daylight saving time.
+
+- `nightFiles(night, offsets)` writes a BRP, PLD, and SAD file for each segment, and one EVE and CSL pair for the night. PLD and SAD files start 1 s after their BRP file, as on the real machine. SAD holds only missing values, as it does without an oximeter. EVE starts with a "Recording starts" annotation, then lists each event with its onset at the event's end, which is how the machine writes them. CSL holds only "Recording starts".
+- `strFile(nights, offsets)` writes STR.edf with one record per day, from the earliest night to the latest, whatever order the nights come in. A day with no night is unused, and every value in its record is -1. MaskOn and MaskOff hold up to 10 mask-on periods, in minutes since noon on the device's clock; unused slots are -1.
+
+The serial, patient, and recording fields hold invented values.
 
 ## Writing EDF files
 

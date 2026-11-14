@@ -34,4 +34,4 @@ The CPAP's clock doesn't follow daylight saving time, and it drifts. `AIRWAY_CLO
 ]
 ```
 
-Each entry applies from its night until the next entry's night. Entries are sorted by `from`, with no night listed twice. `utcOffset` is `±HH:MM`.
+Each entry applies from its night until the next entry's night. Entries are sorted by `from`, with no night listed twice. `utcOffset` is `±HH:MM`. `offsetForNight` in `@airway/contract/clock` picks a night's entry; a night before the first entry has none and is an error.
