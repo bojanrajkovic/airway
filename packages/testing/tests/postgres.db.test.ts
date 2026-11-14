@@ -29,3 +29,61 @@ test("gives the file its own empty Postgres 18 database", async ({ databaseUrl }
     await client.end();
   }
 });
+
+const Role = z.object({
+  role: z.string(),
+  superuser: z.boolean(),
+  owns: z.boolean(),
+  readOnly: z.string(),
+  searchPath: z.string(),
+  workMem: z.string(),
+  tempFileLimit: z.string(),
+  memberOfReader: z.boolean(),
+});
+
+async function role(url: string): Promise<z.infer<typeof Role>> {
+  const client = new pg.Client(url);
+  await client.connect();
+
+  try {
+    const result = await client.query(
+      `select current_user as role,
+              (select rolsuper from pg_roles where rolname = current_user) as superuser,
+              (select pg_get_userbyid(datdba) = current_user from pg_database
+               where datname = current_database()) as owns,
+              current_setting('default_transaction_read_only') as "readOnly",
+              current_setting('search_path') as "searchPath",
+              current_setting('work_mem') as "workMem",
+              current_setting('temp_file_limit') as "tempFileLimit",
+              pg_has_role(current_user, 'airway_reader', 'member') as "memberOfReader"`,
+    );
+
+    return Role.parse(result.rows[0]);
+  } finally {
+    await client.end();
+  }
+}
+
+test("connects as an owner that isn't a superuser and belongs to the reader role", async ({
+  databaseUrl,
+}) => {
+  expect(await role(databaseUrl)).toMatchObject({
+    role: "airway_owner",
+    superuser: false,
+    owns: true,
+    readOnly: "off",
+    memberOfReader: true,
+  });
+});
+
+test("gives the reader the deployment's settings", async ({ readerUrl }) => {
+  expect(await role(readerUrl)).toMatchObject({
+    role: "airway_reader",
+    superuser: false,
+    owns: false,
+    readOnly: "on",
+    searchPath: "derived",
+    workMem: "64MB",
+    tempFileLimit: "1GB",
+  });
+});
