@@ -170,6 +170,16 @@ test("counts a night with 12 mask-on periods", async ({ databaseUrl }) => {
 
 It creates the schema with `derivedTables`, COPYs each table parents first, then builds the indexes and the `samples` and `breaths` foreign keys, fills `period_percentiles` with the statement ingest uses, stamps `meta`, and grants `airway_reader` SELECT. Signal values go in as decimal text rounded to their column's decimals, as ingest writes them, so `leak = 0.4` matches. On an error it rolls back and throws Postgres's error, so the test fails with it. A 30-night load takes about 3.5 seconds.
 
+## pnpm synth
+
+`pnpm synth` writes a CPAP data folder to disk, for local development and end-to-end tests:
+
+```sh
+pnpm synth --out /tmp/airway-cpap-data [--seed 1] [--nights 10] [--patient child|adult]
+```
+
+It defaults to 10 child nights from seed 1, including any short or bad nights the model draws. It uses `.env.example`'s clock offsets, so a folder written to `.env.example`'s `AIRWAY_CPAP_DATA_PATH` imports with the example config. `--out` must be missing or empty, so synthetic files never mix with real ones or with an older run.
+
 ## Writing EDF files
 
 `@airway/contract/edf/write` writes the bytes of any file type in the list. The synthetic generator uses it to write its files.
