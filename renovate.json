@@ -83,15 +83,18 @@
       "automerge": true
     },
     {
-      "description": "Browser tests run in Playwright's image, whose browsers must match the playwright package. Strict filtering holds the whole group until the npm packages pass their release age, so the image can't ship alone. After the GitHub Actions group, so this group wins",
+      "description": "Browser tests run in Playwright's image, whose browsers must match the playwright package. Renovate doesn't update the image's tag or digest, so it can't ship ahead of the package. The next rule moves it",
       "matchPackageNames": ["mcr.microsoft.com/playwright"],
-      "groupName": "playwright monorepo",
-      "internalChecksFilter": "strict"
+      "enabled": false
     },
     {
-      "description": "Apply strict filtering to the npm side of the playwright group too, so the image can't ship alone",
-      "matchPackageNames": ["playwright", "playwright-core", "@playwright/*"],
-      "internalChecksFilter": "strict"
+      "description": "Move Playwright's image in the workflows to the playwright package's version and pin its digest, in the same commit as the package",
+      "matchPackageNames": ["playwright"],
+      "postUpgradeTasks": {
+        "commands": ["scripts/renovate/playwright-image.sh"],
+        "fileFilters": [".github/workflows/*.yml"],
+        "executionMode": "branch"
+      }
     },
     {
       "description": "One Postgres image in scripts/db.sh and the CI service, so local and CI tests run the same server. After the GitHub Actions group, so this group wins",
