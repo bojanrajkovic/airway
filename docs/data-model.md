@@ -80,7 +80,7 @@ For example, with leak stored in L/s and tidal volume in L, as an AirSense 10 de
 
 ## Derived tables
 
-Everything airway derives from the card's files lives in one Postgres schema, `derived`. `derivedDdl(schema)` in `@airway/contract/derived/ddl` returns the statements that create it, and no other code creates a derived table. It takes the schema's name, so the same tables can be built in `derived_next` beside the ones in use. What people and agents write lives in a second schema, `notes`, which [Notes](notes.md) describes.
+Everything airway derives from the card's files lives in one Postgres schema, `derived`. `derivedTables(schema)` and `derivedIndexesAndKeys(schema)` in `@airway/contract/derived/ddl` return the statements that create it, and no other code creates a derived table or index. Both take the schema's name, so the same tables can be built in `derived_next` beside the ones in use. `derivedIndexesAndKeys` creates the indexes and the foreign keys from `samples` and `breaths` to `segments`. A load runs it after its rows are in, because building an index once is faster than updating it for every row, and adding a foreign key checks every row in one pass instead of one row at a time. What people and agents write lives in a second schema, `notes`, which [Notes](notes.md) describes.
 
 Every table is UNLOGGED. The data can be rebuilt from the files, so it skips the write-ahead log and backups. A crash empties them.
 
@@ -131,3 +131,7 @@ Text columns with a fixed set of values, such as an event's `type`, have a CHECK
 - `(night, ts)` on `samples`, `breaths`, and `events`.
 - `(ts)` on `samples`, because a "latest samples" query would otherwise scan the table.
 - `(night, leak)` and `(night, mask_pressure)` on `samples`. They hand `percentile_cont` a night's values already sorted.
+
+### Period percentiles
+
+`periodPercentiles(schema)` in `@airway/contract/derived/percentiles` returns the one statement that fills `period_percentiles` from `samples`. It takes `percentile_cont(0.5)` and `percentile_cont(0.95)` of leak and mask pressure for each week, starting Monday, and each month. Because it uses `percentile_cont`, a stored value equals a query-time percentile over the same samples.
