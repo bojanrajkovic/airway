@@ -14,7 +14,7 @@ RUN pnpm install --offline --frozen-lockfile && pnpm build
 RUN pnpm --filter @airway/server deploy --prod --offline /out
 
 # Runs as UID 65532.
-# shortcut: the name holds the Node major, which Renovate can't change; rename it on a new major.
+# The name holds the Node major. On a Node major update, scripts/renovate/distroless-node.sh renames it.
 FROM gcr.io/distroless/nodejs26-debian13:nonroot@sha256:1d736cf8b5716c07a245301f92717143215d248fd55771ee1936ef4b3302e531
 ENV NODE_ENV=production PORT=3000
 WORKDIR /app

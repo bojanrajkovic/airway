@@ -110,13 +110,15 @@
       "automerge": true
     },
     {
-      "description": "Hold Node.js majors for review",
+      "description": "Hold Node.js majors for review, and rename the distroless image to the new major",
       "matchPackageNames": ["node", "@types/node", "@tsconfig/node", "gcr.io/distroless/nodejs*"],
       "matchUpdateTypes": ["major"],
       "automerge": false,
-      "prBodyNotes": [
-        "Rename `gcr.io/distroless/nodejs<major>-debian13` in the `Dockerfile` to the new major and pin its digest before merging. Renovate can't change the name."
-      ]
+      "postUpgradeTasks": {
+        "commands": ["scripts/renovate/distroless-node.sh"],
+        "fileFilters": ["Dockerfile"],
+        "executionMode": "branch"
+      }
     },
     {
       "description": "Keep pnpm on one version in mise.toml and the Dockerfile",
