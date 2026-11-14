@@ -21,7 +21,7 @@ export type NightFile = {
 export type SyntheticFileError = EdfWriteError | BeforeFirstOffset | { kind: "no_nights" };
 
 /** How EVE files label each event type. */
-const EVENT_LABELS: Readonly<Record<MachineEventType, string>> = {
+export const EVENT_LABELS: Readonly<Record<MachineEventType, string>> = {
   obstructive_apnea: "Obstructive Apnea",
   central_apnea: "Central Apnea",
   unclassified_apnea: "Apnea",
@@ -124,6 +124,22 @@ export function nightFiles(
 const SLOTS = 10;
 const EPOCH = Temporal.PlainDate.from("1970-01-01");
 
+/** STR.edf's MaskOn and MaskOff for a night: whole minutes since noon on the device clock. */
+export type MaskSlots = { maskOn: number[]; maskOff: number[] };
+
+/** The night's first 10 mask-on periods as STR.edf records them. */
+export function maskSlots(night: SyntheticNight, offset: ClockOffset): MaskSlots {
+  const noon = night.night.toPlainDateTime("12:00");
+  const minutes = (at: Temporal.Instant): number =>
+    Math.floor(noon.until(deviceTime(at, offset)).total("minutes"));
+  const periods = night.periods.slice(0, SLOTS);
+
+  return {
+    maskOn: periods.map(({ on }) => minutes(on)),
+    maskOff: periods.map(({ off }) => minutes(off)),
+  };
+}
+
 /**
  * STR.edf for every day from the earliest night to the latest, one record per day. The nights can
  * come in any order. A day without a night is unused: every value is -1. MaskOn and MaskOff are
@@ -167,14 +183,14 @@ export function strFile(
       return err(offset.error);
     }
 
-    const noon = date.toPlainDateTime("12:00");
-    const minutes = (at: Temporal.Instant): number =>
-      Math.floor(noon.until(deviceTime(at, offset.value)).total("minutes"));
+    const slots = maskSlots(night, offset.value);
 
     put("Date", day, EPOCH.until(date).days);
-    night.periods.slice(0, SLOTS).forEach(({ on, off }, slot) => {
-      put("MaskOn", day * SLOTS + slot, minutes(on));
-      put("MaskOff", day * SLOTS + slot, minutes(off));
+    slots.maskOn.forEach((minutes, slot) => {
+      put("MaskOn", day * SLOTS + slot, minutes);
+    });
+    slots.maskOff.forEach((minutes, slot) => {
+      put("MaskOff", day * SLOTS + slot, minutes);
     });
     for (const [label, value] of night.str) {
       put(label, day, value);
