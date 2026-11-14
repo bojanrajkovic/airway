@@ -55,8 +55,8 @@ catalogs:
       specifier: 11.28.0
       version: 11.28.0
     '@tsconfig/node':
-      specifier: npm:@tsconfig/node26@26.0.1
-      version: 26.0.1
+      specifier: npm:@tsconfig/node26@26.0.2
+      version: 26.0.2
     '@tsconfig/strictest':
       specifier: 2.0.8
       version: 2.0.8
@@ -183,7 +183,7 @@ importers:
         version: 5.10.0(eslint@10.14.0)
       '@tsconfig/node':
         specifier: 'catalog:'
-        version: '@tsconfig/node26@26.0.1'
+        version: '@tsconfig/node26@26.0.2'
       '@tsconfig/strictest':
         specifier: 'catalog:'
         version: 2.0.8
@@ -353,7 +353,7 @@ importers:
         version: link:../testing
       '@tsconfig/node':
         specifier: 'catalog:'
-        version: '@tsconfig/node26@26.0.1'
+        version: '@tsconfig/node26@26.0.2'
       '@tsconfig/strictest':
         specifier: 'catalog:'
         version: 2.0.8
@@ -393,7 +393,7 @@ importers:
     devDependencies:
       '@tsconfig/node':
         specifier: 'catalog:'
-        version: '@tsconfig/node26@26.0.1'
+        version: '@tsconfig/node26@26.0.2'
       '@tsconfig/strictest':
         specifier: 'catalog:'
         version: 2.0.8
@@ -1884,8 +1884,8 @@ packages:
       typescript:
         optional: true
 
-  '@tsconfig/node26@26.0.1':
-    resolution: {integrity: sha512-NQT8JUFDKeAIWpR1dakeF534msQAsoSLr1WpKdRDt3sCvk2fsFK3EVKUBG5xKYVamiRO6yTfniiyvCaqOGgn/g==}
+  '@tsconfig/node26@26.0.2':
+    resolution: {integrity: sha512-RIBSoNGQxUQ8r4hSrEzS6TrUneoKaCuX6BjL4zF3wqttGq2w06zCea4d8P1gRvM/HZyDT1FQJ8trZSyy/63oMg==}
 
   '@tsconfig/strictest@2.0.8':
     resolution: {integrity: sha512-XnQ7vNz5HRN0r88GYf1J9JJjqtZPiHt2woGJOo2dYqyHGGcd6OLGqSlBB6p1j9mpzja6Oe5BoPqWmeDx6X9rLw==}
@@ -4637,7 +4637,7 @@ snapshots:
     optionalDependencies:
       typescript: 7.0.2
 
-  '@tsconfig/node26@26.0.1': {}
+  '@tsconfig/node26@26.0.2': {}
 
   '@tsconfig/strictest@2.0.8': {}
 
