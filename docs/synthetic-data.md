@@ -78,12 +78,34 @@ Flow is a half sine wave up while breathing in and a half sine wave down while b
 
 ## A night's files
 
-`@airway/synthetic/files` turns the model into EDF bytes, one file at a time. Each file comes with its start time on the device's clock, and a later step turns those times into file and folder names. The device's clock runs on the night's fixed offset from `AIRWAY_CLOCK_OFFSETS` and doesn't change for daylight saving time.
+`@airway/synthetic/files` turns the model into EDF bytes, one file at a time. Each file comes with its start time on the device's clock, which `cpapData` turns into its file name. The device's clock runs on the night's fixed offset from `AIRWAY_CLOCK_OFFSETS` and doesn't change for daylight saving time.
 
 - `nightFiles(night, offsets)` writes a BRP, PLD, and SAD file for each segment, and one EVE and CSL pair for the night. PLD and SAD files start 1 s after their BRP file, as on the real machine. SAD holds only missing values, as it does without an oximeter. EVE starts with a "Recording starts" annotation, then lists each event with its onset at the event's end, which is how the machine writes them. CSL holds only "Recording starts".
 - `strFile(nights, offsets)` writes STR.edf with one record per day, from the earliest night to the latest, whatever order the nights come in. A day with no night is unused, and every value in its record is -1. MaskOn and MaskOff hold up to 10 mask-on periods, in minutes since noon on the device's clock; unused slots are -1.
 
 The serial, patient, and recording fields hold invented values.
+
+## The CPAP data folder
+
+`cpapData(nights, offsets)` in `@airway/synthetic/cpap-data` returns the whole folder, as an SD card lays it out, as a list of paths and bytes:
+
+```
+Identification.tgt
+Identification.crc
+STR.edf
+DATALOG/
+  20300107/                     the night
+    20300107_213412_BRP.edf     the file's start on the device clock
+    20300107_213412_BRP.crc
+    20300107_213413_PLD.edf
+    20300107_213413_PLD.crc
+    ...
+    20300108_013005_BRP.edf     started after midnight, still in the evening's folder
+```
+
+- `Identification.tgt` has the card's 16 `#KEY value` lines, each starting with CRLF and ending with LF. `#SRN` is the serial the EDF headers name, and `#PNA` is the model. The rest are placeholders.
+- Every file in `DATALOG` has a `.crc` beside it: the CRC-32 of the file's first 256 bytes, then of the rest, each 4 bytes little-endian. `Identification.crc` is the CRC-32 of the whole `.tgt`. `STR.edf` has none, as on the card.
+- A night with no segments writes no files, so it has no folder.
 
 ## Writing EDF files
 
