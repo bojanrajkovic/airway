@@ -102,16 +102,31 @@ function perSignal(
   return signals.map((signal) => [`${signal.label} ${name}`, value(signal), width]);
 }
 
-function toDigital(signal: EdfSignal, value: number): number {
-  if (Number.isNaN(value)) {
-    return MISSING;
+// A signal's samples as digital values, in one pass. NaN becomes the machine's -1, which is an
+// error where -1 is inside the digital range, because it would read back as a value.
+function digitize(signal: EdfSignal, samples: Float64Array): Result<Int16Array, EdfWriteError> {
+  const physicalMin = Number(signal.physicalMin);
+  const size = step(signal);
+  const missingAllowed = signal.digitalMin > MISSING || signal.digitalMax < MISSING;
+  const digital = new Int16Array(samples.length);
+
+  for (let i = 0; i < samples.length; i += 1) {
+    const value = samples[i] ?? 0;
+
+    if (Number.isNaN(value)) {
+      if (!missingAllowed) {
+        return err({ kind: "missing_not_representable", label: signal.label });
+      }
+
+      digital[i] = MISSING;
+    } else {
+      const rounded = Math.round(signal.digitalMin + (value - physicalMin) / size);
+
+      digital[i] = Math.min(signal.digitalMax, Math.max(signal.digitalMin, rounded));
+    }
   }
 
-  const digital = Math.round(
-    signal.digitalMin + (value - Number(signal.physicalMin)) / step(signal),
-  );
-
-  return Math.min(signal.digitalMax, Math.max(signal.digitalMin, digital));
+  return ok(digital);
 }
 
 const recordBytes = (file: EdfFile): number =>
@@ -132,7 +147,6 @@ function signRecords(bytes: Uint8Array, first: number, size: number): Uint8Array
 }
 
 // Every signal must fill the same whole number of records. Crc16 isn't passed in.
-// NaN is allowed only where -1 is outside the digital range, so it can't read back as a value.
 function recordCount(
   file: EdfFile,
   values: ReadonlyMap<string, Float64Array>,
@@ -148,10 +162,6 @@ function recordCount(
 
     if (samples.length % signal.samplesPerRecord !== 0) {
       return err({ kind: "partial_record", label: signal.label, samples: samples.length });
-    }
-
-    if (signal.digitalMin <= MISSING && samples.some(Number.isNaN)) {
-      return err({ kind: "missing_not_representable", label: signal.label });
     }
 
     counts.push({ label: signal.label, records: samples.length / signal.samplesPerRecord });
@@ -175,30 +185,38 @@ export function writeSignals(
   header: EdfHeader,
   values: ReadonlyMap<string, Float64Array>,
 ): Result<Uint8Array, EdfWriteError> {
-  return recordCount(file, values).andThen((records) =>
-    writeHeader(file, header, records).map((headerBytes) => {
-      const bytes = new Uint8Array(headerBytes.length + records * recordBytes(file));
-      const view = new DataView(bytes.buffer);
-      let offset = headerBytes.length;
+  const signals = dataSignals(file);
 
-      bytes.set(headerBytes);
+  return recordCount(file, values)
+    .andThen((records) =>
+      Result.combine(
+        signals.map((signal) => digitize(signal, values.get(signal.label) ?? new Float64Array())),
+      ).map((digital) => ({ records, digital })),
+    )
+    .andThen(({ records, digital }) =>
+      writeHeader(file, header, records).map((headerBytes) => {
+        const bytes = new Uint8Array(headerBytes.length + records * recordBytes(file));
+        // Int16Array writes the host's byte order. EDF is little-endian, as are the hosts airway runs
+        // on. The header's length is a multiple of 256, so the data starts on a 2-byte boundary.
+        const samples = new Int16Array(bytes.buffer, headerBytes.length);
+        const stride = recordBytes(file) / 2;
 
-      for (let record = 0; record < records; record += 1) {
-        for (const signal of file.signals) {
-          const samples = values.get(signal.label);
+        bytes.set(headerBytes);
 
-          for (let i = 0; i < signal.samplesPerRecord; i += 1) {
-            const value = samples?.[record * signal.samplesPerRecord + i];
+        // Each record holds every signal's next run of samples in header order. The trailing
+        // Crc16 is left at 0 for signRecords to fill.
+        for (let record = 0; record < records; record += 1) {
+          let offset = record * stride;
 
-            view.setInt16(offset, value === undefined ? 0 : toDigital(signal, value), true);
-            offset += 2;
+          for (const [i, { samplesPerRecord: per }] of signals.entries()) {
+            samples.set(digital[i]?.subarray(record * per, (record + 1) * per) ?? [], offset);
+            offset += per;
           }
         }
-      }
 
-      return signRecords(bytes, headerBytes.length, recordBytes(file));
-    }),
-  );
+        return signRecords(bytes, headerBytes.length, recordBytes(file));
+      }),
+    );
 }
 
 /**
