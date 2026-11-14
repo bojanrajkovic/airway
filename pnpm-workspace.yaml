@@ -24,6 +24,7 @@ catalog:
   # An alias, so a Node major bump changes only this line, not every tsconfig that extends it.
   "@tsconfig/node": npm:@tsconfig/node26@26.0.1
   "@tsconfig/strictest": 2.0.8
+  "@types/d3-random": 3.0.4
   "@types/node": 26.6.6
   "@types/pg": 8.23.1
   "@types/react": 19.3.0
@@ -32,6 +33,7 @@ catalog:
   "@vitest/browser-playwright": 5.1.0
   babel-plugin-react-compiler: 1.0.0
   crc: 4.3.2
+  d3-random: 3.0.2
   drizzle-kit: 0.31.11
   drizzle-orm: 0.45.4
   drizzle-zod: 0.8.3
