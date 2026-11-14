@@ -33,7 +33,7 @@
 
 - Minor, patch, and digest updates merge on their own once CI passes. Majors wait for review.
 - npm releases wait 3 days. pnpm's own `minimumReleaseAge` refuses anything less than a day old, so a younger version would fail the install.
-- Packages that must move together share one PR: OpenTelemetry, Hono, Vite with Rolldown, Oxlint, the React packages, the Drizzle packages, pg with its types, and Node across `mise.toml`, the `Dockerfile`, and `@types/node`. The Playwright image moves with the playwright package, the Postgres image in `scripts/db.sh` moves with the one in `ci.yml`, and pnpm in the `Dockerfile` moves with `mise.toml`.
+- Packages that must move together share one PR: OpenTelemetry, Hono, Vite with Rolldown, Oxlint, the React packages, the Drizzle packages, pg with its types, and Node across `mise.toml`, the `Dockerfile`, and `@types/node`. The Playwright image moves with the playwright package: Renovate holds the whole group until the npm packages are old enough, so the image never lands without them. The Postgres image in `scripts/db.sh` moves with the one in `ci.yml`, and pnpm in the `Dockerfile` moves with `mise.toml`.
 - Drizzle, pg, the MCP SDK, and ECharts never merge on their own, because each changes the SQL airway runs or what users and agents see. Node majors wait too: the distroless image's name holds the major, and Renovate can't rename it.
 - Update PRs are titled `chore`, so they don't cut a release on their own. Security alerts and new distroless digests are titled `fix`, so they release and reach the deployment.
 

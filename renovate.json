@@ -83,9 +83,15 @@
       "automerge": true
     },
     {
-      "description": "Browser tests run in Playwright's image, whose browsers must match the playwright package. After the GitHub Actions group, so this group wins",
+      "description": "Browser tests run in Playwright's image, whose browsers must match the playwright package. Strict filtering holds the whole group until the npm packages pass their release age, so the image can't ship alone. After the GitHub Actions group, so this group wins",
       "matchPackageNames": ["mcr.microsoft.com/playwright"],
-      "groupName": "playwright monorepo"
+      "groupName": "playwright monorepo",
+      "internalChecksFilter": "strict"
+    },
+    {
+      "description": "Apply strict filtering to the npm side of the playwright group too, so the image can't ship alone",
+      "matchPackageNames": ["playwright", "playwright-core", "@playwright/*"],
+      "internalChecksFilter": "strict"
     },
     {
       "description": "One Postgres image in scripts/db.sh and the CI service, so local and CI tests run the same server. After the GitHub Actions group, so this group wins",
