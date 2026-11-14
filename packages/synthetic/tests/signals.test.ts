@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { syntheticNights, type SyntheticNight } from "../../src/synthetic/model.ts";
-import { breaths, renderBrp } from "../../src/synthetic/signals.ts";
+import { syntheticNights, type SyntheticNight } from "../src/model.ts";
+import { breaths, renderBrp } from "../src/signals.ts";
 
 const HZ = 25;
 // The pediatric step smooths flow with a 5-sample average, then counts crossings of 0.01 L/s.

@@ -232,9 +232,6 @@ importers:
       crc:
         specifier: 'catalog:'
         version: 4.3.2(buffer@6.0.3)
-      d3-random:
-        specifier: 'catalog:'
-        version: 3.0.2
       drizzle-orm:
         specifier: 'catalog:'
         version: 0.45.4(@opentelemetry/api@1.10.0)(@types/pg@8.23.1)(pg@8.23.1)
@@ -257,9 +254,6 @@ importers:
       '@tsconfig/strictest':
         specifier: 'catalog:'
         version: 2.0.8
-      '@types/d3-random':
-        specifier: 'catalog:'
-        version: 3.0.4
       '@types/node':
         specifier: 'catalog:'
         version: 26.6.6
@@ -366,6 +360,37 @@ importers:
       rolldown:
         specifier: 'catalog:'
         version: 1.3.2
+      vitest:
+        specifier: 'catalog:'
+        version: 5.1.0(@opentelemetry/api@1.10.0)(@types/node@26.6.6)(@vitest/browser-playwright@5.1.0)(@vitest/ui@5.1.0)(vite@8.3.8(@types/node@26.6.6)(esbuild@0.28.2)(tsx@4.23.15)(yaml@2.9.1))
+
+  packages/synthetic:
+    dependencies:
+      '@airway/contract':
+        specifier: workspace:*
+        version: link:../contract
+      d3-random:
+        specifier: 'catalog:'
+        version: 3.0.2
+      neverthrow:
+        specifier: 'catalog:'
+        version: 8.2.0
+    devDependencies:
+      '@airway/testing':
+        specifier: workspace:*
+        version: link:../testing
+      '@tsconfig/node':
+        specifier: 'catalog:'
+        version: '@tsconfig/node26@26.0.1'
+      '@tsconfig/strictest':
+        specifier: 'catalog:'
+        version: 2.0.8
+      '@types/d3-random':
+        specifier: 'catalog:'
+        version: 3.0.4
+      '@types/node':
+        specifier: 'catalog:'
+        version: 26.6.6
       vitest:
         specifier: 'catalog:'
         version: 5.1.0(@opentelemetry/api@1.10.0)(@types/node@26.6.6)(@vitest/browser-playwright@5.1.0)(@vitest/ui@5.1.0)(vite@8.3.8(@types/node@26.6.6)(esbuild@0.28.2)(tsx@4.23.15)(yaml@2.9.1))

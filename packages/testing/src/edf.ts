@@ -1,4 +1,5 @@
-// Reads whole files back for edf/write.ts's tests, and assumes they're well formed. It stays
+// Reads whole EDF files back for the writer's and the synthetic files' tests, and assumes they're
+// well formed. It stays
 // separate from ingest's reader on purpose, so one misreading of the format can't pass both
 // sides' tests.
 

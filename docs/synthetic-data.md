@@ -28,7 +28,7 @@ These details are the same on every AirSense 10. They come from the headers of r
 
 ## Synthetic nights
 
-`syntheticNights({ seed, nights, start, patient, zone })` in `@airway/contract/synthetic/model` builds the nights everything else is written from. The same options always give the same nights. All randomness comes from d3-random distributions drawing on one seeded generator.
+`syntheticNights({ seed, nights, start, patient, zone })` in `@airway/synthetic/model` builds the nights everything else is written from. The same options always give the same nights. All randomness comes from d3-random distributions drawing on one seeded generator.
 
 ```ts
 const nights = syntheticNights({ seed: 7, nights: 30 });
@@ -51,7 +51,7 @@ Each night holds:
 
 Unused days are days with no night in the list.
 
-`patient` is `child` (the default) or `adult`, and sets only the breathing numbers in `synthetic/patients.ts`: rate, breath size, event and pause rates, leak, and settings. All are invented round numbers. The scoring rules still come from the configured birth date.
+`patient` is `child` (the default) or `adult`, and sets only the breathing numbers in `@airway/synthetic/patients`: rate, breath size, event and pause rates, leak, and settings. All are invented round numbers. The scoring rules still come from the configured birth date.
 
 Ordinary variation comes from the seed: about 1 night in 8 is short, about 1 in 10 is bad with four times the events, events sometimes cluster, and leak spikes for a few minutes now and then.
 
@@ -59,7 +59,7 @@ The AHI and its parts are `(600 × events) div minutes` in tenths, and MaskEvent
 
 ## The 25 Hz waveform
 
-`renderBrp(segment, night)` in `@airway/contract/synthetic/signals` draws a segment's 25 Hz flow and pressure when a file needs them. That saves storing about 6 MB a night in the model, and the segment's seed makes the result the same every time.
+`renderBrp(segment, night)` in `@airway/synthetic/signals` draws a segment's 25 Hz flow and pressure when a file needs them. That saves storing about 6 MB a night in the model, and the segment's seed makes the result the same every time.
 
 `breaths(segment, night)` lays out the breaths first. Each breath's length follows the 2 s breathing rate at its start, and its volume follows the 2 s tidal volume, shrunk to 40% during a hypopnea. Breathing in takes 40% of a breath. No breath crosses a pause, so each pause lasts exactly as long as the model says. A breath shortened to fit before a pause moves proportionally less air, so its peak stays normal. The model starts every pause and event at least 10 s into its segment, so the first breaths always have room.
 
@@ -67,7 +67,7 @@ Flow is a half sine wave up while breathing in and a half sine wave down while b
 
 ## A night's files
 
-`@airway/contract/synthetic/files` turns the model into EDF bytes, one file at a time. Each file comes with its start time on the device's clock, and a later step turns those times into file and folder names. The device's clock runs on the night's fixed offset from `AIRWAY_CLOCK_OFFSETS` and doesn't change for daylight saving time.
+`@airway/synthetic/files` turns the model into EDF bytes, one file at a time. Each file comes with its start time on the device's clock, and a later step turns those times into file and folder names. The device's clock runs on the night's fixed offset from `AIRWAY_CLOCK_OFFSETS` and doesn't change for daylight saving time.
 
 - `nightFiles(night, offsets)` writes a BRP, PLD, and SAD file for each segment, and one EVE and CSL pair for the night. PLD and SAD files start 1 s after their BRP file, as on the real machine. SAD holds only missing values, as it does without an oximeter. EVE starts with a "Recording starts" annotation, then lists each event with its onset at the event's end, which is how the machine writes them. CSL holds only "Recording starts".
 - `strFile(nights, offsets)` writes STR.edf with one record per day, from the earliest night to the latest, whatever order the nights come in. A day with no night is unused, and every value in its record is -1. MaskOn and MaskOff hold up to 10 mask-on periods, in minutes since noon on the device's clock; unused slots are -1.
@@ -85,4 +85,4 @@ The header's start time is a `Temporal.PlainDateTime` on the device's clock, whi
 
 Both functions return a `Result`. The errors name the signal or field at fault: a missing signal, a signal that doesn't fill a whole number of records, `NaN` where -1 is a real value, signals with different record counts, text too long for its field, or an annotation too long for its record.
 
-The writer's tests read files back with a small reader in `packages/contract/tests/edf/test-reader.ts`.
+The writer's tests read files back with a small reader in `@airway/testing/edf`.

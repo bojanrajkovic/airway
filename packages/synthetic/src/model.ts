@@ -1,5 +1,5 @@
 import { randomLcg, randomNormal, randomPoisson, randomUniform } from "d3-random";
-import { AIRSENSE, dataSignals, step, type EdfFile } from "../edf/airsense.ts";
+import { AIRSENSE, dataSignals, step, type EdfFile } from "@airway/contract/edf/airsense";
 import {
   BREATHING,
   MACHINE_EVENT_TYPES,

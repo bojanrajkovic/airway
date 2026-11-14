@@ -1,4 +1,4 @@
-import type { EVENT_TYPES } from "../derived/values.ts";
+import type { EVENT_TYPES } from "@airway/contract/derived/values";
 
 // Invented round numbers that look like a child or an adult on an AutoSet machine. None come from
 // a real patient.
