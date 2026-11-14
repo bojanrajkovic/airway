@@ -1,7 +1,7 @@
 import { test } from "@airway/testing/postgres";
 import { expect } from "vitest";
 import { z } from "zod";
-import { derivedDdl } from "../../src/derived/ddl.ts";
+import { derivedIndexesAndKeys, derivedTables } from "../../src/derived/ddl.ts";
 import { withClient } from "../support/postgres.ts";
 
 const NIGHT_TABLES = ["files", "sessions", "segments", "events", "samples", "breaths"] as const;
@@ -37,7 +37,7 @@ const countsByNight = NIGHT_TABLES.map(
 
 test("creates every table UNLOGGED, in derived_next", async ({ databaseUrl }) => {
   const tables = await withClient(databaseUrl, async (client) => {
-    await client.query(derivedDdl("derived_next"));
+    await client.query(derivedTables("derived_next") + derivedIndexesAndKeys("derived_next"));
     const result = await client.query(
       `select relname as name, relpersistence as persistence from pg_class
        where relnamespace = 'derived_next'::regnamespace and relkind = 'r' order by relname`,
@@ -68,7 +68,7 @@ test("deleting a night removes its rows from every table, and no other night's",
   databaseUrl,
 }) => {
   const counts = await withClient(databaseUrl, async (client) => {
-    await client.query(derivedDdl("derived"));
+    await client.query(derivedTables("derived") + derivedIndexesAndKeys("derived"));
     await client.query(nightRows("2030-01-01") + nightRows("2030-01-02"));
     await client.query(
       `insert into derived.files (path, kind, size, sha256, ctime)
