@@ -12,7 +12,9 @@
   "dependencies": {
     "@airway/contract": "workspace:*",
     "d3-random": "catalog:",
-    "neverthrow": "catalog:"
+    "neverthrow": "catalog:",
+    "pg": "catalog:",
+    "pg-copy-streams": "catalog:"
   },
   "devDependencies": {
     "@airway/testing": "workspace:*",
@@ -20,6 +22,9 @@
     "@tsconfig/strictest": "catalog:",
     "@types/d3-random": "catalog:",
     "@types/node": "catalog:",
-    "vitest": "catalog:"
+    "@types/pg": "catalog:",
+    "@types/pg-copy-streams": "catalog:",
+    "vitest": "catalog:",
+    "zod": "catalog:"
   }
 }
