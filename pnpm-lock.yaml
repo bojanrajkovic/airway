@@ -31,8 +31,8 @@ catalogs:
       specifier: 0.38.0
       version: 0.38.0
     '@opentelemetry/instrumentation-undici':
-      specifier: 0.35.0
-      version: 0.35.0
+      specifier: 0.35.1
+      version: 0.35.1
     '@opentelemetry/resources':
       specifier: 3.1.1
       version: 3.1.1
@@ -307,7 +307,7 @@ importers:
         version: 0.38.0(@opentelemetry/api@1.10.0)
       '@opentelemetry/instrumentation-undici':
         specifier: 'catalog:'
-        version: 0.35.0(@opentelemetry/api@1.10.0)
+        version: 0.35.1(@opentelemetry/api@1.10.0)
       '@opentelemetry/resources':
         specifier: 'catalog:'
         version: 3.1.1(@opentelemetry/api@1.10.0)
@@ -1225,8 +1225,8 @@ packages:
     peerDependencies:
       '@opentelemetry/api': ^1.10.0
 
-  '@opentelemetry/instrumentation-undici@0.35.0':
-    resolution: {integrity: sha512-nlGS3aR/RvcCqvyXXwqC7j5jhx7fT5Q1G2BZK5DHPHaBMSHUtGMFcMNhqjudnfJ3FVBbMM9NycReEfayL1QjcQ==}
+  '@opentelemetry/instrumentation-undici@0.35.1':
+    resolution: {integrity: sha512-arkBMJmJhHHGgQ15Aun5R+E64lezw3G6yESXqDqqmr7ADieVFUr45NFLTaMeDnDZPdFDXqFspRTwsSaaJzvvkw==}
     engines: {node: '>=22.15.0'}
     peerDependencies:
       '@opentelemetry/api': ^1.10.0
@@ -4225,11 +4225,11 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  '@opentelemetry/instrumentation-undici@0.35.0(@opentelemetry/api@1.10.0)':
+  '@opentelemetry/instrumentation-undici@0.35.1(@opentelemetry/api@1.10.0)':
     dependencies:
       '@opentelemetry/api': 1.10.0
       '@opentelemetry/core': 3.1.1(@opentelemetry/api@1.10.0)
-      '@opentelemetry/instrumentation': 0.301.0(@opentelemetry/api@1.10.0)
+      '@opentelemetry/instrumentation': 0.301.2(@opentelemetry/api@1.10.0)
       '@opentelemetry/semantic-conventions': 1.45.0
     transitivePeerDependencies:
       - supports-color
