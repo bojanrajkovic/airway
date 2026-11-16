@@ -1,3 +1,4 @@
+import { PLD_SAMPLE_SECONDS } from "@airway/contract/edf/airsense";
 import { random, type Segment, type SyntheticNight } from "./model.ts";
 
 /** One breath, with times in seconds from the segment's start and its volume in litres. */
@@ -7,7 +8,6 @@ export type Breath = { start: number; inhale: number; exhale: number; volume: nu
 export type BrpSignals = { flow: Float64Array; pressure: Float64Array };
 
 const HZ = 25;
-const PLD_SECONDS = 2;
 // The share of a breath spent breathing in.
 const INHALE = 0.4;
 // A hypopnea shrinks breaths to this share of their volume.
@@ -20,31 +20,34 @@ const SHORTEST_FIT = 0.25;
 // per 25 Hz sample is the generator's busiest loop, and a Gaussian draw costs several times more.
 const NOISE = 0.002;
 
-type Window = { from: number; to: number };
+type SecondsRange = { from: number; to: number };
 
-const offset = (segment: Segment, at: Temporal.Instant): number =>
+const secondsInto = (segment: Segment, at: Temporal.Instant): number =>
   segment.start.until(at).total("seconds");
 
-type Windows = { pauses: Window[]; hypopneas: Window[] };
+type PauseRanges = { pauses: SecondsRange[]; hypopneas: SecondsRange[] };
 
 // The pauses and hypopneas inside a segment, in seconds from its start.
-function windows(segment: Segment, night: Pick<SyntheticNight, "events" | "pauses">): Windows {
-  const length = offset(segment, segment.end);
-  const inside = ({ from, to }: Window): boolean => from >= 0 && to <= length;
-  const window = ({ at, duration }: { at: Temporal.Instant; duration: number }): Window => {
-    const from = offset(segment, at);
+function pauseRanges(
+  segment: Segment,
+  night: Pick<SyntheticNight, "events" | "pauses">,
+): PauseRanges {
+  const length = secondsInto(segment, segment.end);
+  const inside = ({ from, to }: SecondsRange): boolean => from >= 0 && to <= length;
+  const toRange = ({ at, duration }: { at: Temporal.Instant; duration: number }): SecondsRange => {
+    const from = secondsInto(segment, at);
 
     return { from, to: from + duration };
   };
 
   return {
     pauses: night.pauses
-      .map(window)
+      .map(toRange)
       .filter(inside)
       .sort((a, b) => a.from - b.from),
     hypopneas: night.events
       .filter((event) => event.type === "hypopnea")
-      .map(window)
+      .map(toRange)
       .filter(inside),
   };
 }
@@ -58,16 +61,16 @@ export function breaths(
   segment: Segment,
   night: Pick<SyntheticNight, "events" | "pauses">,
 ): Breath[] {
-  const rate = segment.pld.get("RespRate.2s") ?? new Float64Array();
-  const tidal = segment.pld.get("TidVol.2s") ?? new Float64Array();
-  const length = offset(segment, segment.end);
-  const { pauses, hypopneas } = windows(segment, night);
+  const rate = segment.pldSeries.get("RespRate.2s") ?? new Float64Array();
+  const tidal = segment.pldSeries.get("TidVol.2s") ?? new Float64Array();
+  const length = secondsInto(segment, segment.end);
+  const { pauses, hypopneas } = pauseRanges(segment, night);
   const result: Breath[] = [];
   let time = 0;
   let volume = 0;
 
   while (time < length) {
-    const index = Math.floor(time / PLD_SECONDS);
+    const index = Math.floor(time / PLD_SAMPLE_SECONDS);
     const pause = pauses.find(({ to }) => to > time);
     const nextStop = Math.min(pause?.from ?? length, length);
     const seconds = 60 / (rate[index] ?? 15);
@@ -116,15 +119,15 @@ export function renderBrp(
   night: Pick<SyntheticNight, "events" | "pauses">,
 ): BrpSignals {
   const r = random(segment.seed);
-  const count = Math.round(offset(segment, segment.end) * HZ);
+  const count = Math.round(secondsInto(segment, segment.end) * HZ);
   const flow = new Float64Array(count);
   const pressure = new Float64Array(count);
-  const inhalePressure = segment.pld.get("Press.2s") ?? new Float64Array();
-  const exhalePressure = segment.pld.get("EprPress.2s") ?? new Float64Array();
+  const inhalePressure = segment.pldSeries.get("Press.2s") ?? new Float64Array();
+  const exhalePressure = segment.pldSeries.get("EprPress.2s") ?? new Float64Array();
 
   for (let i = 0; i < count; i += 1) {
     flow[i] = r.uniform(-NOISE, NOISE);
-    pressure[i] = inhalePressure[Math.floor(i / HZ / PLD_SECONDS)] ?? 0;
+    pressure[i] = inhalePressure[Math.floor(i / HZ / PLD_SAMPLE_SECONDS)] ?? 0;
   }
 
   for (const { start, inhale, exhale, volume } of breaths(segment, night)) {
@@ -144,7 +147,7 @@ export function renderBrp(
           : -outHeight * Math.sin((Math.PI * (t - inhale)) / exhale));
 
       if (!breathingIn) {
-        pressure[i] = exhalePressure[Math.floor(i / HZ / PLD_SECONDS)] ?? pressure[i] ?? 0;
+        pressure[i] = exhalePressure[Math.floor(i / HZ / PLD_SAMPLE_SECONDS)] ?? pressure[i] ?? 0;
       }
     }
   }

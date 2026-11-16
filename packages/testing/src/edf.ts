@@ -5,7 +5,7 @@
 
 const decoder = new TextDecoder();
 
-export type ReadSignal = {
+export type ParsedSignal = {
   label: string;
   unit: string;
   physicalMin: string;
@@ -15,7 +15,7 @@ export type ReadSignal = {
   samplesPerRecord: number;
 };
 
-export type ReadFile = {
+export type ParsedEdf = {
   version: string;
   patient: string;
   recording: string;
@@ -25,12 +25,12 @@ export type ReadFile = {
   reserved: string;
   records: number;
   recordDuration: string;
-  signals: ReadSignal[];
+  signals: ParsedSignal[];
   /** Each signal's stored int16 values across all records, by label. */
   digital: Map<string, Int16Array>;
 };
 
-export function readEdf(bytes: Uint8Array): ReadFile {
+export function readEdf(bytes: Uint8Array): ParsedEdf {
   let offset = 0;
   const text = (width: number): string => {
     const value = decoder.decode(bytes.subarray(offset, offset + width)).trimEnd();
@@ -61,7 +61,7 @@ export function readEdf(bytes: Uint8Array): ReadFile {
   const digitalMaxes = column(8).map(Number);
   column(80);
   const samplesPerRecord = column(8).map(Number);
-  const signals = labels.map((label, i): ReadSignal => ({
+  const signals = labels.map((label, i): ParsedSignal => ({
     label,
     unit: units[i] ?? "",
     physicalMin: physicalMins[i] ?? "",

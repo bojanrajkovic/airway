@@ -24,7 +24,7 @@ export type EdfSignal = {
 };
 
 /** One AirSense 10 file type. */
-export type EdfFile = {
+export type EdfFileType = {
   /** The header's reserved field: `EDF` for signal files, `EDF+D` for annotation files. */
   format: "EDF" | "EDF+D";
   /** Seconds per data record. Annotation files use 0. */
@@ -42,7 +42,7 @@ export function step(signal: EdfSignal): number {
 }
 
 /** A file's signals without its trailing Crc16, which holds a checksum rather than data. */
-export const dataSignals = (file: EdfFile): readonly EdfSignal[] =>
+export const dataSignals = (file: EdfFileType): readonly EdfSignal[] =>
   file.signals.filter((signal) => signal.label !== "Crc16");
 
 const none: SignalTarget = { table: "none" };
@@ -58,7 +58,7 @@ type Measure = readonly [
   digitalMax: number,
 ];
 
-function edf(
+function signal(
   label: string,
   [unit, physicalMin, physicalMax, digitalMin, digitalMax]: Measure,
   samplesPerRecord: number,
@@ -76,7 +76,7 @@ function edf(
   };
 }
 
-const crc16 = edf("Crc16", ["", "-32768", "32767", -32768, 32767], 1);
+const crc16 = signal("Crc16", ["", "-32768", "32767", -32768, 32767], 1);
 
 // Settings #12 names. Every other S.* setting keeps its label as its name.
 const SETTING_NAMES: Readonly<Record<string, string>> = {
@@ -87,12 +87,12 @@ const SETTING_NAMES: Readonly<Record<string, string>> = {
 };
 
 const setting = (label: string, measure: Measure): EdfSignal =>
-  edf(label, measure, 1, { table: "settings", name: SETTING_NAMES[label] ?? label });
+  signal(label, measure, 1, { table: "settings", name: SETTING_NAMES[label] ?? label });
 
 // An on/off or choice code, stored as 0 to 16.
 const CODE: Measure = ["", "0", "16", 0, 16];
 const choice = (label: string): EdfSignal => setting(label, CODE);
-const flag = (label: string): EdfSignal => edf(label, CODE, 1);
+const flag = (label: string): EdfSignal => signal(label, CODE, 1);
 const pressureSetting = (label: string): EdfSignal =>
   setting(label, ["cmH2O", "4.00", "20.00", 200, 1000]);
 
@@ -107,58 +107,58 @@ function statistics(
   suffixes: readonly StatisticSuffix[] = ["50", "95", "Max"],
 ): EdfSignal[] {
   return suffixes.map((suffix) =>
-    edf(`${prefix}.${suffix}`, measure, 1, night(`${column}_${STATISTIC_SUFFIXES[suffix]}`)),
+    signal(`${prefix}.${suffix}`, measure, 1, night(`${column}_${STATISTIC_SUFFIXES[suffix]}`)),
   );
 }
 
 const index = (label: string): EdfSignal =>
-  edf(label, ["", "0.00", "240.00", 0, 2400], 1, night(label.toLowerCase()));
+  signal(label, ["", "0.00", "240.00", 0, 2400], 1, night(label.toLowerCase()));
 
 /** 25 Hz flow and pressure, in 60 s records. */
-const brp: EdfFile = {
+const brp: EdfFileType = {
   format: "EDF",
   recordSeconds: 60,
   signals: [
-    edf("Flow.40ms", ["L/s", "-2.00", "3.00", -1000, 1500], 1500),
-    edf("Press.40ms", ["cmH2O", "0.00", "40.00", 0, 2000], 1500),
+    signal("Flow.40ms", ["L/s", "-2.00", "3.00", -1000, 1500], 1500),
+    signal("Press.40ms", ["cmH2O", "0.00", "40.00", 0, 2000], 1500),
     crc16,
   ],
 };
 
 /** The 2 s signals, in 60 s records. */
-const pld: EdfFile = {
+const pld: EdfFileType = {
   format: "EDF",
   recordSeconds: 60,
   signals: [
-    edf("MaskPress.2s", ["cmH2O", "0.00", "40.00", 0, 2000], 30, sample("mask_pressure")),
-    edf("Press.2s", ["cmH2O", "0.00", "30.00", 0, 1500], 30, sample("pressure")),
-    edf("EprPress.2s", ["cmH2O", "0.00", "30.00", 0, 1500], 30, sample("epr_pressure")),
-    edf("Leak.2s", ["L/s", "0.00", "2.00", 0, 100], 30, sample("leak")),
-    edf("RespRate.2s", ["bpm", "0.00", "50.00", 0, 250], 30, sample("respiratory_rate")),
-    edf("TidVol.2s", ["L", "0.00", "4.00", 0, 200], 30, sample("tidal_volume")),
-    edf("MinVent.2s", ["L/min", "0.00", "30.00", 0, 240], 30, sample("minute_ventilation")),
-    edf("Snore.2s", ["", "0.00", "5.00", 0, 250], 30, sample("snore")),
-    edf("FlowLim.2s", ["", "0.00", "1.00", 0, 100], 30, sample("flow_limitation")),
+    signal("MaskPress.2s", ["cmH2O", "0.00", "40.00", 0, 2000], 30, sample("mask_pressure")),
+    signal("Press.2s", ["cmH2O", "0.00", "30.00", 0, 1500], 30, sample("pressure")),
+    signal("EprPress.2s", ["cmH2O", "0.00", "30.00", 0, 1500], 30, sample("epr_pressure")),
+    signal("Leak.2s", ["L/s", "0.00", "2.00", 0, 100], 30, sample("leak")),
+    signal("RespRate.2s", ["bpm", "0.00", "50.00", 0, 250], 30, sample("respiratory_rate")),
+    signal("TidVol.2s", ["L", "0.00", "4.00", 0, 200], 30, sample("tidal_volume")),
+    signal("MinVent.2s", ["L/min", "0.00", "30.00", 0, 240], 30, sample("minute_ventilation")),
+    signal("Snore.2s", ["", "0.00", "5.00", 0, 250], 30, sample("snore")),
+    signal("FlowLim.2s", ["", "0.00", "1.00", 0, 100], 30, sample("flow_limitation")),
     crc16,
   ],
 };
 
 /** Pulse oximetry, at 1 Hz in 60 s records. Without a sensor, every value is missing. */
-const sad: EdfFile = {
+const sad: EdfFileType = {
   format: "EDF",
   recordSeconds: 60,
   signals: [
-    edf("Pulse.1s", ["bpm", "18.00", "300.00", 18, 300], 60),
-    edf("SpO2.1s", ["%", "0.00", "100.00", 0, 100], 60),
+    signal("Pulse.1s", ["bpm", "18.00", "300.00", 18, 300], 60),
+    signal("SpO2.1s", ["%", "0.00", "100.00", 0, 100], 60),
     crc16,
   ],
 };
 
-const annotations = (samplesPerRecord: number): EdfFile => ({
+const annotations = (samplesPerRecord: number): EdfFileType => ({
   format: "EDF+D",
   recordSeconds: 0,
   signals: [
-    edf("EDF Annotations", ["", "0.00", "86400.00", -32768, 32767], samplesPerRecord),
+    signal("EDF Annotations", ["", "0.00", "86400.00", -32768, 32767], samplesPerRecord),
     crc16,
   ],
 });
@@ -169,17 +169,17 @@ const eve = annotations(19);
 const csl = annotations(15);
 
 /** The daily summary: one 86,400 s record per day. */
-const str: EdfFile = {
+const str: EdfFileType = {
   format: "EDF",
   recordSeconds: 86_400,
   signals: [
-    edf("Date", ["", "0.00", "24836.00", 0, 24836], 1),
-    edf("MaskOn", ["min.", "0.00", "1440.00", 0, 1440], 10),
-    edf("MaskOff", ["min.", "0.00", "1440.00", 0, 1440], 10),
-    edf("MaskEvents", ["", "0.00", "255.00", 0, 255], 1, night("mask_events")),
-    edf("Duration", ["min.", "0.00", "1440.00", 0, 1440], 1, night("machine_on")),
-    edf("OnDuration", ["min.", "0.00", "1440.00", 0, 1440], 1, night("usage")),
-    edf("PatientHours", ["hrs", "0.00", "65534.00", 0, 65534], 1),
+    signal("Date", ["", "0.00", "24836.00", 0, 24836], 1),
+    signal("MaskOn", ["min.", "0.00", "1440.00", 0, 1440], 10),
+    signal("MaskOff", ["min.", "0.00", "1440.00", 0, 1440], 10),
+    signal("MaskEvents", ["", "0.00", "255.00", 0, 255], 1, night("mask_events")),
+    signal("Duration", ["min.", "0.00", "1440.00", 0, 1440], 1, night("machine_on")),
+    signal("OnDuration", ["min.", "0.00", "1440.00", 0, 1440], 1, night("usage")),
+    signal("PatientHours", ["hrs", "0.00", "65534.00", 0, 65534], 1),
     flag("Mode"),
     choice("S.RampEnable"),
     setting("S.RampTime", ["min.", "5.00", "45.00", 5, 45]),
@@ -205,20 +205,20 @@ const str: EdfFile = {
     setting("S.Temp", ["°C", "16.00", "30.00", 160, 300]),
     flag("HeatedTube"),
     flag("Humidifier"),
-    edf("BlowPress.95", ["cmH2O", "0.00", "45.00", 0, 2250], 1),
-    edf("BlowPress.5", ["cmH2O", "0.00", "45.00", 0, 2250], 1),
-    edf("Flow.95", ["L/s", "0.00", "3.00", 0, 1500], 1),
-    edf("Flow.5", ["L/s", "0.00", "3.00", 0, 1500], 1),
-    edf("BlowFlow.50", ["L/min", "0.00", "250.00", 0, 25000], 1),
-    edf("AmbHumidity.50", ["mg/L", "0.00", "100.00", 0, 100], 1, night("ambient_humidity_p50")),
-    edf("HumTemp.50", ["°C", "0.00", "95.00", 0, 950], 1, night("humidifier_temperature_p50")),
-    edf("HTubeTemp.50", ["°C", "0.00", "40.00", 0, 400], 1, night("tube_temperature_p50")),
-    edf("HTubePow.50", ["", "0.00", "100.00", 0, 100], 1, night("tube_power_p50")),
-    edf("HumPow.50", ["", "0.00", "100.00", 0, 100], 1, night("humidifier_power_p50")),
-    edf("SpO2.50", ["%", "0.00", "100.00", 0, 100], 1),
-    edf("SpO2.95", ["%", "0.00", "100.00", 0, 100], 1),
-    edf("SpO2.Max", ["%", "0.00", "100.00", 0, 100], 1),
-    edf("SpO2Thresh", ["min.", "0.00", "1440.00", 0, 1440], 1),
+    signal("BlowPress.95", ["cmH2O", "0.00", "45.00", 0, 2250], 1),
+    signal("BlowPress.5", ["cmH2O", "0.00", "45.00", 0, 2250], 1),
+    signal("Flow.95", ["L/s", "0.00", "3.00", 0, 1500], 1),
+    signal("Flow.5", ["L/s", "0.00", "3.00", 0, 1500], 1),
+    signal("BlowFlow.50", ["L/min", "0.00", "250.00", 0, 25000], 1),
+    signal("AmbHumidity.50", ["mg/L", "0.00", "100.00", 0, 100], 1, night("ambient_humidity_p50")),
+    signal("HumTemp.50", ["°C", "0.00", "95.00", 0, 950], 1, night("humidifier_temperature_p50")),
+    signal("HTubeTemp.50", ["°C", "0.00", "40.00", 0, 400], 1, night("tube_temperature_p50")),
+    signal("HTubePow.50", ["", "0.00", "100.00", 0, 100], 1, night("tube_power_p50")),
+    signal("HumPow.50", ["", "0.00", "100.00", 0, 100], 1, night("humidifier_power_p50")),
+    signal("SpO2.50", ["%", "0.00", "100.00", 0, 100], 1),
+    signal("SpO2.95", ["%", "0.00", "100.00", 0, 100], 1),
+    signal("SpO2.Max", ["%", "0.00", "100.00", 0, 100], 1),
+    signal("SpO2Thresh", ["min.", "0.00", "1440.00", 0, 1440], 1),
     ...statistics("MaskPress", "mask_pressure", ["cmH2O", "0.00", "30.00", 0, 1500]),
     ...statistics("TgtIPAP", "target_ipap", ["cmH2O", "0.00", "30.00", 0, 1500]),
     ...statistics("TgtEPAP", "target_epap", ["cmH2O", "0.00", "30.00", 0, 1500]),
@@ -233,7 +233,7 @@ const str: EdfFile = {
     index("CAI"),
     index("UAI"),
     index("RIN"),
-    edf("CSR", ["", "0.00", "1440.00", 0, 1440], 1, night("csr")),
+    signal("CSR", ["", "0.00", "1440.00", 0, 1440], 1, night("csr")),
     flag("Fault.Device"),
     flag("Fault.Alarm"),
     flag("Fault.Humidifier"),
@@ -246,4 +246,10 @@ const str: EdfFile = {
  * Every AirSense 10 EDF file airway reads or writes, as its headers declare them. The format
  * details are the same on every AirSense 10.
  */
-export const AIRSENSE = { brp, pld, sad, eve, csl, str } as const satisfies Record<string, EdfFile>;
+export const AIRSENSE = { brp, pld, sad, eve, csl, str } as const satisfies Record<
+  string,
+  EdfFileType
+>;
+
+/** Seconds between two values of a PLD signal: each record's samples span its 60 s. */
+export const PLD_SAMPLE_SECONDS = pld.recordSeconds / (pld.signals[0]?.samplesPerRecord ?? 1);

@@ -1,5 +1,5 @@
 import { err, Result } from "neverthrow";
-import { offsetForNight, type BeforeFirstOffset, type ClockOffset } from "@airway/contract/clock";
+import { offsetForNight, type NoOffsetForNight, type ClockOffset } from "@airway/contract/clock";
 import { AIRSENSE, dataSignals } from "@airway/contract/edf/airsense";
 import {
   writeAnnotations,
@@ -18,7 +18,7 @@ export type NightFile = {
   bytes: Uint8Array;
 };
 
-export type SyntheticFileError = EdfWriteError | BeforeFirstOffset | { kind: "no_nights" };
+export type SyntheticFileError = EdfWriteError | NoOffsetForNight | { kind: "no_nights" };
 
 /** How EVE files label each event type. */
 export const EVENT_LABELS: Readonly<Record<MachineEventType, string>> = {
@@ -30,9 +30,9 @@ export const EVENT_LABELS: Readonly<Record<MachineEventType, string>> = {
 };
 
 const RECORDING_STARTS = { onset: 0, duration: 0, label: "Recording starts" };
-// PLD and SAD files start this long after their BRP file, as on the real machine.
-const FOLLOWER_SECONDS = 1;
-const PATIENT = "X X X X";
+/** PLD and SAD files start this long after their BRP file, as on the real machine. */
+export const PLD_LAG_SECONDS = 1;
+const EDF_PATIENT_FIELD = "X X X X";
 /** The invented machine every synthetic file names. */
 export const DEVICE = { serial: "SYNTHETIC-0001", model: "AirSense_10_AutoSet" };
 
@@ -42,7 +42,7 @@ const MONTHS = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "
 // and equipment, with X for unknown.
 const header = (start: Temporal.PlainDateTime): EdfHeader => ({
   start,
-  patient: PATIENT,
+  patient: EDF_PATIENT_FIELD,
   recording: `Startdate ${String(start.day).padStart(2, "0")}-${MONTHS[start.month - 1] ?? "X"}-${start.year.toString()} X X ${DEVICE.serial}`,
 });
 
@@ -64,7 +64,7 @@ export function nightFiles(
   return offsetForNight(offsets, night.night).andThen((offset) => {
     const segmentFiles = night.segments.map((segment) => {
       const start = deviceTime(segment.start, offset);
-      const follower = start.add({ seconds: FOLLOWER_SECONDS });
+      const pldSadStart = start.add({ seconds: PLD_LAG_SECONDS });
       const { flow, pressure } = renderBrp(segment, night);
       const seconds = segment.start.until(segment.end).total("seconds");
       const sad = new Map([
@@ -81,14 +81,16 @@ export function nightFiles(
             ["Press.40ms", pressure],
           ]),
         ).map((bytes): NightFile => ({ kind: "brp", start, bytes })),
-        writeSignals(AIRSENSE.pld, header(follower), segment.pld).map((bytes): NightFile => ({
-          kind: "pld",
-          start: follower,
-          bytes,
-        })),
-        writeSignals(AIRSENSE.sad, header(follower), sad).map((bytes): NightFile => ({
+        writeSignals(AIRSENSE.pld, header(pldSadStart), segment.pldSeries).map(
+          (bytes): NightFile => ({
+            kind: "pld",
+            start: pldSadStart,
+            bytes,
+          }),
+        ),
+        writeSignals(AIRSENSE.sad, header(pldSadStart), sad).map((bytes): NightFile => ({
           kind: "sad",
-          start: follower,
+          start: pldSadStart,
           bytes,
         })),
       ]);

@@ -1,12 +1,19 @@
 import { randomLcg, randomNormal, randomPoisson, randomUniform } from "d3-random";
-import { AIRSENSE, dataSignals, step, type EdfFile } from "@airway/contract/edf/airsense";
 import {
+  AIRSENSE,
+  dataSignals,
+  PLD_SAMPLE_SECONDS,
+  step,
+  type EdfFileType,
+} from "@airway/contract/edf/airsense";
+import {
+  APNEAS,
   BREATHING,
   MACHINE_EVENT_TYPES,
   type Breathing,
   type MachineEventType,
   type Patient,
-  type Spread,
+  type WeightedRanges,
 } from "./patients.ts";
 
 export type SyntheticOptions = {
@@ -33,7 +40,7 @@ export type Segment = {
   /** Seeds the 25 Hz detail, so rendering one segment doesn't depend on any other. */
   seed: number;
   /** The nine 2 s series by PLD label, one value per 2 s, on each signal's step. */
-  pld: ReadonlyMap<string, Float64Array>;
+  pldSeries: ReadonlyMap<string, Float64Array>;
 };
 
 /** An event the machine scores and writes to EVE. `at` is its start; `duration` is in seconds. */
@@ -67,7 +74,6 @@ export type SyntheticNight = {
 
 const DEFAULT_START = Temporal.PlainDate.from("2030-01-07");
 const DEFAULT_ZONE = "America/Chicago";
-const SAMPLE_SECONDS = 2;
 const MACHINE_APNEA_SECONDS = 10;
 // Breaks between mask-on periods: at least 60 s, plus a log-normal draw with a median of 140 s and
 // a p95 near 25 minutes, so the whole break has a median near 200 s. Capped at 3 hours.
@@ -81,11 +87,6 @@ const LAST_OFF = Temporal.PlainTime.from("11:00");
 const LEAD_SECONDS = 10;
 // Keeps episodes apart, so a pause never runs into the next event.
 const EPISODE_SPACING_SECONDS = 30;
-const APNEAS: ReadonlySet<MachineEventType> = new Set([
-  "obstructive_apnea",
-  "central_apnea",
-  "unclassified_apnea",
-]);
 
 export type Random = {
   uniform: (min: number, max: number) => number;
@@ -114,7 +115,7 @@ export function random(seed: number): Random {
 }
 
 /** Rounds a value to its signal's step and keeps it in range. NaN stays NaN. */
-function snapper(file: EdfFile): (label: string, value: number) => number {
+function roundToStep(file: EdfFileType): (label: string, value: number) => number {
   const ranges = new Map(
     file.signals.map((signal) => [
       signal.label,
@@ -137,8 +138,8 @@ function snapper(file: EdfFile): (label: string, value: number) => number {
   };
 }
 
-const snapPld = snapper(AIRSENSE.pld);
-const snapStr = snapper(AIRSENSE.str);
+const snapPld = roundToStep(AIRSENSE.pld);
+const snapStr = roundToStep(AIRSENSE.str);
 
 /**
  * Builds a fixed, invented set of nights from a seed. The same options always give the same
@@ -191,7 +192,7 @@ function buildNight(
     start,
     end,
     seed: r.int(0, 2 ** 31),
-    pld: pldSeries(r, { breathing, start, end, rate, events, pauses }),
+    pldSeries: drawPldSeries(r, { breathing, start, end, rate, events, pauses }),
   }));
 
   return {
@@ -207,14 +208,14 @@ function buildNight(
 type Interval = { start: Temporal.Instant; end: Temporal.Instant };
 type PlacedPeriods = { periods: MaskPeriod[]; segmentTimes: Interval[] };
 
-/** A whole number from one of the spread's ranges, picked by weight. */
-function pick(r: Random, spread: Spread): number {
+/** A whole number from one of the weighted ranges, picked by weight. */
+function pick(r: Random, ranges: WeightedRanges): number {
   let draw = r.uniform(
     0,
-    spread.reduce((sum, { weight }) => sum + weight, 0),
+    ranges.reduce((sum, { weight }) => sum + weight, 0),
   );
 
-  for (const { weight, min, max } of spread) {
+  for (const { weight, min, max } of ranges) {
     if (draw < weight) {
       return r.int(min, max + 1);
     }
@@ -222,10 +223,10 @@ function pick(r: Random, spread: Spread): number {
     draw -= weight;
   }
 
-  return spread.at(-1)?.max ?? 0;
+  return ranges.at(-1)?.max ?? 0;
 }
 
-type File = { minutes: number; gapAfter: number };
+type PlannedFile = { minutes: number; gapAfter: number };
 type PeriodInputs = {
   breathing: Breathing;
   bedtime: Temporal.Instant;
@@ -243,8 +244,8 @@ function placePeriods(
 ): PlacedPeriods {
   const weights = Array.from({ length: pick(r, breathing.periods) }, () => r.uniform(1, 3));
   const total = sum(weights);
-  const layouts = weights.map((weight): File[] => {
-    const files: File[] = [];
+  const layouts = weights.map((weight): PlannedFile[] => {
+    const files: PlannedFile[] = [];
     let remaining = Math.max(1, Math.round((usageTarget * weight) / total));
 
     while (remaining > 0) {
@@ -481,9 +482,9 @@ const seconds = (from: Temporal.Instant, to: Temporal.Instant): number =>
 // The nine 2 s series of one segment. Breathing drifts slowly around the night's rate, flow
 // stops during apneas and pediatric pauses, and the AutoSet pressure rises after each apnea or
 // hypopnea and eases back toward the minimum.
-function pldSeries(r: Random, inputs: SeriesInputs): Map<string, Float64Array> {
+function drawPldSeries(r: Random, inputs: SeriesInputs): Map<string, Float64Array> {
   const { breathing, start, end, rate, events, pauses } = inputs;
-  const count = Math.round(seconds(start, end) / SAMPLE_SECONDS);
+  const count = Math.round(seconds(start, end) / PLD_SAMPLE_SECONDS);
   const series = new Map(PLD_LABELS.map((label) => [label, new Float64Array(count)]));
   const { pressure: range, epr } = breathing;
   const minPressure = range.min;
@@ -496,17 +497,17 @@ function pldSeries(r: Random, inputs: SeriesInputs): Map<string, Float64Array> {
     return { from: at, to: at + r.int(30, 151), height: r.uniform(0.2, 0.6) };
   });
   // When each stop in flow and each pressure rise happens, in sample numbers.
-  const toSample = (at: Temporal.Instant): number => seconds(start, at) / SAMPLE_SECONDS;
+  const toSample = (at: Temporal.Instant): number => seconds(start, at) / PLD_SAMPLE_SECONDS;
   const stops = pauses
     .filter((pause) => pause.kind !== "dip")
     .map((pause) => ({
       from: toSample(pause.at),
-      to: toSample(pause.at) + pause.duration / SAMPLE_SECONDS,
+      to: toSample(pause.at) + pause.duration / PLD_SAMPLE_SECONDS,
     }));
   const rises = new Set(
     events
       .filter((event) => event.type !== "arousal")
-      .map((event) => Math.round(toSample(event.at) + event.duration / SAMPLE_SECONDS)),
+      .map((event) => Math.round(toSample(event.at) + event.duration / PLD_SAMPLE_SECONDS)),
   );
   let rateDrift = 0;
   let volumeDrift = 0;
@@ -569,7 +570,7 @@ function strValues(
   { breathing, periods, segments, events, usage }: StrInputs,
 ): Map<string, number> {
   const night = (label: string): Float64Array => {
-    const parts = segments.map((segment) => segment.pld.get(label) ?? new Float64Array());
+    const parts = segments.map((segment) => segment.pldSeries.get(label) ?? new Float64Array());
     const values = new Float64Array(parts.reduce((sum, part) => sum + part.length, 0));
 
     parts.reduce((offset, part) => {

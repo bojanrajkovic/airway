@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { AIRSENSE, step, type EdfFile } from "@airway/contract/edf/airsense";
+import { AIRSENSE, step, type EdfFileType } from "@airway/contract/edf/airsense";
 import { syntheticNights, type SyntheticNight } from "../src/model.ts";
 
 const nights = syntheticNights({ seed: 7, nights: 30 });
@@ -8,7 +8,7 @@ const adults = syntheticNights({ seed: 7, nights: 30, patient: "adult" });
 const seconds = (from: Temporal.Instant, to: Temporal.Instant): number =>
   from.until(to).total("seconds");
 
-function onStep(file: EdfFile, label: string, value: number): boolean {
+function onStep(file: EdfFileType, label: string, value: number): boolean {
   const signal = file.signals.find((s) => s.label === label);
 
   if (signal === undefined || Number.isNaN(value)) {
@@ -72,7 +72,7 @@ describe("syntheticNights", () => {
       }
 
       for (const segment of night.segments) {
-        for (const [label, values] of segment.pld) {
+        for (const [label, values] of segment.pldSeries) {
           expect(
             values.every((value) => onStep(AIRSENSE.pld, label, value)),
             label,
@@ -99,7 +99,9 @@ describe("syntheticNights", () => {
     for (const night of nights) {
       for (const segment of night.segments) {
         expect(seconds(segment.start, segment.end) % 60).toBe(0);
-        expect(segment.pld.get("Leak.2s")).toHaveLength(seconds(segment.start, segment.end) / 2);
+        expect(segment.pldSeries.get("Leak.2s")).toHaveLength(
+          seconds(segment.start, segment.end) / 2,
+        );
       }
 
       for (const { at, duration } of [...night.events, ...night.pauses]) {
@@ -131,7 +133,9 @@ describe("syntheticNights", () => {
 
   it("takes the medians and leak percentiles from the 2 s data", () => {
     const [night] = nights;
-    const leak = night?.segments.flatMap((segment) => [...(segment.pld.get("Leak.2s") ?? [])]);
+    const leak = night?.segments.flatMap((segment) => [
+      ...(segment.pldSeries.get("Leak.2s") ?? []),
+    ]);
 
     expect(night?.str.get("Leak.50")).toBeCloseTo(median(leak ?? []), 1);
   });

@@ -1,6 +1,6 @@
 import crc16ccitt from "crc/calculators/crc16ccitt";
 import { err, ok, Result } from "neverthrow";
-import { dataSignals, step, type EdfFile, type EdfSignal } from "./airsense.ts";
+import { dataSignals, step, type EdfFileType, type EdfSignal } from "./airsense.ts";
 
 /** The header fields that change from file to file. */
 export type EdfHeader = {
@@ -55,7 +55,7 @@ class HeaderBuilder {
 const two = (value: number): string => value.toString().padStart(2, "0");
 
 function writeHeader(
-  file: EdfFile,
+  file: EdfFileType,
   header: EdfHeader,
   records: number,
 ): Result<Uint8Array, EdfWriteError> {
@@ -129,7 +129,7 @@ function digitize(signal: EdfSignal, samples: Float64Array): Result<Int16Array, 
   return ok(digital);
 }
 
-const recordBytes = (file: EdfFile): number =>
+const recordBytes = (file: EdfFileType): number =>
   2 * file.signals.reduce((sum, signal) => sum + signal.samplesPerRecord, 0);
 
 // Every record ends with its Crc16 sample: the CRC-16/CCITT-FALSE of the record's other bytes,
@@ -148,7 +148,7 @@ function signRecords(bytes: Uint8Array, first: number, size: number): Uint8Array
 
 // Every signal must fill the same whole number of records. Crc16 isn't passed in.
 function recordCount(
-  file: EdfFile,
+  file: EdfFileType,
   values: ReadonlyMap<string, Float64Array>,
 ): Result<number, EdfWriteError> {
   const counts: { label: string; records: number }[] = [];
@@ -181,7 +181,7 @@ function recordCount(
  * record ends with its checksum.
  */
 export function writeSignals(
-  file: EdfFile,
+  file: EdfFileType,
   header: EdfHeader,
   values: ReadonlyMap<string, Float64Array>,
 ): Result<Uint8Array, EdfWriteError> {
@@ -225,7 +225,7 @@ export function writeSignals(
  * padded with zeros. Each record ends with its checksum.
  */
 export function writeAnnotations(
-  file: EdfFile,
+  file: EdfFileType,
   header: EdfHeader,
   annotations: readonly Annotation[],
 ): Result<Uint8Array, EdfWriteError> {
