@@ -6,6 +6,7 @@ import {
   type Breathing,
   type MachineEventType,
   type Patient,
+  type Spread,
 } from "./patients.ts";
 
 export type SyntheticOptions = {
@@ -68,6 +69,14 @@ const DEFAULT_START = Temporal.PlainDate.from("2030-01-07");
 const DEFAULT_ZONE = "America/Chicago";
 const SAMPLE_SECONDS = 2;
 const MACHINE_APNEA_SECONDS = 10;
+// Breaks between mask-on periods: at least 60 s, plus a log-normal draw with a median of 140 s and
+// a p95 near 25 minutes, so the whole break has a median near 200 s. Capped at 3 hours.
+const BREAK_FLOOR_SECONDS = 60;
+const BREAK_MEDIAN_EXTRA_SECONDS = 140;
+const BREAK_SPREAD = 1.42;
+const BREAK_CAP_SECONDS = 3 * 3600;
+// The last mask-off, an hour before the noon boundary between nights.
+const LAST_OFF = Temporal.PlainTime.from("11:00");
 // Keeps episodes this far into a segment, so the first breaths have room before a pause.
 const LEAD_SECONDS = 10;
 // Keeps episodes apart, so a pause never runs into the next event.
@@ -166,7 +175,13 @@ function buildNight(
   const bad = r.chance(1 / 10);
   const usageTarget = short ? r.int(120, 241) : r.int(420, 541);
   const bedtime = evening.toInstant().add({ minutes: r.int(0, 121) });
-  const { periods, segmentTimes } = placePeriods(r, bedtime, usageTarget);
+  const latest = evening.add({ days: 1 }).withPlainTime(LAST_OFF).toInstant();
+  const { periods, segmentTimes } = placePeriods(r, {
+    breathing,
+    bedtime,
+    latest,
+    usageTarget,
+  });
   const usage = Math.floor(
     periods.reduce((sum, { on, off }) => sum + on.until(off).total("seconds"), 0) / 60,
   );
@@ -192,33 +207,91 @@ function buildNight(
 type Interval = { start: Temporal.Instant; end: Temporal.Instant };
 type PlacedPeriods = { periods: MaskPeriod[]; segmentTimes: Interval[] };
 
-// One to three mask-on periods with short breaks, each split into BRP segments 60 to 120 s apart.
-function placePeriods(r: Random, bedtime: Temporal.Instant, usageTarget: number): PlacedPeriods {
-  const count = r.int(1, 4);
-  const weights = Array.from({ length: count }, () => r.uniform(1, 3));
-  const total = weights.reduce((sum, weight) => sum + weight, 0);
+/** A whole number from one of the spread's ranges, picked by weight. */
+function pick(r: Random, spread: Spread): number {
+  let draw = r.uniform(
+    0,
+    spread.reduce((sum, { weight }) => sum + weight, 0),
+  );
+
+  for (const { weight, min, max } of spread) {
+    if (draw < weight) {
+      return r.int(min, max + 1);
+    }
+
+    draw -= weight;
+  }
+
+  return spread.at(-1)?.max ?? 0;
+}
+
+type File = { minutes: number; gapAfter: number };
+type PeriodInputs = {
+  breathing: Breathing;
+  bedtime: Temporal.Instant;
+  latest: Temporal.Instant;
+  usageTarget: number;
+};
+
+const sum = (values: readonly number[]): number => values.reduce((a, b) => a + b, 0);
+
+// Mask-on periods split into BRP files, with the patient's file gaps inside a period and long-tailed
+// breaks between periods. Breaks shrink when needed so the last period ends by `latest`.
+function placePeriods(
+  r: Random,
+  { breathing, bedtime, latest, usageTarget }: PeriodInputs,
+): PlacedPeriods {
+  const weights = Array.from({ length: pick(r, breathing.periods) }, () => r.uniform(1, 3));
+  const total = sum(weights);
+  const layouts = weights.map((weight): File[] => {
+    const files: File[] = [];
+    let remaining = Math.max(1, Math.round((usageTarget * weight) / total));
+
+    while (remaining > 0) {
+      const minutes = Math.min(remaining, r.int(30, 151));
+
+      files.push({ minutes, gapAfter: pick(r, breathing.fileGaps) });
+      remaining -= minutes;
+    }
+
+    return files;
+  });
+  const extras = layouts
+    .slice(1)
+    .map(() =>
+      Math.min(
+        BREAK_CAP_SECONDS - BREAK_FLOOR_SECONDS,
+        Math.exp(r.normal(Math.log(BREAK_MEDIAN_EXTRA_SECONDS), BREAK_SPREAD)),
+      ),
+    );
+  // A break or the night's end follows each period's last file, so that file's gap goes unused.
+  const periodSeconds = sum(
+    layouts.map(
+      (files) =>
+        sum(files.map((file) => file.minutes * 60 + file.gapAfter)) - (files.at(-1)?.gapAfter ?? 0),
+    ),
+  );
+  const room =
+    bedtime.until(latest).total("seconds") - periodSeconds - BREAK_FLOOR_SECONDS * extras.length;
+  const scale = Math.min(1, Math.max(0, room) / Math.max(1, sum(extras)));
   const periods: MaskPeriod[] = [];
   const segmentTimes: Interval[] = [];
   let cursor = bedtime;
 
-  for (const weight of weights) {
-    let remaining = Math.max(1, Math.round((usageTarget * weight) / total));
-    const first = segmentTimes.length;
+  for (const [i, files] of layouts.entries()) {
+    const on = cursor;
 
-    while (remaining > 0) {
-      const minutes = Math.min(remaining, r.int(30, 151));
+    for (const [j, { minutes, gapAfter }] of files.entries()) {
       const end = cursor.add({ minutes });
 
       segmentTimes.push({ start: cursor, end });
-      remaining -= minutes;
-      cursor = end.add({ seconds: r.int(60, 121) });
+      cursor = j < files.length - 1 ? end.add({ seconds: gapAfter }) : end;
     }
 
-    const on = segmentTimes[first]?.start ?? cursor;
-    const off = segmentTimes.at(-1)?.end ?? cursor;
-
-    periods.push({ on, off });
-    cursor = off.add({ minutes: r.int(2, 21) });
+    periods.push({ on, off: cursor });
+    cursor = cursor.add({
+      seconds: BREAK_FLOOR_SECONDS + Math.floor((extras[i] ?? 0) * scale),
+    });
   }
 
   return { periods, segmentTimes };
