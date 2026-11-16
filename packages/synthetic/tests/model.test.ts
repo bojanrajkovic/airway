@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { AIRSENSE, step, type EdfFile } from "../../src/edf/airsense.ts";
-import { syntheticNights, type SyntheticNight } from "../../src/synthetic/model.ts";
+import { AIRSENSE, step, type EdfFile } from "@airway/contract/edf/airsense";
+import { syntheticNights, type SyntheticNight } from "../src/model.ts";
 
 const nights = syntheticNights({ seed: 7, nights: 30 });
 const adults = syntheticNights({ seed: 7, nights: 30, patient: "adult" });

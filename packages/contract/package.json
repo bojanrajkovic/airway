@@ -12,7 +12,6 @@
   },
   "dependencies": {
     "crc": "catalog:",
-    "d3-random": "catalog:",
     "drizzle-orm": "catalog:",
     "drizzle-zod": "catalog:",
     "neverthrow": "catalog:",
@@ -22,7 +21,6 @@
   "devDependencies": {
     "@airway/testing": "workspace:*",
     "@tsconfig/strictest": "catalog:",
-    "@types/d3-random": "catalog:",
     "@types/node": "catalog:",
     "@types/pg": "catalog:",
     "drizzle-kit": "catalog:",
