@@ -148,6 +148,28 @@ Ingesting `synthesize`'s files must produce its rows. The comparison skips `ctim
 | Amplitude | 3% |
 | Duration | 3% |
 
+## Loading into Postgres
+
+`loadDerived(client, rows, { schema, builtAt })` in `@airway/synthetic/load` puts `synthesize`'s rows in a database, in one transaction. A query engine test can build the nights it needs, edit them, and load them:
+
+```ts
+test("counts a night with 12 mask-on periods", async ({ databaseUrl }) => {
+  const busy = syntheticNights({ seed: 3, nights: 60 }).filter((night) => night.periods.length > 10);
+  const { rows } = synthesize(busy, offsets, { patient: "child", uploadedAt })._unsafeUnwrap();
+  const client = new pg.Client(databaseUrl);
+  await client.connect();
+
+  try {
+    await loadDerived(client, rows, { builtAt: uploadedAt });
+    // ...query derived.nights
+  } finally {
+    await client.end();
+  }
+});
+```
+
+It creates the schema with `derivedTables`, COPYs each table parents first, then builds the indexes and the `samples` and `breaths` foreign keys, fills `period_percentiles` with the statement ingest uses, stamps `meta`, and grants `airway_reader` SELECT. Signal values go in as decimal text rounded to their column's decimals, as ingest writes them, so `leak = 0.4` matches. On an error it rolls back and throws Postgres's error, so the test fails with it. A 30-night load takes about 3.5 seconds.
+
 ## Writing EDF files
 
 `@airway/contract/edf/write` writes the bytes of any file type in the list. The synthetic generator uses it to write its files.
