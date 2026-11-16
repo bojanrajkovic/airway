@@ -33,7 +33,8 @@ const RECORDING_STARTS = { onset: 0, duration: 0, label: "Recording starts" };
 // PLD and SAD files start this long after their BRP file, as on the real machine.
 const FOLLOWER_SECONDS = 1;
 const PATIENT = "X X X X";
-const SERIAL = "SYNTHETIC-0001";
+/** The invented machine every synthetic file names. */
+export const DEVICE = { serial: "SYNTHETIC-0001", model: "AirSense_10_AutoSet" };
 
 const MONTHS = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
 
@@ -42,7 +43,7 @@ const MONTHS = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "
 const header = (start: Temporal.PlainDateTime): EdfHeader => ({
   start,
   patient: PATIENT,
-  recording: `Startdate ${String(start.day).padStart(2, "0")}-${MONTHS[start.month - 1] ?? "X"}-${start.year.toString()} X X ${SERIAL}`,
+  recording: `Startdate ${String(start.day).padStart(2, "0")}-${MONTHS[start.month - 1] ?? "X"}-${start.year.toString()} X X ${DEVICE.serial}`,
 });
 
 /** A moment as the device's clock shows it: a fixed offset, with no daylight saving time. */
