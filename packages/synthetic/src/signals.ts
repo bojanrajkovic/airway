@@ -15,10 +15,10 @@ const HYPOPNEA_VOLUME = 0.4;
 // A breath squeezed into less than this share of its length before a pause is folded into the
 // previous breath's exhale instead.
 const SHORTEST_FIT = 0.25;
-// Flow noise, and the bound on flow during a pause: under the pediatric step's 0.01 L/s
-// threshold, and under 5% of a child's breath.
+// Flow noise is uniform within this many L/s, which bounds flow during a pause: under the
+// pediatric step's 0.01 L/s threshold, and under 5% of a child's breath. Uniform because a draw
+// per 25 Hz sample is the generator's busiest loop, and a Gaussian draw costs several times more.
 const NOISE = 0.002;
-const PAUSE_FLOW = 0.004;
 
 type Window = { from: number; to: number };
 
@@ -123,7 +123,7 @@ export function renderBrp(
   const exhalePressure = segment.pld.get("EprPress.2s") ?? new Float64Array();
 
   for (let i = 0; i < count; i += 1) {
-    flow[i] = Math.max(-PAUSE_FLOW, Math.min(PAUSE_FLOW, r.normal(0, NOISE)));
+    flow[i] = r.uniform(-NOISE, NOISE);
     pressure[i] = inhalePressure[Math.floor(i / HZ / PLD_SECONDS)] ?? 0;
   }
 

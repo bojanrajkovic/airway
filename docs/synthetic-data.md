@@ -74,7 +74,7 @@ The AHI and its parts are `(600 × events) div minutes` in tenths, and MaskEvent
 
 `breaths(segment, night)` lays out the breaths first. Each breath's length follows the 2 s breathing rate at its start, and its volume follows the 2 s tidal volume, shrunk to 40% during a hypopnea. Breathing in takes 40% of a breath. No breath crosses a pause, so each pause lasts exactly as long as the model says. A breath shortened to fit before a pause moves proportionally less air, so its peak stays normal. The model starts every pause and event at least 10 s into its segment, so the first breaths always have room.
 
-Flow is a half sine wave up while breathing in and a half sine wave down while breathing out. The inhale's height is set so the area under it equals the breath's volume. During a pause, flow stays within ±0.004 L/s. That's under the pediatric step's 0.01 L/s crossing threshold and under 5% of a child's breath, so noise can't fake a breath. Pressure follows the 2 s pressure, and drops to the EPR pressure while breathing out.
+Flow is a half sine wave up while breathing in and a half sine wave down while breathing out. The inhale's height is set so the area under it equals the breath's volume. During a pause, flow is uniform noise within ±0.002 L/s. That's under the pediatric step's 0.01 L/s crossing threshold and under 5% of a child's breath, so noise can't fake a breath. Pressure follows the 2 s pressure, and drops to the EPR pressure while breathing out.
 
 ## A night's files
 
