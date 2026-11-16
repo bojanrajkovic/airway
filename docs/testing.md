@@ -45,7 +45,12 @@ For a moment in the home time zone, use `instantAt(zone, date, time)` from `@air
 
 ## Database tests
 
-A database test is named `*.db.test.ts` and imports `test` from `@airway/testing/postgres` instead of from Vitest. That `test` adds a `databaseUrl` fixture: the connection URL of an empty database that belongs to the test file.
+A database test is named `*.db.test.ts` and imports `test` from `@airway/testing/postgres` instead of from Vitest. That `test` adds two fixtures for an empty database that belongs to the test file:
+
+- `databaseUrl` connects as `airway_owner`, which owns the database and isn't a superuser, so no test passes only because it runs with superuser rights.
+- `readerUrl` connects to the same database as `airway_reader`, the read-only role the API and MCP use. It has the deployment's settings: `default_transaction_read_only` on, `search_path` set to `derived`, `work_mem` 64MB, and `temp_file_limit` 1GB. The owner is a member of it, as in production, so the owner can cancel a reader's query.
+
+Roles belong to the whole Postgres server, so the `db` project's global setup, `@airway/testing/roles`, creates both once per run. It updates their settings each run, so it works against a Postgres that's already set up.
 
 ```ts
 import { expect } from "vitest";
