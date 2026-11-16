@@ -19,6 +19,7 @@ You need [mise](https://mise.jdx.dev) and a container runtime, [Podman](https://
 | `pnpm test:browser` | The browser tests, in Chromium ([Testing](testing.md#browser-tests)) |
 | `pnpm test:image` | The image tests, against the image in `AIRWAY_IMAGE` ([Testing](testing.md#image-tests)) |
 | `pnpm db:up` / `db:down` | Start or stop Postgres 18 in Podman or Docker |
+| `pnpm synth --out <dir>` | Write a synthetic CPAP data folder ([Synthetic data](synthetic-data.md#pnpm-synth)) |
 
 ## Workspace
 

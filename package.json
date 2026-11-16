@@ -21,6 +21,7 @@
     "check": "pnpm run --no-bail \"/^(typecheck|lint|format:check|test)$/\"",
     "db:up": "scripts/db.sh up",
     "db:down": "scripts/db.sh down",
+    "synth": "node packages/synthetic/src/cli.ts",
     "build": "pnpm --recursive build"
   },
   "devDependencies": {
