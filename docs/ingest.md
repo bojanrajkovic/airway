@@ -4,6 +4,24 @@ How airway reads the CPAP data folder and builds the derived tables.
 
 The importer isn't built yet. The rules it shares with the synthetic data generator are, and this page describes them.
 
+## Reading EDF files
+
+`@airway/edf` reads the card's EDF files. BRP, PLD, SAD, and `STR.edf` are plain EDF. EVE and CSL are EDF+D, and hold annotations.
+
+### Headers
+
+`readHeader(bytes, size)` parses a header and returns `{header, size, warnings}`:
+
+- `header` holds every field ingest uses: the format, the start time on the device clock, the patient and recording fields, the header length, the declared record count, the record length in seconds, and each signal's label, unit, physical and digital ranges, and samples per record.
+- `size` is `checkFileSize`'s verdict for the file's size on disk: `read`, `skip`, or `reject`. Only a file whose verdict is `read` can be decoded; `isReadable(file)` checks that.
+- `warnings` lists anything the header contradicts without stopping the read. A `startdate_mismatch` means the recording field's `Startdate` names a different day from the header's start date.
+
+`bytes` must hold the whole header, and `size` defaults to `bytes.length`. A scan that reads only headers reads 256 bytes first. If `readHeader` returns `header_too_short`, its `headerBytes` says how many bytes the header takes, 256 for each signal plus 256.
+
+The start date has a two-digit year. As EDF+ specifies, 85 to 99 mean 19xx and the rest mean 20xx.
+
+A field that won't parse returns `bad_field` with the field's name and text.
+
 ## Sessions
 
 A session is one mask-on period. `buildSessions` in `@airway/contract/derived/sessions` builds a night's sessions from `STR.edf` and the night's BRP segments:

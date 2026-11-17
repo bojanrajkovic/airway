@@ -1,10 +1,11 @@
 // Reads whole EDF files back for the writer's and the synthetic files' tests, and assumes they're
-// well formed. It stays
-// separate from ingest's reader on purpose, so one misreading of the format can't pass both
+// well formed. It stays separate from ingest's reader on purpose, so one misreading of the format can't pass both
 // sides' tests.
 
 const decoder = new TextDecoder();
 
+// Same shape as @airway/edf's SignalHeader. Importing it would make @airway/testing and
+// @airway/edf depend on each other.
 export type ParsedSignal = {
   label: string;
   unit: string;
