@@ -96,6 +96,22 @@ describe("readSignals", () => {
     });
   });
 
+  it("rejects bytes that hold only the header", () => {
+    const bytes = withSamples(fields(2), [record(1), record(2)]);
+    const head = bytes.subarray(0, 1024);
+    const file = readHeader(head, bytes.length)._unsafeUnwrap();
+
+    if (!isReadable(file)) {
+      throw new Error("expected a readable file");
+    }
+
+    expect(readSignals(head, file, ["Flow.40ms"])._unsafeUnwrapErr()).toEqual({
+      kind: "bytes_too_short",
+      needed: 1024 + 2 * 8,
+      got: 1024,
+    });
+  });
+
   it("names a label the file doesn't have", () => {
     const bytes = withSamples(fields(1), [record(1)]);
 

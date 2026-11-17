@@ -1,6 +1,6 @@
 import { err, ok, type Result } from "neverthrow";
 import { step } from "./airsense.ts";
-import { recordBytes, type EdfReadError, type ReadableEdfFile } from "./header.ts";
+import { coversRecords, recordBytes, type EdfReadError, type ReadableEdfFile } from "./header.ts";
 
 /** Which records to read, with `Array.slice`'s rules: 0-based, `toRecord` exclusive. */
 export type RecordRange = { fromRecord?: number; toRecord?: number };
@@ -30,6 +30,12 @@ export function readSignals<L extends string>(
     toRecord > records
   ) {
     return err({ kind: "range_out_of_bounds", fromRecord, toRecord, records });
+  }
+
+  const covered = coversRecords(bytes, header, toRecord);
+
+  if (covered.isErr()) {
+    return err(covered.error);
   }
 
   const stride = recordBytes(header);

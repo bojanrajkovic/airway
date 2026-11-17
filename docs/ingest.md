@@ -39,7 +39,7 @@ flowchart LR
 const signals = readSignals(bytes, file, ["Flow.40ms", "Press.40ms"], { fromRecord: 3, toRecord: 5 });
 
 if (signals.isErr()) {
-  return err(signals.error); // missing_signal or range_out_of_bounds
+  return err(signals.error); // missing_signal, range_out_of_bounds, or bytes_too_short
 }
 
 const flow = signals.value["Flow.40ms"];
@@ -48,6 +48,7 @@ const flow = signals.value["Flow.40ms"];
 - It reads every whole record on disk by default, including records past the header's count. The range follows `Array.slice`: 0-based, with `toRecord` excluded.
 - A physical value is `physicalMin + (digital - digitalMin) × step`. A digital value outside the signal's digital range reads as NaN, because the card writes -1 there to mean "no value".
 - Signals that weren't asked for, Crc16 among them, are skipped by byte offset.
+- Both readers need the file's bytes through its last record. Bytes that end sooner, such as a header read alone, return `bytes_too_short`.
 
 ### Annotations
 

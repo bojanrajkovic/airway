@@ -35,6 +35,12 @@ describe("readAnnotations", () => {
     ]);
   });
 
+  it("keeps an annotation at onset 0", () => {
+    expect(read([`${TIMEKEEPING}+0\x14Recording starts\x14\0`])._unsafeUnwrap()).toEqual([
+      { onset: 0, duration: 0, label: "Recording starts" },
+    ]);
+  });
+
   it("reads an empty duration as 0, and decimal onsets", () => {
     expect(read(["+5.5\x15\x14Apnea\x14\0"])._unsafeUnwrap()).toEqual([
       { onset: 5.5, duration: 0, label: "Apnea" },
@@ -64,6 +70,20 @@ describe("readAnnotations", () => {
       kind: "bad_annotation",
       record: 1,
       tal: "Apnea\x14",
+    });
+  });
+
+  it("rejects bytes that hold only the header", () => {
+    const bytes = withTals(annotated(1), [`${TIMEKEEPING}+1\x14Apnea\x14\0`]);
+    const head = bytes.subarray(0, 768);
+    const parsed = readHeader(head, bytes.length)._unsafeUnwrap();
+
+    if (!isReadable(parsed)) {
+      throw new Error("expected a readable file");
+    }
+
+    expect(readAnnotations(head, parsed)._unsafeUnwrapErr()).toMatchObject({
+      kind: "bytes_too_short",
     });
   });
 

@@ -1,5 +1,5 @@
 import { err, ok, Result } from "neverthrow";
-import { recordBytes, type EdfReadError, type ReadableEdfFile } from "./header.ts";
+import { coversRecords, recordBytes, type EdfReadError, type ReadableEdfFile } from "./header.ts";
 
 /** One EDF+ annotation, with times in seconds from the file's start. */
 export type Annotation = { onset: number; duration: number; label: string };
@@ -68,6 +68,12 @@ export function readAnnotations(
 
   if (spans.length === 0) {
     return err({ kind: "no_annotations" });
+  }
+
+  const covered = coversRecords(bytes, header, file.size.records);
+
+  if (covered.isErr()) {
+    return err(covered.error);
   }
 
   const parsed: Result<Annotation[], EdfReadError>[] = [];
