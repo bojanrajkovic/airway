@@ -111,6 +111,9 @@ create unlogged table ${schema}.files (
   path text primary key,
   kind text not null ${oneOf("kind", FILE_KINDS)},
   night date references ${schema}.nights on delete cascade,
+  -- The segment a BRP or PLD file's data belongs to: null for any other file, and for a BRP or PLD
+  -- file no segment reads. A split PLD's two files name the same segment.
+  segment smallint,
   size bigint not null,
   sha256 text not null,
   ctime timestamptz not null
@@ -131,8 +134,6 @@ create unlogged table ${schema}.segments (
   session smallint not null,
   ts timestamptz not null,
   ended_at timestamptz not null,
-  brp_path text not null references ${schema}.files,
-  pld_path text references ${schema}.files,
   primary key (night, segment),
   -- Lets samples and breaths reference a segment together with its session.
   unique (night, segment, session),
@@ -179,6 +180,8 @@ create unlogged table ${schema}.breaths (
  */
 export function derivedIndexesAndKeys(schema: DerivedSchema): string {
   return `
+alter table ${schema}.files add foreign key (night, segment)
+  references ${schema}.segments (night, segment);
 ${["samples", "breaths"].map((table) => `alter table ${schema}.${table} add foreign key (night, segment, session)\n  references ${schema}.segments (night, segment, session) on delete cascade;`).join("\n")}
 create index events_night_ts on ${schema}.events (night, ts);
 create index samples_night_ts on ${schema}.samples (night, ts);

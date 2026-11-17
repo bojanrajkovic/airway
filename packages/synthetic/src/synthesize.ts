@@ -129,10 +129,14 @@ export function synthesize(
     rows.files.push(
       fileRow(
         files,
-        { path: "Identification.tgt", kind: "identification", night: null },
+        { path: "Identification.tgt", kind: "identification", night: null, segment: null },
         options.uploadedAt,
       ),
-      fileRow(files, { path: "STR.edf", kind: "str", night: null }, options.uploadedAt),
+      fileRow(
+        files,
+        { path: "STR.edf", kind: "str", night: null, segment: null },
+        options.uploadedAt,
+      ),
     );
 
     sorted.forEach((night, i) => {
@@ -179,7 +183,7 @@ function emptyRows(nights: readonly SyntheticNight[]): DerivedRows {
   };
 }
 
-type FileSpec = Pick<FileRow, "path" | "kind" | "night">;
+type FileSpec = Pick<FileRow, "path" | "kind" | "night" | "segment">;
 /** A night's file that ingest imports. */
 type ImportedFile = DatalogFile & {
   kind: "brp" | "pld" | "eve";
@@ -228,10 +232,18 @@ function addNight(rows: DerivedRows, { night, files, offset, folder, options }: 
     maskEvents,
     segments: segments.map(({ segment }) => segment),
   });
-  const specs = imported.map(({ path, kind }): FileSpec => ({
-    path: `${path}.edf`,
-    kind,
+  // A read BRP or PLD file names its segment, numbered from 1 like the segments rows.
+  const segmentOf = (file: ImportedFile): number | null => {
+    const i = segments.findIndex(({ brp, plds }) => brp === file || plds.includes(file));
+
+    return i === -1 ? null : i + 1;
+  };
+
+  const specs = imported.map((file): FileSpec => ({
+    path: `${file.path}.edf`,
+    kind: file.kind,
     night: date,
+    segment: segmentOf(file),
   }));
 
   rows.files.push(...specs.map((spec) => fileRow(folder, spec, options.uploadedAt)));
@@ -246,7 +258,7 @@ function addNight(rows: DerivedRows, { night, files, offset, folder, options }: 
     })),
   );
 
-  segments.forEach(({ segment, brp, plds }, i) => {
+  segments.forEach(({ segment, plds }, i) => {
     const session = built.segmentSessions[i] ?? 0;
     const index = i + 1;
     const { pldSeries } = segment;
@@ -262,9 +274,6 @@ function addNight(rows: DerivedRows, { night, files, offset, folder, options }: 
       session,
       ts: segment.start,
       ended_at: segment.end,
-      brp_path: `${brp.path}.edf`,
-      // A split PLD's segment names its first file.
-      pld_path: plds[0] === undefined ? null : `${plds[0].path}.edf`,
     } satisfies SegmentRow);
 
     for (let s = 0; s < count; s += 1) {

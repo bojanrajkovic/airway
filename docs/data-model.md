@@ -91,7 +91,7 @@ erDiagram
   nights ||--o{ events : has
   sessions ||--o{ segments : has
   sessions ||--o{ events : contains
-  files ||--o{ segments : "BRP and PLD"
+  segments ||--o{ files : "BRP and PLD"
   segments ||--o{ samples : has
   segments ||--o{ breaths : has
 ```
@@ -100,11 +100,11 @@ erDiagram
 |---|---|---|
 | `nights` | Night with a folder on the card: the machine's `STR.edf` statistics, then airway's own columns | `night` |
 | `sessions` | Mask-on period | `night, session` |
-| `segments` | BRP file with data, and the PLD file that overlaps it | `night, segment` |
+| `segments` | BRP file with data | `night, segment` |
 | `events` | Machine event, at its start. `session` is null when the night has no sessions, and `duration` when the machine gives none | none |
 | `samples` | 2 seconds of therapy: the nine PLD signals | none |
 | `breaths` | Breath detected in the flow signal. `amplitude` is the in-breath's peak flow, and `duration` ends when the out-breath does, so a pause is a gap between breaths | none |
-| `files` | Imported file, with its size, SHA-256, and ctime. `night` is null for `STR.edf` and `Identification.tgt` | `path` |
+| `files` | Imported file, with its size, SHA-256, and ctime. `night` is null for `STR.edf` and `Identification.tgt`. `segment` names the segment a BRP or PLD file's data belongs to, so a segment's files are one join away, including both halves of a split PLD. It's null for other files and for a file no segment reads | `path` |
 | `device` | Machine: serial and model | `serial` |
 | `settings_changes` | Setting that changed on a night | `night, setting` |
 | `daily_usage` | Day `STR.edf` covers, used or not | `day` |
@@ -114,7 +114,7 @@ erDiagram
 
 ### Keys
 
-Deleting a `nights` row deletes that night's rows from `files`, `sessions`, `segments`, `events`, `samples`, and `breaths`, through `ON DELETE CASCADE` foreign keys. One delete removes a night, and its rows go back in parents first. A `files` row that a segment was read from can't be deleted while the segment stays.
+Deleting a `nights` row deletes that night's rows from `files`, `sessions`, `segments`, `events`, `samples`, and `breaths`, through `ON DELETE CASCADE` foreign keys. One delete removes a night, and its rows go back in parents first. A segment can't be deleted while a `files` row names it.
 
 A sample or breath references its segment together with the segment's session, so its `session` can't disagree with the segment's.
 

@@ -168,7 +168,7 @@ The rows follow ingest's rules:
 - An event starts at its EVE file's start, plus its onset, minus its duration, with the onset rounded to the whole second EVE keeps.
 - Samples start at the PLD file's start, 1 s after the segment's, every 2 s.
 - Breaths are the model's own. `amplitude` is the in-breath's peak flow, and `duration` covers the in-breath and out-breath, so a pause is a gap between breaths.
-- Each written file goes through the contract's `checkFileSize`, the function ingest calls. Ingest makes a segment from each BRP file it reads, and samples from each PLD file it reads. A split PLD's segment names its first file in `pld_path`.
+- Each written file goes through the contract's `checkFileSize`, the function ingest calls. Ingest makes a segment from each BRP file it reads, and samples from each PLD file it reads. Each read BRP and PLD file's `files` row names its segment, so both halves of a split PLD point at one segment.
 - `files` lists Identification.tgt, STR.edf, and each BRP, PLD, and EVE file that `checkFileSize` reads or skips, with its size and SHA-256. Ingest skips SAD, CSL, and `.crc` files.
 - `column_units` has each STR and PLD signal's header unit and decimals. A breath's `amplitude` (L/s) and `inspiratory_volume` (L) come from the 25 Hz flow signal, so they take its decimals.
 - `daily_usage` covers every day from the first night to the last, with 0 on a day with no night.

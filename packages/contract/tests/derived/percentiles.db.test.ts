@@ -21,12 +21,12 @@ insert into derived.nights (night, sessions, expected_sessions, session_count_ap
   longest_stretch, obstructive_apneas, central_apneas, unclassified_apneas, hypopneas, arousals,
   events_outside_mask_on, ahi_check, rule_set, uploaded_at)
 values ('${date}', 1, 1, false, 480, 0, 0, 0, 0, 0, 0, 'match', 'pediatric', '${date}T14:00Z');
-insert into derived.files (path, kind, night, size, sha256, ctime)
-values ('${date}/BRP.edf', 'brp', '${date}', 1024, 'abc', '${date}T14:00Z');
 insert into derived.sessions (night, session, ts, ended_at, source)
 values ('${date}', 1, '${date}T02:00Z', '${date}T10:00Z', 'str');
-insert into derived.segments (night, segment, session, ts, ended_at, brp_path)
-values ('${date}', 1, 1, '${date}T02:00Z', '${date}T10:00Z', '${date}/BRP.edf');
+insert into derived.segments (night, segment, session, ts, ended_at)
+values ('${date}', 1, 1, '${date}T02:00Z', '${date}T10:00Z');
+insert into derived.files (path, kind, night, segment, size, sha256, ctime)
+values ('${date}/BRP.edf', 'brp', '${date}', 1, 1024, 'abc', '${date}T14:00Z');
 insert into derived.samples (night, segment, session, ts, leak)
 values ${leaks.map((leak, i) => `('${date}', 1, 1, '${date}T02:00Z'::timestamptz + interval '${(2 * i).toString()} seconds', ${leak.toString()})`).join(", ")};`;
 
