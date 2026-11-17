@@ -28,10 +28,16 @@ These details are the same on every AirSense 10. They come from the headers of r
 
 ## Synthetic nights
 
-`syntheticNights({ seed, nights, start, patient, zone, cases })` in `@airway/synthetic/model` builds the nights everything else is written from, and returns them with the clock offsets their files use. The same options always give the same nights. All randomness comes from d3-random distributions drawing on one seeded generator.
+`syntheticNights({ seed, nights, start, patient, zone, cases })` in `@airway/synthetic/model` builds the nights everything else is written from, and returns them with the clock offsets their files use, as a neverthrow `Result`. It returns an error when a named edge case can't be built, such as a DST case in a zone without daylight saving time. The same options always give the same nights. All randomness comes from d3-random distributions drawing on one seeded generator.
 
 ```ts
-const { nights, offsets } = syntheticNights({ seed: 7, nights: 30 });
+const model = syntheticNights({ seed: 7, nights: 30 });
+
+if (model.isErr()) {
+  throw new Error(`can't build the nights: ${model.error.kind}`);
+}
+
+const { nights, offsets } = model.value;
 // nights[0].night is 2030-01-07; nights[0].str.get("AHI") is the machine's AHI for it.
 // offsets is one -05:00 entry from the first night.
 ```
@@ -72,19 +78,32 @@ The AHI and its parts are `(600 × events) div minutes` in tenths, and MaskEvent
 
 ## Edge cases
 
-`cases` adds nights that each hold an edge case ingest must handle. It's `'all'` or a list of names, and defaults to none, so tests get edge cases only when they ask. Case nights follow the base nights on consecutive dates, and each case draws from its own generator, seeded from `seed` plus the case's name. The base nights are the same with or without cases. A test that wants one case on its own passes `nights: 0`:
+`cases` adds nights that each hold an edge case ingest must handle. It's `'all'` or a list of names, and defaults to none, so tests get edge cases only when they ask. Each case's first night is the day after the previous night, and each case draws from its own generator, seeded from `seed` plus the case's name. The base nights are the same with or without cases. A test that wants one case on its own passes `nights: 0`:
 
 ```ts
-const { nights, offsets } = syntheticNights({ seed: 7, nights: 0, cases: ["noon-edge"] });
+const { nights, offsets } = syntheticNights({
+  seed: 7,
+  nights: 0,
+  cases: ["noon-edge"],
+})._unsafeUnwrap();
 ```
 
-A case sets its night's mask-on periods and BRP file times by hand through `nightFromLayout`. Events, pauses, 2 s series, and STR.edf values are then drawn as for any night, so they agree with the layout.
+A case draws ordinary nights with `randomNight`, or sets a night's mask-on periods and BRP file times by hand through `nightFromLayout`. With `randomEvents`, `nightFromLayout` adds the model's own events and pauses inside the segments, and `extraEvents` go wherever the case puts them. Pauses, 2 s series, and STR.edf values are then drawn as for any night, so they agree with the layout.
 
 | Case | What it tests |
 |---|---|
 | `many-periods` | 13 mask-on periods: 10 in STR.edf's slots and 3 derived. Period 5 starts 40 s after period 4, so its file is within 60 s of both slots and goes to the one it overlaps most. Period 11's two files are 90 s apart and join; periods 12 and 13 are 91 s apart and split. Events 45 s before a period are inside it, and events 120 s after one are outside mask-on. |
 | `noon-edge` | The first period starts at 11:55 on the device clock, before the night's noon, so STR.edf's slot 0 has a mask-off but no mask-on. Ingest starts that session at noon. |
 | `sub-minute-period` | A 30 s period between two others, too short for a BRP file. STR.edf records its mask-on and mask-off in the same minute, so ingest drops it and the night's session count is approximate. |
+| `folderless-day` | Six hours of use that only STR.edf records. The night has no DATALOG folder, so it gets only a `daily_usage` row. |
+| `unused-days` | Two nights 3 days apart. STR.edf stores the two days between as -1, and they get usage 0. |
+| `settings-change` | Two nights, the second with its maximum pressure 1 cmH2O higher, giving one `settings_changes` row. |
+| `ahi-rounding` | 18 hypopneas in 400 minutes, an AHI of exactly 2.7, which floating point computes just under 2.7. |
+| `clock-change` | Two nights on each side of a second clock offset, -04:55 from the second night. The second night runs from 22:30 to 03:30, so it crosses midnight on one offset. |
+| `fall-back` | A night from 21:00 across the zone's next fall-back, so 01:00 happens twice. |
+| `spring-forward` | A night from 21:00 across the zone's next spring-forward, so there's no 02:00. |
+
+`fall-back` and `spring-forward` are named only: `'all'` leaves them out, so it works in any zone and every night keeps its date. Each finds its date with Temporal's `getTimeZoneTransition`, searching from the day it would start, and fails with `no_dst_transition` in a zone without daylight saving time. Unit tests that bucket or format times name them.
 
 ## The 25 Hz waveform
 
@@ -130,7 +149,7 @@ DATALOG/
 `synthesize(nights, offsets, { patient, uploadedAt })` in `@airway/synthetic/synthesize` returns the CPAP data folder together with the rows ingest should derive from it, one list per derived table. Both come from the same nights, so a test that edits a night gets files and rows that agree. The row types live in `@airway/contract/derived/rows`, and ingest writes the same shapes.
 
 ```ts
-const { nights, offsets } = syntheticNights({ seed: 7, nights: 10 });
+const { nights, offsets } = syntheticNights({ seed: 7, nights: 10 })._unsafeUnwrap();
 const result = synthesize(nights, offsets, { patient: "child", uploadedAt });
 
 if (result.isErr()) {
@@ -172,7 +191,7 @@ Ingesting `synthesize`'s files must produce its rows. The comparison skips `ctim
 
 ```ts
 test("counts a night with 12 mask-on periods", async ({ databaseUrl }) => {
-  const { nights, offsets } = syntheticNights({ seed: 3, nights: 60 });
+  const { nights, offsets } = syntheticNights({ seed: 3, nights: 60 })._unsafeUnwrap();
   const busy = nights.filter((night) => night.periods.length > 10);
   const { rows } = synthesize(busy, offsets, { patient: "child", uploadedAt })._unsafeUnwrap();
   const client = new pg.Client(databaseUrl);

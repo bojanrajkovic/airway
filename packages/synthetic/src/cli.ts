@@ -49,11 +49,17 @@ const out = values.out ?? fail("--out is required.");
 const patient = isPatient(values.patient)
   ? values.patient
   : fail("--patient must be child or adult.");
-const { nights, offsets } = syntheticNights({
+const model = syntheticNights({
   seed: wholeNumber("seed", values.seed, 0),
   nights: wholeNumber("nights", values.nights, 1),
   patient,
 });
+
+if (model.isErr()) {
+  fail(`Couldn't build the nights: ${model.error.kind}.`);
+}
+
+const { nights, offsets } = model.value;
 const dir = resolve(out);
 
 if (!(await isEmpty(dir))) {

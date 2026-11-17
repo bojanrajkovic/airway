@@ -1,6 +1,8 @@
+import { err, ok, type Result } from "neverthrow";
 import type { ClockOffset } from "@airway/contract/clock";
 import {
   DEFAULT_UTC_OFFSET,
+  randomNight,
   evening,
   nightFromLayout,
   type Interval,
@@ -24,7 +26,11 @@ export type EdgeCaseContext = {
 /** An edge case's nights, plus any clock offsets they need beyond the default one. */
 export type EdgeCaseNights = { nights: SyntheticNight[]; offsets: ClockOffset[] };
 
-type EdgeCase = (context: EdgeCaseContext) => EdgeCaseNights;
+/** A DST case asked for in a zone that has no such transition. */
+export type EdgeCaseError = { kind: "no_dst_transition"; name: EdgeCaseName; zone: string };
+
+type Built = Result<EdgeCaseNights, EdgeCaseError>;
+type EdgeCase = (context: EdgeCaseContext) => Built;
 
 type Layout = { periods: MaskPeriod[]; segmentTimes: Interval[] };
 
@@ -56,37 +62,43 @@ function layPeriods(
 }
 
 const hypopnea = (at: Temporal.Instant): MachineEvent => ({ at, duration: 15, type: "hypopnea" });
-const only = (night: SyntheticNight): EdgeCaseNights => ({ nights: [night], offsets: [] });
+const only = (night: SyntheticNight): Built => ok({ nights: [night], offsets: [] });
+// An hour after the night's evening, in the home time zone.
+const nineOClock = (night: Temporal.PlainDate, zone: string): Temporal.Instant =>
+  evening(night, zone).toInstant().add({ hours: 1 });
 
 // 13 periods: 10 fill STR.edf's slots and 3 come after them. Period 5 starts 40 s after period 4,
 // so its file is within 60 s of both slots. Period 11's two files are 90 s apart, the most that
 // still joins, and period 13 starts 91 s after period 12, the least that splits. Events sit 45 s
 // before a period (inside its 60 s slack) and 120 s after one (outside it), wherever the gap on
 // that side is at least 5 minutes.
-function manyPeriods({ random, breathing, first, zone }: EdgeCaseContext): EdgeCaseNights {
+function manyPeriods({ random, breathing, first, zone }: EdgeCaseContext): Built {
   const files = [...Array.from({ length: 10 }, () => [30]), [30, 30], [20], [20]];
   const breaks = [300, 300, 300, 40, 300, 300, 300, 300, 300, 300, 300, 91];
-  const layout = layPeriods(evening(first, zone).toInstant().add({ hours: 1 }), files, breaks, 90);
+  const layout = layPeriods(nineOClock(first, zone), files, breaks, 90);
   const roomy = (seconds: number | undefined): boolean => seconds === undefined || seconds >= 300;
   const extraEvents = layout.periods.flatMap(({ on, off }, i) => [
     ...(i > 0 && roomy(breaks[i - 1]) ? [hypopnea(on.subtract({ seconds: 45 }))] : []),
     ...(roomy(breaks[i]) ? [hypopnea(off.add({ seconds: 120 }))] : []),
   ]);
 
-  return only(nightFromLayout(random, breathing, first, { ...layout, extraEvents }));
+  return only(
+    nightFromLayout(random, breathing, first, { ...layout, randomEvents: true, extraEvents }),
+  );
 }
 
 // The first period starts at 11:55 on the device clock, before the night's noon, so STR.edf's
 // slot 0 has a mask-off but no mask-on. Ingest starts that session at noon.
-function noonEdge({ random, breathing, first, zone }: EdgeCaseContext): EdgeCaseNights {
+function noonEdge({ random, breathing, first, zone }: EdgeCaseContext): Built {
   const early = first.toZonedDateTime({ timeZone: DEFAULT_UTC_OFFSET, plainTime: "11:55" });
   const morning = layPeriods(early.toInstant(), [[45]], [], 90);
-  const night = layPeriods(evening(first, zone).toInstant().add({ hours: 1 }), [[240]], [], 90);
+  const night = layPeriods(nineOClock(first, zone), [[240]], [], 90);
 
   return only(
     nightFromLayout(random, breathing, first, {
       periods: [...morning.periods, ...night.periods],
       segmentTimes: [...morning.segmentTimes, ...night.segmentTimes],
+      randomEvents: true,
       extraEvents: [],
     }),
   );
@@ -94,8 +106,8 @@ function noonEdge({ random, breathing, first, zone }: EdgeCaseContext): EdgeCase
 
 // A 30 s mask-on period between two others, too short for a BRP file. STR.edf records its
 // mask-on and mask-off in the same minute, so ingest drops it.
-function subMinutePeriod({ random, breathing, first, zone }: EdgeCaseContext): EdgeCaseNights {
-  const start = evening(first, zone).toInstant().add({ hours: 1 });
+function subMinutePeriod({ random, breathing, first, zone }: EdgeCaseContext): Built {
+  const start = nineOClock(first, zone);
   const before = layPeriods(start, [[120]], [], 90);
   const blipOn = start.add({ minutes: 130, seconds: 10 });
   const after = layPeriods(start.add({ minutes: 140 }), [[180]], [], 90);
@@ -108,24 +120,155 @@ function subMinutePeriod({ random, breathing, first, zone }: EdgeCaseContext): E
         ...after.periods,
       ],
       segmentTimes: [...before.segmentTimes, ...after.segmentTimes],
+      randomEvents: true,
       extraEvents: [],
     }),
   );
 }
 
-/** Every edge case's name. `'all'` builds them in this order. */
-export const EDGE_CASE_NAMES = ["many-periods", "noon-edge", "sub-minute-period"] as const;
+// Six hours of use that STR.edf records, with no BRP files, so the night has no DATALOG folder.
+function folderlessDay({ random, breathing, first, zone }: EdgeCaseContext): Built {
+  const { periods } = layPeriods(nineOClock(first, zone), [[360]], [], 90);
+
+  return only(
+    nightFromLayout(random, breathing, first, {
+      periods,
+      segmentTimes: [],
+      randomEvents: false,
+      extraEvents: [],
+    }),
+  );
+}
+
+// Two nights with two unused days between them, which STR.edf stores as -1.
+function unusedDays({ random, breathing, first, zone }: EdgeCaseContext): Built {
+  return ok({
+    nights: [0, 3].map((days) =>
+      randomNight(random, breathing, evening(first.add({ days }), zone)),
+    ),
+    offsets: [],
+  });
+}
+
+// Two nights, the second with its maximum pressure raised 1 cmH2O.
+function settingsChange({ random, breathing, first, zone }: EdgeCaseContext): Built {
+  const before = randomNight(random, breathing, evening(first, zone));
+  const after = randomNight(random, breathing, evening(first.add({ days: 1 }), zone));
+  const raised = new Map(after.str).set("S.AS.MaxPress", breathing.pressure.max + 1);
+
+  return ok({ nights: [before, { ...after, str: raised }], offsets: [] });
+}
+
+// 18 hypopneas in 400 minutes: an AHI of exactly 2.7, which floating point computes as 2.69999…
+function ahiRounding({ random, breathing, first, zone }: EdgeCaseContext): Built {
+  const layout = layPeriods(nineOClock(first, zone), [[400]], [], 90);
+  const start = layout.segmentTimes[0]?.start ?? nineOClock(first, zone);
+  const extraEvents = Array.from({ length: 18 }, (_, i) =>
+    hypopnea(start.add({ minutes: 10 + 20 * i })),
+  );
+
+  return only(
+    nightFromLayout(random, breathing, first, { ...layout, randomEvents: false, extraEvents }),
+  );
+}
+
+// A second clock offset from the case's second night, which runs from 22:30 to 03:30 so it
+// crosses midnight. Each night's files use its own offset only.
+function clockChange({ random, breathing, first, zone }: EdgeCaseContext): Built {
+  const second = first.add({ days: 1 });
+  const lateStart = evening(second, zone).toInstant().add({ minutes: 150 });
+
+  return ok({
+    nights: [
+      randomNight(random, breathing, evening(first, zone)),
+      nightFromLayout(random, breathing, second, {
+        ...layPeriods(lateStart, [[150, 150]], [], 60),
+        randomEvents: true,
+        extraEvents: [],
+      }),
+    ],
+    offsets: [{ from: second, utcOffset: "-04:55" }],
+  });
+}
+
+// The night before the zone's next transition in the given direction, searched from `first`.
+function transitionNight(
+  first: Temporal.PlainDate,
+  zone: string,
+  direction: "fall-back" | "spring-forward",
+): Temporal.PlainDate | undefined {
+  let at: Temporal.ZonedDateTime | null = first.toZonedDateTime({ timeZone: zone });
+
+  // A year holds at most two transitions, so four reach both directions.
+  for (let i = 0; i < 4 && at !== null; i += 1) {
+    at = at.getTimeZoneTransition("next");
+
+    if (at !== null) {
+      const fallsBack = at.offsetNanoseconds < at.subtract({ nanoseconds: 1 }).offsetNanoseconds;
+
+      if (fallsBack === (direction === "fall-back")) {
+        return at.toPlainDate().subtract({ days: 1 });
+      }
+    }
+  }
+
+  return undefined;
+}
+
+// A night from 21:00 to about 05:00 across the zone's next fall-back or spring-forward, so the
+// night has 01:00 twice or no 02:00 in the home zone.
+const dstCase =
+  (name: "fall-back" | "spring-forward"): EdgeCase =>
+  ({ random, breathing, first, zone }) => {
+    const night = transitionNight(first, zone, name);
+
+    if (night === undefined) {
+      return err({ kind: "no_dst_transition", name, zone });
+    }
+
+    return only(
+      nightFromLayout(random, breathing, night, {
+        ...layPeriods(nineOClock(night, zone), [[120, 120, 120, 120]], [], 60),
+        randomEvents: true,
+        extraEvents: [],
+      }),
+    );
+  };
+
+/** Every edge case's name. `'all'` builds them in this order, leaving out the DST cases. */
+export const EDGE_CASE_NAMES = [
+  "many-periods",
+  "noon-edge",
+  "sub-minute-period",
+  "folderless-day",
+  "unused-days",
+  "settings-change",
+  "ahi-rounding",
+  "clock-change",
+  "fall-back",
+  "spring-forward",
+] as const;
 export type EdgeCaseName = (typeof EDGE_CASE_NAMES)[number];
+
+// Named only: their dates depend on the zone, and a zone without DST has none.
+const DST_CASES: ReadonlySet<EdgeCaseName> = new Set(["fall-back", "spring-forward"]);
 
 export const EDGE_CASES: Readonly<Record<EdgeCaseName, EdgeCase>> = {
   "many-periods": manyPeriods,
   "noon-edge": noonEdge,
   "sub-minute-period": subMinutePeriod,
+  "folderless-day": folderlessDay,
+  "unused-days": unusedDays,
+  "settings-change": settingsChange,
+  "ahi-rounding": ahiRounding,
+  "clock-change": clockChange,
+  "fall-back": dstCase("fall-back"),
+  "spring-forward": dstCase("spring-forward"),
 };
 
-/** The cases `'all'` or a list names, in `EDGE_CASE_NAMES` order. */
+/** The cases `'all'` or a list names, in `EDGE_CASE_NAMES` order. `'all'` leaves out DST cases. */
 export const edgeCaseNames = (cases: "all" | readonly EdgeCaseName[]): EdgeCaseName[] =>
-  EDGE_CASE_NAMES.filter((name) => cases === "all" || cases.includes(name));
+  EDGE_CASE_NAMES.filter((name) => (cases === "all" ? !DST_CASES.has(name) : cases.includes(name)));
 
 /** A case's seed: the model's seed mixed with the case's name. */
 export function edgeCaseSeed(seed: number, name: EdgeCaseName): number {
