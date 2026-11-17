@@ -24,6 +24,42 @@ The start date has a two-digit year. As EDF+ specifies, 85 to 99 mean 19xx and t
 
 A field that won't parse returns `bad_field` with the field's name and text.
 
+### Data records
+
+After the header come the data records, back to back. Each record holds every signal's next run of samples, in header order, as little-endian int16 values. On the card, every record ends with a Crc16 sample. A BRP record holds 60 s:
+
+```mermaid
+flowchart LR
+  flow["Flow.40ms<br/>1,500 samples"] --> press["Press.40ms<br/>1,500 samples"] --> crc["Crc16<br/>1 sample"]
+```
+
+`readSignals(bytes, file, labels, range)` returns one `Float64Array` per label, in physical units:
+
+```ts
+const signals = readSignals(bytes, file, ["Flow.40ms", "Press.40ms"], { fromRecord: 3, toRecord: 5 });
+
+if (signals.isErr()) {
+  return err(signals.error); // missing_signal or range_out_of_bounds
+}
+
+const flow = signals.value["Flow.40ms"];
+```
+
+- It reads every whole record on disk by default, including records past the header's count. The range follows `Array.slice`: 0-based, with `toRecord` excluded.
+- A physical value is `physicalMin + (digital - digitalMin) × step`. A digital value outside the signal's digital range reads as NaN, because the card writes -1 there to mean "no value".
+- Signals that weren't asked for, Crc16 among them, are skipped by byte offset.
+
+### Annotations
+
+EVE and CSL are EDF+D files. Their records last 0 s and hold an `EDF Annotations` signal of time-stamped annotation lists (TALs). Each TAL is an onset in seconds from the file's start, an optional duration, and one or more texts:
+
+```
++0 \x14 \x14 \0                        timekeeping TAL: no text
++1260 \x15 12 \x14 Hypopnea \x14 \0     onset 1260 s, duration 12 s
+```
+
+`readAnnotations(bytes, file)` returns `{onset, duration, label}` for every text, in record order, with labels as written, "Recording starts" included. It drops timekeeping TALs, which on the card are always `+0`. A missing or empty duration reads as 0. A TAL that doesn't parse returns `bad_annotation` with its record number.
+
 ## Sessions
 
 A session is one mask-on period. `buildSessions` in `@airway/contract/derived/sessions` builds a night's sessions from `STR.edf` and the night's BRP segments:

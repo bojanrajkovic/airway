@@ -40,7 +40,12 @@ export type EdfReadError =
   /** `bytes` ends before the header does; `headerBytes` is how many it needs, 256 when unknown. */
   | { kind: "header_too_short"; headerBytes: number }
   | { kind: "bad_field"; field: string; value: string }
-  | { kind: "read_failed"; path: string; message: string };
+  | { kind: "read_failed"; path: string; message: string }
+  | { kind: "missing_signal"; label: string }
+  | { kind: "range_out_of_bounds"; fromRecord: number; toRecord: number; records: number }
+  | { kind: "no_annotations" }
+  /** A TAL that doesn't follow EDF+'s grammar, in the record it came from. */
+  | { kind: "bad_annotation"; record: number; tal: string };
 
 /** A parsed header, `checkFileSize`'s result for the file, and any warnings. */
 export type EdfFile = { header: EdfHeader; size: FileSizeCheck; warnings: EdfWarning[] };
