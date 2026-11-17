@@ -98,7 +98,7 @@ const BREAK_FLOOR_SECONDS = 60;
 const BREAK_MEDIAN_EXTRA_SECONDS = 140;
 const BREAK_SPREAD = 1.42;
 const BREAK_CAP_SECONDS = 3 * 3600;
-// The last mask-off, an hour before the noon boundary between nights.
+// The last mask-off, an hour before the device clock's noon, the boundary between nights.
 const LAST_OFF = Temporal.PlainTime.from("11:00");
 // Keeps episodes this far into a segment, so the first breaths have room before a pause.
 const LEAD_SECONDS = 10;
@@ -213,7 +213,11 @@ function buildNight(
   const bad = r.chance(1 / 10);
   const usageTarget = short ? r.int(120, 241) : r.int(420, 541);
   const bedtime = evening.toInstant().add({ minutes: r.int(0, 121) });
-  const latest = evening.add({ days: 1 }).withPlainTime(LAST_OFF).toInstant();
+  const latest = evening
+    .toPlainDate()
+    .add({ days: 1 })
+    .toZonedDateTime({ timeZone: DEFAULT_UTC_OFFSET, plainTime: LAST_OFF })
+    .toInstant();
   const placed = placePeriods(r, { breathing, bedtime, latest, usageTarget });
 
   return finishNight(r, breathing, evening.toPlainDate(), { ...placed, bad, extraEvents: [] });
@@ -284,7 +288,12 @@ function firstEventFile(segments: readonly Segment[]): EventFile[] {
 
   return first === undefined
     ? []
-    : [{ start: first.start.subtract({ seconds: random(first.seed + 1).int(3, 36) }), withCsl: true }];
+    : [
+        {
+          start: first.start.subtract({ seconds: random(first.seed + 1).int(3, 36) }),
+          withCsl: true,
+        },
+      ];
 }
 
 /** A stretch of time between two instants. */

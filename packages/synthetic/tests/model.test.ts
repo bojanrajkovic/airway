@@ -219,12 +219,15 @@ describe("syntheticNights", () => {
     });
 
     // A night that ran past noon would put its last files in the next night's folder.
-    it("ends every night by 11:00", () => {
-      for (const night of [...children, ...grownUps]) {
+    it("ends every night by 11:00 on the device clock", () => {
+      // Seed 1's 31st night ends near the deadline, which is 10:00 in America/Chicago.
+      const { nights: late } = syntheticNights({ seed: 1, nights: 31 });
+
+      for (const night of [...children, ...grownUps, ...late]) {
         const last = night.periods.at(-1)?.off;
         const deadline = night.night
           .add({ days: 1 })
-          .toZonedDateTime({ timeZone: "America/Chicago", plainTime: "11:00" })
+          .toZonedDateTime({ timeZone: "-05:00", plainTime: "11:00" })
           .toInstant();
 
         expect(last === undefined ? 0 : seconds(last, deadline)).toBeGreaterThanOrEqual(0);

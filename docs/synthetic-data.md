@@ -64,7 +64,7 @@ Mask-on periods and file gaps differ by patient:
 
 STR.edf has slots for 10 periods, so on a child's longer nights ingest rebuilds the rest from BRP files, joining files 90 s or less apart. A child's file gaps fall on both sides of 90 s, so those nights test the join's mistakes too. Adult nights stay inside the slots and under 90 s, so ingest's sessions always match their periods.
 
-Breaks between periods are 60 s plus a long-tailed draw: a median near 200 s, sometimes 25 minutes or more, at most 3 hours. On a night with many periods, the breaks shrink so the last mask-off comes by 11:00. Files after noon would belong to the next night.
+Breaks between periods are 60 s plus a long-tailed draw: a median near 200 s, sometimes 25 minutes or more, at most 3 hours. On a night with many periods, the breaks shrink so the last mask-off comes by 11:00 on the device clock. Files after the device clock's noon would belong to the next night.
 
 Ordinary variation comes from the seed: about 1 night in 8 is short, about 1 in 10 is bad with four times the events, events sometimes cluster, and leak spikes for a few minutes now and then.
 
