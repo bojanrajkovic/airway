@@ -16,14 +16,21 @@ export const MACHINE_EVENT_TYPES = [
 ] as const satisfies readonly (typeof EVENT_TYPES)[number][];
 export type MachineEventType = (typeof MACHINE_EVENT_TYPES)[number];
 
+/** The machine's apnea types, which also show as a gap in flow. */
+export const APNEAS: ReadonlySet<(typeof EVENT_TYPES)[number]> = new Set<MachineEventType>([
+  "obstructive_apnea",
+  "central_apnea",
+  "unclassified_apnea",
+]);
+
 /** Whole-number ranges, each picked in proportion to its weight. `max` is included. */
-export type Spread = readonly { weight: number; min: number; max: number }[];
+export type WeightedRanges = readonly { weight: number; min: number; max: number }[];
 
 export type Breathing = {
   /** Mask-on periods per night. */
-  periods: Spread;
+  periods: WeightedRanges;
   /** Seconds between consecutive BRP files inside one mask-on period. */
-  fileGaps: Spread;
+  fileGaps: WeightedRanges;
   /** Breaths per minute: the night's mean, and how much it varies between nights. */
   rate: { mean: number; sd: number };
   /** Litres per breath. */

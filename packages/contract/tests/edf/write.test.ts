@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { AIRSENSE, type EdfFile } from "../../src/edf/airsense.ts";
+import { AIRSENSE, type EdfFileType } from "../../src/edf/airsense.ts";
 import { writeAnnotations, writeSignals, type EdfHeader } from "../../src/edf/write.ts";
 import { readAnnotations, readEdf } from "@airway/testing/edf";
 
@@ -10,7 +10,7 @@ const header: EdfHeader = {
 };
 
 // Constant values for every signal of a file, enough for `records` records.
-function filled(file: EdfFile, records: number, value = 1): Map<string, Float64Array> {
+function filled(file: EdfFileType, records: number, value = 1): Map<string, Float64Array> {
   return new Map(
     file.signals
       .filter((signal) => signal.label !== "Crc16")

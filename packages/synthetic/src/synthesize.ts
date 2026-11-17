@@ -15,13 +15,26 @@ import type {
   SignalValues,
 } from "@airway/contract/derived/rows";
 import { assignEvents, buildSessions } from "@airway/contract/derived/sessions";
-import { AIRSENSE, dataSignals, step, type EdfFile } from "@airway/contract/edf/airsense";
+import {
+  AIRSENSE,
+  dataSignals,
+  PLD_SAMPLE_SECONDS,
+  step,
+  type EdfFileType,
+} from "@airway/contract/edf/airsense";
 import type { RuleSet } from "@airway/contract/profile";
 import { decimalsForStep } from "@airway/contract/registry/units";
 import { datalogFiles, folderFiles, type CpapFile, type DatalogFile } from "./cpap-data.ts";
-import { DEVICE, EVENT_LABELS, maskSlots, strFile, type SyntheticFileError } from "./files.ts";
+import {
+  DEVICE,
+  EVENT_LABELS,
+  maskSlots,
+  PLD_LAG_SECONDS,
+  strFile,
+  type SyntheticFileError,
+} from "./files.ts";
 import type { SyntheticNight } from "./model.ts";
-import type { Patient } from "./patients.ts";
+import { APNEAS, type Patient } from "./patients.ts";
 import { breaths } from "./signals.ts";
 
 export type SynthesizeOptions = {
@@ -35,16 +48,12 @@ export type SynthesizeOptions = {
 export type Synthesized = { files: CpapFile[]; rows: DerivedRows };
 
 const RULE_SETS: Readonly<Record<Patient, RuleSet>> = { child: "pediatric", adult: "adult" };
-const APNEAS = new Set(["obstructive_apnea", "central_apnea", "unclassified_apnea"]);
-// PLD files start this long after their BRP file.
-const PLD_LAG_SECONDS = 1;
-const PLD_SECONDS = 2;
 
 const value = (n: number | undefined): number | null =>
   n === undefined || Number.isNaN(n) ? null : n;
 
 // The signals of `file` that fill a column of `table`, as [label, column] pairs.
-const targets = (file: EdfFile, table: "nights" | "samples"): [string, string][] =>
+const targets = (file: EdfFileType, table: "nights" | "samples"): [string, string][] =>
   dataSignals(file).flatMap((signal) =>
     signal.target.table === table ? [[signal.label, signal.target.column]] : [],
   );
@@ -59,7 +68,7 @@ const SETTINGS = dataSignals(AIRSENSE.str).flatMap((signal) =>
  * amplitude and volume come from the 25 Hz flow signal, so they take its decimals.
  */
 function columnUnits(): ColumnUnitRow[] {
-  const fromFile = (file: EdfFile, dataset: "nights" | "samples"): ColumnUnitRow[] =>
+  const fromFile = (file: EdfFileType, dataset: "nights" | "samples"): ColumnUnitRow[] =>
     dataSignals(file).flatMap((signal) =>
       signal.target.table === dataset
         ? [
@@ -219,9 +228,9 @@ function addNight(rows: DerivedRows, { night, files, offset, folder, options }: 
   night.segments.forEach((segment, i) => {
     const session = built.segmentSessions[i] ?? 0;
     const index = i + 1;
-    const { pld } = segment;
+    const { pldSeries } = segment;
     const pldStart = segment.start.add({ seconds: PLD_LAG_SECONDS });
-    const count = pld.get(SAMPLE_COLUMNS[0]?.[0] ?? "")?.length ?? 0;
+    const count = pldSeries.get(SAMPLE_COLUMNS[0]?.[0] ?? "")?.length ?? 0;
 
     rows.segments.push({
       night: date,
@@ -235,14 +244,14 @@ function addNight(rows: DerivedRows, { night, files, offset, folder, options }: 
 
     for (let s = 0; s < count; s += 1) {
       const signals: SignalValues = Object.fromEntries(
-        SAMPLE_COLUMNS.map(([label, column]) => [column, value(pld.get(label)?.[s])]),
+        SAMPLE_COLUMNS.map(([label, column]) => [column, value(pldSeries.get(label)?.[s])]),
       );
 
       rows.samples.push({
         night: date,
         segment: index,
         session,
-        ts: pldStart.add({ seconds: PLD_SECONDS * s }),
+        ts: pldStart.add({ seconds: PLD_SAMPLE_SECONDS * s }),
         signals,
       } satisfies SampleRow);
     }

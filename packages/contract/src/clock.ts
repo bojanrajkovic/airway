@@ -26,13 +26,13 @@ export const ClockOffsets = z
   .min(1)
   .refine(ascending, "must be sorted by `from`, with no night listed twice");
 
-export type BeforeFirstOffset = { kind: "before_first_offset"; night: Temporal.PlainDate };
+export type NoOffsetForNight = { kind: "before_first_offset"; night: Temporal.PlainDate };
 
 /** The offset a night uses: the latest entry whose `from` is on or before the night. */
 export function offsetForNight(
   offsets: readonly ClockOffset[],
   night: Temporal.PlainDate,
-): Result<ClockOffset, BeforeFirstOffset> {
+): Result<ClockOffset, NoOffsetForNight> {
   const offset = offsets.findLast((entry) => Temporal.PlainDate.compare(entry.from, night) <= 0);
 
   return offset === undefined ? err({ kind: "before_first_offset", night }) : ok(offset);
