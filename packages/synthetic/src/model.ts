@@ -55,7 +55,36 @@ export type Segment = {
   seed: number;
   /** The nine 2 s series by PLD label, one value per 2 s, on each signal's step. */
   pldSeries: ReadonlyMap<string, Float64Array>;
+  brp: FileDamage;
+  pldFiles: PldFiles;
+  sad: FileDamage;
 };
+
+/**
+ * How a file is written: whole, or damaged the way real cards damage files.
+ *
+ * - `empty`: the header, with a record count of -1, and no records
+ * - `truncated`: cut partway through a record, before the count its header declares
+ * - `unknown_length`: every record, but a record count of -1
+ * - `undercounted`: every record, but a count one lower than the file holds
+ */
+export type FileDamage = "none" | "empty" | "truncated" | "unknown_length" | "undercounted";
+
+/** How a segment's files are written. */
+export type SegmentFiles = Pick<Segment, "brp" | "pldFiles" | "sad">;
+
+/** Every file whole, as base nights write them. */
+export const UNDAMAGED_FILES: SegmentFiles = {
+  brp: "none",
+  pldFiles: { files: "one", damage: "none" },
+  sad: "none",
+};
+
+/** A segment's PLD files: none, one, or two split at a record while the BRP file keeps going. */
+export type PldFiles =
+  | { files: "none" }
+  | { files: "one"; damage: FileDamage }
+  | { files: "split"; atRecord: number };
 
 /** An event the machine scores and writes to EVE. `at` is its start; `duration` is in seconds. */
 export type MachineEvent = { at: Temporal.Instant; duration: number; type: MachineEventType };
@@ -291,6 +320,7 @@ function finishNight(
     end,
     seed: r.int(0, 2 ** 31),
     pldSeries: drawPldSeries(r, { breathing, start, end, rate, events, pauses }),
+    ...UNDAMAGED_FILES,
   }));
 
   return {

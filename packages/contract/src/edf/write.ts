@@ -131,7 +131,8 @@ function digitize(signal: EdfSignal, samples: Float64Array): Result<Int16Array, 
   return ok(digital);
 }
 
-const recordBytes = (file: EdfFileType): number =>
+/** The bytes in one data record of a file type, Crc16 included. */
+export const recordBytes = (file: EdfFileType): number =>
   2 * file.signals.reduce((sum, signal) => sum + signal.samplesPerRecord, 0);
 
 // Every record ends with its Crc16 sample: the CRC-16/CCITT-FALSE of the record's other bytes,

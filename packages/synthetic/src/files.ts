@@ -1,21 +1,27 @@
 import { err, ok, Result } from "neverthrow";
 import { offsetForNight, type NoOffsetForNight, type ClockOffset } from "@airway/contract/clock";
-import { AIRSENSE, dataSignals } from "@airway/contract/edf/airsense";
+import { AIRSENSE, dataSignals, PLD_SAMPLE_SECONDS } from "@airway/contract/edf/airsense";
+import { checkFileSize, type FileSizeCheck } from "@airway/contract/edf/size";
 import {
+  recordBytes,
   writeAnnotations,
   writeSignals,
   type EdfHeader,
   type EdfWriteError,
 } from "@airway/contract/edf/write";
-import type { EventFile, MachineEvent, SyntheticNight } from "./model.ts";
+import type { EventFile, FileDamage, MachineEvent, Segment, SyntheticNight } from "./model.ts";
 import type { MachineEventType } from "./patients.ts";
 import { renderBrp } from "./signals.ts";
 
-/** One of a night's EDF files, with its start time on the device's clock. */
+/**
+ * One of a night's EDF files, with its start time on the device's clock and the index of the
+ * segment it belongs to (null for EVE and CSL).
+ */
 export type NightFile = {
   kind: "brp" | "pld" | "sad" | "eve" | "csl";
   start: Temporal.PlainDateTime;
   bytes: Uint8Array;
+  segment: number | null;
 };
 
 export type SyntheticFileError = EdfWriteError | NoOffsetForNight | { kind: "no_nights" };
@@ -62,7 +68,7 @@ export function nightFiles(
   offsets: readonly ClockOffset[],
 ): Result<NightFile[], SyntheticFileError> {
   return offsetForNight(offsets, night.night).andThen((offset) => {
-    const segmentFiles = night.segments.map((segment) => {
+    const segmentFiles = night.segments.map((segment, i) => {
       const start = deviceTime(segment.start, offset);
       const pldSadStart = start.add({ seconds: PLD_LAG_SECONDS });
       const { flow, pressure } = renderBrp(segment, night);
@@ -71,6 +77,11 @@ export function nightFiles(
         ["Pulse.1s", missing(seconds)],
         ["SpO2.1s", missing(seconds)],
       ]);
+      const file =
+        (kind: NightFile["kind"], at: Temporal.PlainDateTime, damage: FileDamage) =>
+        (bytes: Uint8Array): NightFile[] => [
+          { kind, start: at, bytes: applyDamage(bytes, damage), segment: i },
+        ];
 
       return Result.combine([
         writeSignals(
@@ -80,20 +91,16 @@ export function nightFiles(
             ["Flow.40ms", flow],
             ["Press.40ms", pressure],
           ]),
-        ).map((bytes): NightFile => ({ kind: "brp", start, bytes })),
-        writeSignals(AIRSENSE.pld, header(pldSadStart), segment.pldSeries).map(
-          (bytes): NightFile => ({
-            kind: "pld",
-            start: pldSadStart,
-            bytes,
-          }),
+        ).map(file("brp", start, segment.brp)),
+        ...pldParts(segment).map(({ series, offsetSeconds, damage }) => {
+          const at = pldSadStart.add({ seconds: offsetSeconds });
+
+          return writeSignals(AIRSENSE.pld, header(at), series).map(file("pld", at, damage));
+        }),
+        writeSignals(AIRSENSE.sad, header(pldSadStart), sad).map(
+          file("sad", pldSadStart, segment.sad),
         ),
-        writeSignals(AIRSENSE.sad, header(pldSadStart), sad).map((bytes): NightFile => ({
-          kind: "sad",
-          start: pldSadStart,
-          bytes,
-        })),
-      ]);
+      ]).map((files) => files.flat());
     });
 
     const annotationFiles = night.eventFiles.map((file) => {
@@ -108,11 +115,11 @@ export function nightFiles(
 
       return Result.combine([
         writeAnnotations(AIRSENSE.eve, header(start), [RECORDING_STARTS, ...events]).map(
-          (bytes): NightFile[] => [{ kind: "eve", start, bytes }],
+          (bytes): NightFile[] => [{ kind: "eve", start, bytes, segment: null }],
         ),
         file.withCsl
           ? writeAnnotations(AIRSENSE.csl, header(start), [RECORDING_STARTS]).map(
-              (bytes): NightFile[] => [{ kind: "csl", start, bytes }],
+              (bytes): NightFile[] => [{ kind: "csl", start, bytes, segment: null }],
             )
           : ok<NightFile[], SyntheticFileError>([]),
       ]).map((files) => files.flat());
@@ -130,6 +137,84 @@ export const eventFileFor = (night: SyntheticNight, at: Temporal.Instant): Event
 /** An event's EVE onset: whole seconds from its file's start to the event's end. */
 export const eventOnset = (file: EventFile, event: MachineEvent): number =>
   Math.round(file.start.until(event.at).total("seconds") + event.duration);
+
+type PldPart = {
+  series: ReadonlyMap<string, Float64Array>;
+  offsetSeconds: number;
+  damage: FileDamage;
+};
+
+const PLD_RECORD_SAMPLES = AIRSENSE.pld.recordSeconds / PLD_SAMPLE_SECONDS;
+
+// The segment's PLD files: none, one, or two halves of its series split at a record.
+function pldParts({ pldSeries, pldFiles }: Segment): PldPart[] {
+  if (pldFiles.files === "none") {
+    return [];
+  }
+
+  if (pldFiles.files === "one") {
+    return [{ series: pldSeries, offsetSeconds: 0, damage: pldFiles.damage }];
+  }
+
+  const at = pldFiles.atRecord * PLD_RECORD_SAMPLES;
+  const part = (from: number, to?: number): Map<string, Float64Array> =>
+    new Map([...pldSeries].map(([label, values]) => [label, values.subarray(from, to)]));
+
+  return [
+    { series: part(0, at), offsetSeconds: 0, damage: "none" },
+    { series: part(at), offsetSeconds: at * PLD_SAMPLE_SECONDS, damage: "none" },
+  ];
+}
+
+const HEADER_BYTES_FIELD = { at: 184, width: 8 };
+const RECORDS_FIELD = { at: 236, width: 8 };
+const ascii = new TextDecoder();
+
+const field = (bytes: Uint8Array, { at, width }: typeof RECORDS_FIELD): number =>
+  Number(ascii.decode(bytes.subarray(at, at + width)));
+
+// A copy of the file with its header's record count replaced.
+function withCount(bytes: Uint8Array, count: number): Uint8Array {
+  const copy = bytes.slice();
+
+  copy.set(
+    new TextEncoder().encode(count.toString().padEnd(RECORDS_FIELD.width)),
+    RECORDS_FIELD.at,
+  );
+
+  return copy;
+}
+
+// Damages a whole file the way `damage` says. Each record keeps its Crc16.
+function applyDamage(bytes: Uint8Array, damage: FileDamage): Uint8Array {
+  const headerBytes = field(bytes, HEADER_BYTES_FIELD);
+  const records = field(bytes, RECORDS_FIELD);
+  const recordSize = (bytes.length - headerBytes) / Math.max(1, records);
+
+  switch (damage) {
+    case "none":
+      return bytes;
+    case "empty":
+      return withCount(bytes.slice(0, headerBytes), -1);
+    case "unknown_length":
+      return withCount(bytes, -1);
+    case "undercounted":
+      return withCount(bytes, records - 1);
+    case "truncated":
+      // Half its records, then 7 bytes of the next.
+      return bytes.slice(0, headerBytes + Math.floor(records / 2) * recordSize + 7);
+  }
+}
+
+/** How ingest treats a written file: `checkFileSize` over its size and header. */
+export function sizeCheck(file: NightFile): FileSizeCheck {
+  return checkFileSize({
+    size: file.bytes.length,
+    headerBytes: field(file.bytes, HEADER_BYTES_FIELD),
+    recordBytes: recordBytes(AIRSENSE[file.kind]),
+    declaredRecords: field(file.bytes, RECORDS_FIELD),
+  });
+}
 
 const SLOTS = 10;
 const EPOCH = Temporal.PlainDate.from("1970-01-01");

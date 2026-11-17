@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import { Result } from "neverthrow";
+import type { FileSizeCheck } from "@airway/contract/edf/size";
 import { offsetForNight, type ClockOffset } from "@airway/contract/clock";
 import type {
   BreathRow,
@@ -32,6 +33,7 @@ import {
   eventOnset,
   maskSlots,
   PLD_LAG_SECONDS,
+  sizeCheck,
   strFile,
   type SyntheticFileError,
 } from "./files.ts";
@@ -178,6 +180,11 @@ function emptyRows(nights: readonly SyntheticNight[]): DerivedRows {
 }
 
 type FileSpec = Pick<FileRow, "path" | "kind" | "night">;
+/** A night's file that ingest imports. */
+type ImportedFile = DatalogFile & {
+  kind: "brp" | "pld" | "eve";
+  verdict: Exclude<FileSizeCheck["verdict"], "reject">;
+};
 
 function fileRow(folder: readonly CpapFile[], spec: FileSpec, ctime: Temporal.Instant): FileRow {
   const bytes = folder.find((file) => file.path === spec.path)?.bytes ?? new Uint8Array();
@@ -197,25 +204,37 @@ type NightInputs = {
 function addNight(rows: DerivedRows, { night, files, offset, folder, options }: NightInputs): void {
   const date = night.night;
   const maskEvents = night.str.get("MaskEvents") ?? 0;
+  // Ingest imports BRP, PLD, and EVE files that checkFileSize doesn't reject, and skips SAD and CSL.
+  const imported = files.flatMap((file): ImportedFile[] => {
+    const { verdict } = sizeCheck(file);
+
+    return (file.kind === "brp" || file.kind === "pld" || file.kind === "eve") &&
+      verdict !== "reject"
+      ? [{ ...file, kind: file.kind, verdict }]
+      : [];
+  });
+  const read = (kind: "brp" | "pld", i: number): ImportedFile[] =>
+    imported.filter((file) => file.kind === kind && file.segment === i && file.verdict === "read");
+  // Ingest makes a segment from each BRP file it reads.
+  const segments = night.segments.flatMap((segment, i) => {
+    const [brp] = read("brp", i);
+
+    return brp === undefined ? [] : [{ segment, brp, plds: read("pld", i) }];
+  });
   const built = buildSessions({
     night: date,
     offset,
     ...maskSlots(night, offset),
     maskEvents,
-    segments: night.segments,
+    segments: segments.map(({ segment }) => segment),
   });
-  const brps = files.filter((file) => file.kind === "brp");
-  const plds = files.filter((file) => file.kind === "pld");
-  const eves = files.filter((file) => file.kind === "eve");
+  const specs = imported.map(({ path, kind }): FileSpec => ({
+    path: `${path}.edf`,
+    kind,
+    night: date,
+  }));
 
-  // Ingest imports BRP, PLD, and EVE files, and skips SAD and CSL.
-  const imported: FileSpec[] = [
-    ...brps.map((file): FileSpec => ({ path: `${file.path}.edf`, kind: "brp", night: date })),
-    ...plds.map((file): FileSpec => ({ path: `${file.path}.edf`, kind: "pld", night: date })),
-    ...eves.map((file): FileSpec => ({ path: `${file.path}.edf`, kind: "eve", night: date })),
-  ];
-
-  rows.files.push(...imported.map((spec) => fileRow(folder, spec, options.uploadedAt)));
+  rows.files.push(...specs.map((spec) => fileRow(folder, spec, options.uploadedAt)));
 
   rows.sessions.push(
     ...built.sessions.map(({ session, start, end, source }): SessionRow => ({
@@ -227,12 +246,15 @@ function addNight(rows: DerivedRows, { night, files, offset, folder, options }: 
     })),
   );
 
-  night.segments.forEach((segment, i) => {
+  segments.forEach(({ segment, brp, plds }, i) => {
     const session = built.segmentSessions[i] ?? 0;
     const index = i + 1;
     const { pldSeries } = segment;
     const pldStart = segment.start.add({ seconds: PLD_LAG_SECONDS });
-    const count = pldSeries.get(SAMPLE_COLUMNS[0]?.[0] ?? "")?.length ?? 0;
+    // shortcut: a segment's PLD files all read or none do, which every case holds; count each
+    // file's own records if a case ever damages one half of a split PLD.
+    const count =
+      plds.length === 0 ? 0 : (pldSeries.get(SAMPLE_COLUMNS[0]?.[0] ?? "")?.length ?? 0);
 
     rows.segments.push({
       night: date,
@@ -240,8 +262,9 @@ function addNight(rows: DerivedRows, { night, files, offset, folder, options }: 
       session,
       ts: segment.start,
       ended_at: segment.end,
-      brp_path: `${brps[i]?.path ?? ""}.edf`,
-      pld_path: plds[i] === undefined ? null : `${plds[i].path}.edf`,
+      brp_path: `${brp.path}.edf`,
+      // A split PLD's segment names its first file.
+      pld_path: plds[0] === undefined ? null : `${plds[0].path}.edf`,
     } satisfies SegmentRow);
 
     for (let s = 0; s < count; s += 1) {

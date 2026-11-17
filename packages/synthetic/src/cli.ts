@@ -2,11 +2,14 @@
 import { mkdir, readdir, writeFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { parseArgs } from "node:util";
+import { EDGE_CASE_NAMES, type EdgeCaseName } from "./cases.ts";
 import { cpapData } from "./cpap-data.ts";
 import { syntheticNights } from "./model.ts";
 import { PATIENTS, type Patient } from "./patients.ts";
 
-const USAGE = "Usage: pnpm synth --out <dir> [--seed 1] [--nights 10] [--patient child|adult]";
+const USAGE =
+  "Usage: pnpm synth --out <dir> [--seed 1] [--nights 10] [--patient child|adult]\n" +
+  "  [--cases all|none|<name>,<name>...] [--time-zone America/Chicago]";
 
 function fail(message: string): never {
   process.stderr.write(`${message}\n${USAGE}\n`);
@@ -22,6 +25,30 @@ const wholeNumber = (flag: string, text: string, min: number): number => {
 };
 
 const isPatient = (text: string): text is Patient => PATIENTS.some((patient) => patient === text);
+
+const isCase = (text: string): text is EdgeCaseName =>
+  EDGE_CASE_NAMES.some((name) => name === text);
+
+function cases(text: string): "all" | EdgeCaseName[] {
+  if (text === "all" || text === "none") {
+    return text === "all" ? "all" : [];
+  }
+
+  const names = text.split(",");
+  const unknown = names.filter((name) => !isCase(name));
+
+  return unknown.length === 0
+    ? names.filter(isCase)
+    : fail(`Unknown --cases: ${unknown.join(", ")}. Known: ${EDGE_CASE_NAMES.join(", ")}.`);
+}
+
+function timeZone(text: string): string {
+  try {
+    return Temporal.Now.zonedDateTimeISO(text).timeZoneId;
+  } catch {
+    return fail(`--time-zone ${text} isn't a time zone Temporal knows.`);
+  }
+}
 
 // Treats a missing folder as empty.
 async function isEmpty(dir: string): Promise<boolean> {
@@ -42,6 +69,8 @@ const { values } = parseArgs({
     seed: { type: "string", default: "1" },
     nights: { type: "string", default: "10" },
     patient: { type: "string", default: "child" },
+    cases: { type: "string", default: "all" },
+    "time-zone": { type: "string", default: "America/Chicago" },
   },
 });
 
@@ -53,10 +82,14 @@ const model = syntheticNights({
   seed: wholeNumber("seed", values.seed, 0),
   nights: wholeNumber("nights", values.nights, 1),
   patient,
+  cases: cases(values.cases),
+  zone: timeZone(values["time-zone"]),
 });
 
 if (model.isErr()) {
-  fail(`Couldn't build the nights: ${model.error.kind}.`);
+  fail(
+    `Couldn't build the ${model.error.name} nights in ${model.error.zone}: it has no such transition.`,
+  );
 }
 
 const { nights, offsets } = model.value;
@@ -79,4 +112,8 @@ for (const { path, bytes } of files.value) {
   await writeFile(target, bytes);
 }
 
-process.stdout.write(`Wrote ${nights.length.toString()} ${patient} nights to ${dir}\n`);
+// The server needs these offsets to place the clock-change nights at the right times.
+process.stdout.write(
+  `Wrote ${nights.length.toString()} ${patient} nights to ${dir}\n` +
+    `AIRWAY_CLOCK_OFFSETS=${JSON.stringify(offsets)}\n`,
+);
