@@ -16,7 +16,7 @@ The importer isn't built yet. The rules it shares with the synthetic data genera
 - `size` is `checkFileSize`'s verdict for the file's size on disk: `read`, `skip`, or `reject`. Only a file whose verdict is `read` can be decoded; `isReadable(file)` checks that.
 - `warnings` lists anything the header contradicts without stopping the read. A `startdate_mismatch` means the recording field's `Startdate` names a different day from the header's start date.
 
-`bytes` must hold the whole header, and `size` defaults to `bytes.length`. A scan that reads only headers reads 256 bytes first. If `readHeader` returns `header_too_short`, its `headerBytes` says how many bytes the header takes, 256 for each signal plus 256.
+`bytes` must hold the whole header, and `size` defaults to `bytes.length`. The scan checks every file's size against its header on each poll, so it reads only the header, not the whole file. A header's length depends on its signal count: 1,024 bytes for BRP, about 21 KB for `STR.edf`. `readHeader` reads no files itself, so the scan reads the first 256 bytes and calls it. If it returns `header_too_short`, its `headerBytes` says how many bytes to read before calling it again.
 
 The start date has a two-digit year. As EDF+ specifies, 85 to 99 mean 19xx and the rest mean 20xx.
 
