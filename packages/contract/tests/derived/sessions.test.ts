@@ -27,6 +27,21 @@ function inputs(overrides: Partial<SessionInputs>): SessionInputs {
 }
 
 describe("buildSessions", () => {
+  it("ignores a slot whose mask-on and mask-off fall in the same minute", () => {
+    const built = buildSessions(
+      inputs({
+        maskOn: [540, 600, 610],
+        maskOff: [590, 600, 700],
+        maskEvents: 6,
+        segments: [span(at(540), at(590)), span(at(610), at(700))],
+      }),
+    );
+
+    expect(built.sessions.map(({ source }) => source)).toEqual(["str", "str"]);
+    expect(built.segmentSessions).toEqual([1, 2]);
+    expect(built.approximate).toBe(true);
+  });
+
   it("makes a session per STR slot and puts each segment in the one it overlaps", () => {
     const built = buildSessions(
       inputs({

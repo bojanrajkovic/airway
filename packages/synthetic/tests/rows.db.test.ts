@@ -19,7 +19,7 @@ const columnsOf = (row: object): string[] =>
 // rows.ts and ddl.ts both list every derived column. A column one leaves out would otherwise load
 // as null without an error.
 test("gives every derived table's rows exactly the table's columns", async ({ databaseUrl }) => {
-  const [first, second] = syntheticNights({ seed: 7, nights: 2 });
+  const [first, second] = syntheticNights({ seed: 7, nights: 2 }).nights;
 
   if (first === undefined || second === undefined) {
     throw new Error("expected two nights");

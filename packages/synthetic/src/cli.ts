@@ -2,14 +2,11 @@
 import { mkdir, readdir, writeFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { parseArgs } from "node:util";
-import { ClockOffsets } from "@airway/contract/clock";
 import { cpapData } from "./cpap-data.ts";
 import { syntheticNights } from "./model.ts";
 import { PATIENTS, type Patient } from "./patients.ts";
 
 const USAGE = "Usage: pnpm synth --out <dir> [--seed 1] [--nights 10] [--patient child|adult]";
-// .env.example's AIRWAY_CLOCK_OFFSETS, so the folder imports with the example config.
-const OFFSETS = ClockOffsets.parse([{ from: "2025-01-01", utcOffset: "-05:00" }]);
 
 function fail(message: string): never {
   process.stderr.write(`${message}\n${USAGE}\n`);
@@ -52,7 +49,7 @@ const out = values.out ?? fail("--out is required.");
 const patient = isPatient(values.patient)
   ? values.patient
   : fail("--patient must be child or adult.");
-const nights = syntheticNights({
+const { nights, offsets } = syntheticNights({
   seed: wholeNumber("seed", values.seed, 0),
   nights: wholeNumber("nights", values.nights, 1),
   patient,
@@ -63,7 +60,7 @@ if (!(await isEmpty(dir))) {
   fail(`${dir} isn't empty. Pick a new folder, so synthetic files never mix with real ones.`);
 }
 
-const files = cpapData(nights, OFFSETS);
+const files = cpapData(nights, offsets);
 
 if (files.isErr()) {
   fail(`Couldn't write the folder: ${files.error.kind}.`);

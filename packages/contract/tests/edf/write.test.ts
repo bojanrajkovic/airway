@@ -172,4 +172,13 @@ describe("writeAnnotations", () => {
       annotation: long,
     });
   });
+
+  it("refuses an onset before the file's start", () => {
+    const early = { onset: -5, duration: 10, label: "Hypopnea" };
+
+    expect(writeAnnotations(AIRSENSE.eve, header, [early])._unsafeUnwrapErr()).toEqual({
+      kind: "negative_onset",
+      annotation: early,
+    });
+  });
 });

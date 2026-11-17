@@ -6,7 +6,7 @@ import { DEVICE } from "../src/files.ts";
 import { syntheticNights, type SyntheticNight } from "../src/model.ts";
 
 const offsets = ClockOffsets.parse([{ from: "2030-01-01", utcOffset: "-05:00" }]);
-const nights = syntheticNights({ seed: 7, nights: 3 });
+const { nights } = syntheticNights({ seed: 7, nights: 3 });
 
 // Each test that asks for `folder` gets its own, written from `nights`.
 const test = base.extend<{ folder: CpapFile[] }>({
@@ -134,7 +134,7 @@ describe("cpapData", () => {
   test("leaves out the folder of a night with no segments", () => {
     const [first, ...rest] = nights;
     const empty: CpapFile[] = cpapData(
-      [...(first === undefined ? [] : [{ ...first, segments: [] }]), ...rest],
+      [...(first === undefined ? [] : [{ ...first, segments: [], eventFiles: [] }]), ...rest],
       offsets,
     )._unsafeUnwrap();
 

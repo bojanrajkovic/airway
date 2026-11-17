@@ -1,4 +1,5 @@
 import { randomLcg, randomNormal, randomPoisson, randomUniform } from "d3-random";
+import type { ClockOffset } from "@airway/contract/clock";
 import {
   AIRSENSE,
   dataSignals,
@@ -15,6 +16,7 @@ import {
   type Patient,
   type WeightedRanges,
 } from "./patients.ts";
+import { EDGE_CASES, edgeCaseNames, edgeCaseSeed, type EdgeCaseName } from "./cases.ts";
 
 export type SyntheticOptions = {
   seed: number;
@@ -25,7 +27,12 @@ export type SyntheticOptions = {
   patient?: Patient;
   /** Where bedtime falls at 20:00 to 22:00. Defaults to `.env.example`'s zone. */
   zone?: string;
+  /** Edge-case nights to add after the base nights. Defaults to none. */
+  cases?: "all" | readonly EdgeCaseName[];
 };
+
+/** A model's nights and the clock offsets their files use. */
+export type Synthetic = { nights: SyntheticNight[]; offsets: ClockOffset[] };
 
 /** A stretch with the mask on: one session. */
 export type MaskPeriod = { on: Temporal.Instant; off: Temporal.Instant };
@@ -59,12 +66,20 @@ export type Pause = {
   kind: "machine_apnea" | "pediatric" | "dip";
 };
 
+/**
+ * One EVE file: its start, and whether a CSL file starting at the same time comes with it. Each
+ * event goes to the last EVE file that starts at or before it.
+ */
+export type EventFile = { start: Temporal.Instant; withCsl: boolean };
+
 export type SyntheticNight = {
   night: Temporal.PlainDate;
   periods: readonly MaskPeriod[];
   segments: readonly Segment[];
   events: readonly MachineEvent[];
   pauses: readonly Pause[];
+  /** The night's EVE files in time order; none when the night has no segments. */
+  eventFiles: readonly EventFile[];
   /**
    * STR.edf's values for the night by label, on each signal's step, NaN where the machine writes
    * -1. Date, MaskOn, MaskOff, and Crc16 are left out: they depend on the device clock or the file.
@@ -74,6 +89,8 @@ export type SyntheticNight = {
 
 const DEFAULT_START = Temporal.PlainDate.from("2030-01-07");
 const DEFAULT_ZONE = "America/Chicago";
+// A device clock on fixed EST, like the real one, without its few minutes of drift.
+export const DEFAULT_UTC_OFFSET = "-05:00";
 const MACHINE_APNEA_SECONDS = 10;
 // Breaks between mask-on periods: at least 60 s, plus a log-normal draw with a median of 140 s and
 // a p95 near 25 minutes, so the whole break has a median near 200 s. Capped at 3 hours.
@@ -142,30 +159,50 @@ const snapPld = roundToStep(AIRSENSE.pld);
 const snapStr = roundToStep(AIRSENSE.str);
 
 /**
- * Builds a fixed, invented set of nights from a seed. The same options always give the same
- * nights. Unused days are days with no night in the list.
+ * Builds a fixed, invented set of nights from a seed, then the edge-case nights `cases` asks for
+ * on the dates after them. The same options always give the same nights, and the base nights are
+ * the same with or without cases. Unused days are days with no night in the list.
  */
-export function syntheticNights(options: SyntheticOptions): SyntheticNight[] {
+export function syntheticNights(options: SyntheticOptions): Synthetic {
   const r = random(options.seed);
   const breathing = BREATHING[options.patient ?? "child"];
   const start = options.start ?? DEFAULT_START;
   const zone = options.zone ?? DEFAULT_ZONE;
+  const nights = Array.from({ length: options.nights }, (_, i) =>
+    buildNight(r, breathing, evening(start.add({ days: i }), zone)),
+  );
+  const offsets: ClockOffset[] = [{ from: start, utcOffset: DEFAULT_UTC_OFFSET }];
+  let next = start.add({ days: options.nights });
+
+  for (const name of edgeCaseNames(options.cases ?? [])) {
+    const built = EDGE_CASES[name]({
+      random: random(edgeCaseSeed(options.seed, name)),
+      breathing,
+      first: next,
+      zone,
+    });
+
+    nights.push(...built.nights);
+    offsets.push(...built.offsets);
+    next = (built.nights.at(-1)?.night ?? next).add({ days: 1 });
+  }
+
   // The machine's running total of hours used, starting from an invented number.
   let patientHours = 100;
 
-  return Array.from({ length: options.nights }, (_, i) => {
-    const night = buildNight(
-      r,
-      breathing,
-      start.add({ days: i }).toZonedDateTime({ timeZone: zone, plainTime: "20:00" }),
-    );
+  return {
+    nights: nights.map((night) => {
+      patientHours += (night.str.get("OnDuration") ?? 0) / 60;
 
-    patientHours += Number(night.str.get("OnDuration")) / 60;
-    const str = new Map(night.str).set("PatientHours", Math.floor(patientHours));
-
-    return { ...night, str };
-  });
+      return { ...night, str: new Map(night.str).set("PatientHours", Math.floor(patientHours)) };
+    }),
+    offsets: offsets.toSorted((a, b) => Temporal.PlainDate.compare(a.from, b.from)),
+  };
 }
+
+/** 20:00 on a night's date in the home time zone. */
+export const evening = (night: Temporal.PlainDate, zone: string): Temporal.ZonedDateTime =>
+  night.toZonedDateTime({ timeZone: zone, plainTime: "20:00" });
 
 function buildNight(
   r: Random,
@@ -177,17 +214,51 @@ function buildNight(
   const usageTarget = short ? r.int(120, 241) : r.int(420, 541);
   const bedtime = evening.toInstant().add({ minutes: r.int(0, 121) });
   const latest = evening.add({ days: 1 }).withPlainTime(LAST_OFF).toInstant();
-  const { periods, segmentTimes } = placePeriods(r, {
-    breathing,
-    bedtime,
-    latest,
-    usageTarget,
-  });
+  const placed = placePeriods(r, { breathing, bedtime, latest, usageTarget });
+
+  return finishNight(r, breathing, evening.toPlainDate(), { ...placed, bad, extraEvents: [] });
+}
+
+/**
+ * A night's mask-on periods and BRP file times, set by hand, plus events placed outside the
+ * model's own (which only falls inside segments).
+ */
+export type NightLayout = {
+  periods: readonly MaskPeriod[];
+  segmentTimes: readonly Interval[];
+  extraEvents: readonly MachineEvent[];
+};
+
+/**
+ * A night with the given layout. Events, pauses, 2 s series, and STR.edf values are drawn as for
+ * any night, so they agree with the layout.
+ */
+export function nightFromLayout(
+  r: Random,
+  breathing: Breathing,
+  night: Temporal.PlainDate,
+  layout: NightLayout,
+): SyntheticNight {
+  return finishNight(r, breathing, night, { ...layout, bad: r.chance(1 / 10) });
+}
+
+type FinishInputs = NightLayout & { bad: boolean };
+
+function finishNight(
+  r: Random,
+  breathing: Breathing,
+  night: Temporal.PlainDate,
+  { periods, segmentTimes, extraEvents, bad }: FinishInputs,
+): SyntheticNight {
   const usage = Math.floor(
     periods.reduce((sum, { on, off }) => sum + on.until(off).total("seconds"), 0) / 60,
   );
   const rate = r.normal(breathing.rate.mean, breathing.rate.sd);
-  const { events, pauses } = placeEpisodes(r, { breathing, segmentTimes, usage, bad, rate });
+  const placed = placeEpisodes(r, { breathing, segmentTimes, usage, bad, rate });
+  const events = [...placed.events, ...extraEvents].sort((a, b) =>
+    Temporal.Instant.compare(a.at, b.at),
+  );
+  const { pauses } = placed;
   const segments = segmentTimes.map(({ start, end }): Segment => ({
     start,
     end,
@@ -196,16 +267,28 @@ function buildNight(
   }));
 
   return {
-    night: evening.toPlainDate(),
+    night,
     periods,
     segments,
     events,
     pauses,
+    eventFiles: firstEventFile(segments),
     str: strValues(r, { breathing, periods, segments, events, usage }),
   };
 }
 
-type Interval = { start: Temporal.Instant; end: Temporal.Instant };
+// One EVE and CSL pair starting 3 to 35 s before the first segment, as on the real card. The lead
+// has its own generator, seeded next to the segment's, so seeded nights keep every other value.
+function firstEventFile(segments: readonly Segment[]): EventFile[] {
+  const [first] = segments;
+
+  return first === undefined
+    ? []
+    : [{ start: first.start.subtract({ seconds: random(first.seed + 1).int(3, 36) }), withCsl: true }];
+}
+
+/** A stretch of time between two instants. */
+export type Interval = { start: Temporal.Instant; end: Temporal.Instant };
 type PlacedPeriods = { periods: MaskPeriod[]; segmentTimes: Interval[] };
 
 /** A whole number from one of the weighted ranges, picked by weight. */
