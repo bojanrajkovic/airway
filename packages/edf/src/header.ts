@@ -221,7 +221,8 @@ export function readHeader(bytes: Uint8Array, size = bytes.length): Result<EdfFi
 
   return Result.combine([
     reader.number("header bytes", 8),
-    ok(reader.text(44)),
+    // Plain EDF leaves the reserved field blank; the card writes "EDF" there.
+    ok(reader.text(44).replace(/^$/v, "EDF")),
     reader.number("records", 8),
     reader.number("record duration", 8, false),
     reader.number("signals", 4),
@@ -233,6 +234,14 @@ export function readHeader(bytes: Uint8Array, size = bytes.length): Result<EdfFi
 
       if (!isFormat(format)) {
         return err(badField("reserved", format));
+      }
+
+      if (declaredRecords < -1) {
+        return err(badField("records", declaredRecords.toString()));
+      }
+
+      if (recordSeconds < 0) {
+        return err(badField("record duration", recordSeconds.toString()));
       }
 
       if (count < 1 || headerBytes !== FIXED_BYTES + SIGNAL_BYTES * count) {

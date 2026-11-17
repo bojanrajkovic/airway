@@ -135,6 +135,16 @@ describe("readHeader", () => {
       { kind: "bad_field", field: "records", value: "lots" },
     ],
     [
+      "a negative count other than -1",
+      { records: "-2" },
+      { kind: "bad_field", field: "records", value: "-2" },
+    ],
+    [
+      "a negative record duration",
+      { recordSeconds: "-60" },
+      { kind: "bad_field", field: "record duration", value: "-60" },
+    ],
+    [
       "an impossible date",
       { startDate: "31.02.30" },
       { kind: "bad_field", field: "start", value: "31.02.30 21.15.04" },
@@ -151,6 +161,10 @@ describe("readHeader", () => {
     ],
   ])("rejects %s", (_, overrides, error) => {
     expect(readHeader(file(plain(overrides), 0))._unsafeUnwrapErr()).toEqual(error);
+  });
+
+  it("reads a blank reserved field as plain EDF", () => {
+    expect(readHeader(file(plain({ reserved: "" }), 0))._unsafeUnwrap().header.format).toBe("EDF");
   });
 
   it("narrows to a readable file only when the verdict is read", () => {
