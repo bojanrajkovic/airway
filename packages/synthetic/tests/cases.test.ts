@@ -246,10 +246,13 @@ describe("edge cases", () => {
     const { night, offsets, rows } = edgeCase("split-files");
     const written = nightFiles(night, offsets)._unsafeUnwrap();
 
-    it("gives a BRP with no PLD a segment without samples", () => {
-      const lonely = rows.segments[1];
+    const pldsOf = (segment: number): string[] =>
+      rows.files
+        .filter((file) => file.kind === "pld" && file.segment === segment)
+        .map(({ path }) => path);
 
-      expect(lonely?.pld_path).toBeNull();
+    it("gives a BRP with no PLD a segment without samples", () => {
+      expect(pldsOf(2)).toEqual([]);
       expect(rows.samples.filter(({ segment }) => segment === 2)).toHaveLength(0);
     });
 
@@ -258,6 +261,7 @@ describe("edge cases", () => {
       const samples = rows.samples.filter(({ segment }) => segment === 3);
 
       expect(split).toHaveLength(2);
+      expect(pldsOf(3)).toHaveLength(2);
       expect(samples).toHaveLength(1800);
       expect(samples.at(-1)?.ts).toEqual(samples[0]?.ts.add({ seconds: 2 * 1799 }));
     });

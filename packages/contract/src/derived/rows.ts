@@ -54,6 +54,8 @@ export type FileRow = {
   kind: (typeof FILE_KINDS)[number];
   /** Null for STR.edf and Identification.tgt. */
   night: Temporal.PlainDate | null;
+  /** The segment a BRP or PLD file's data belongs to; null for other files and unread ones. */
+  segment: number | null;
   size: number;
   sha256: string;
   ctime: Temporal.Instant;
@@ -73,8 +75,6 @@ export type SegmentRow = {
   session: number;
   ts: Temporal.Instant;
   ended_at: Temporal.Instant;
-  brp_path: string;
-  pld_path: string | null;
 };
 
 export type EventRow = {

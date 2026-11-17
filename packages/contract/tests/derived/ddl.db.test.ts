@@ -16,12 +16,12 @@ insert into derived.nights (night, sessions, expected_sessions, session_count_ap
   longest_stretch, obstructive_apneas, central_apneas, unclassified_apneas, hypopneas, arousals,
   events_outside_mask_on, ahi_check, rule_set, uploaded_at)
 values ('${night}', 1, 1, false, 480, 1, 0, 0, 0, 0, 0, 'match', 'pediatric', '${night}T14:00Z');
-insert into derived.files (path, kind, night, size, sha256, ctime)
-values ('DATALOG/${night}/BRP.edf', 'brp', '${night}', 1024, 'abc', '${night}T14:00Z');
 insert into derived.sessions (night, session, ts, ended_at, source)
 values ('${night}', 1, '${night}T02:00Z', '${night}T10:00Z', 'str');
-insert into derived.segments (night, segment, session, ts, ended_at, brp_path)
-values ('${night}', 1, 1, '${night}T02:00Z', '${night}T10:00Z', 'DATALOG/${night}/BRP.edf');
+insert into derived.segments (night, segment, session, ts, ended_at)
+values ('${night}', 1, 1, '${night}T02:00Z', '${night}T10:00Z');
+insert into derived.files (path, kind, night, segment, size, sha256, ctime)
+values ('DATALOG/${night}/BRP.edf', 'brp', '${night}', 1, 1024, 'abc', '${night}T14:00Z');
 insert into derived.events (night, session, ts, duration, type, source, outside_mask_on)
 values ('${night}', 1, '${night}T03:00Z', 12, 'obstructive_apnea', 'resmed', false),
        ('${night}', null, '${night}T11:00Z', 10, 'hypopnea', 'resmed', true);
@@ -81,9 +81,14 @@ test("deleting a night removes its rows from every table, and no other night's",
       ),
     ).rejects.toThrow(/foreign key/v);
 
-    // A file a segment was read from can't go while the segment stays.
+    // A segment can't go while a file names it, and a file can't name a missing segment.
     await expect(
-      client.query(`delete from derived.files where path = 'DATALOG/2030-01-01/BRP.edf'`),
+      client.query(`delete from derived.segments where night = '2030-01-01'`),
+    ).rejects.toThrow(/foreign key/v);
+    await expect(
+      client.query(
+        `update derived.files set segment = 9 where path = 'DATALOG/2030-01-01/BRP.edf'`,
+      ),
     ).rejects.toThrow(/foreign key/v);
 
     await client.query(`delete from derived.nights where night = '2030-01-01'`);

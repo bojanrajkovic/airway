@@ -101,7 +101,17 @@ describe("synthesize", () => {
       expect(row.ctime).toBe(uploadedAt);
     }
 
-    expect(rows.segments.every((row) => byPath.has(row.brp_path))).toBe(true);
+    // Each segment has exactly one BRP file naming it.
+    for (const segment of rows.segments) {
+      const brps = rows.files.filter(
+        (file) =>
+          file.kind === "brp" &&
+          file.night?.equals(segment.night) === true &&
+          file.segment === segment.segment,
+      );
+
+      expect(brps).toHaveLength(1);
+    }
   });
 
   test("gives a night with no segments only its daily usage", () => {
