@@ -44,7 +44,7 @@ const { nights, offsets } = model.value;
 
 Each night holds:
 - `periods`: the mask-on periods, as UTC instants. Each is one session.
-- `segments`: the BRP files' stretches, a whole number of minutes each. Each segment stores PLD's nine 2 s series and a seed for its 25 Hz detail.
+- `segments`: the BRP files' stretches, a whole number of minutes each. Each segment stores PLD's nine 2 s series, a seed for its 25 Hz detail, and how its files are written: `brp` and `sad` are each a `FileDamage`, and `pldFiles` is `none`, `one` with its damage, or `split` at a record. `FileDamage` is `none` or a damage real cards show: `empty` (a -1 count and no records), `truncated` (cut partway through a record, short of its declared count), `unknown_length` (every record, but a -1 count), or `undercounted` (one more record than its count). Base nights write every file undamaged. The words match `checkFileSize`'s, so a file written `truncated` comes back rejected as `truncated`, and one written `undercounted` comes back read with `header: undercounted`.
 - `events`: what the machine scores and writes to EVE.
 - `pauses`: gaps in breathing the flow signal shows. There are three kinds:
 
@@ -99,6 +99,8 @@ A case draws ordinary nights with `randomNight`, or sets a night's mask-on perio
 | `unused-days` | Two nights 3 days apart. STR.edf stores the two days between as -1, and they get usage 0. |
 | `settings-change` | Two nights, the second with its maximum pressure 1 cmH2O higher, giving one `settings_changes` row. |
 | `ahi-rounding` | 18 hypopneas in 400 minutes, an AHI of exactly 2.7, which floating point computes just under 2.7. |
+| `damaged-files` | One night whose files include a 2-minute stretch with header-only BRP, PLD, and SAD files; a truncated BRP; a BRP with a -1 count; and BRP, PLD, and SAD files holding one more record than they declare. |
+| `split-files` | One night with a BRP that has no PLD, a PLD split into two files halfway through its BRP, and three EVE files, the last without a CSL. |
 | `clock-change` | Two nights on each side of a second clock offset, -04:55 from the second night. The second night runs from 22:30 to 03:30, so it crosses midnight on one offset. |
 | `fall-back` | A night from 21:00 across the zone's next fall-back, so 01:00 happens twice. |
 | `spring-forward` | A night from 21:00 across the zone's next spring-forward, so there's no 02:00. |
@@ -117,7 +119,7 @@ Flow is a half sine wave up while breathing in and a half sine wave down while b
 
 `@airway/synthetic/files` turns the model into EDF bytes, one file at a time. Each file comes with its start time on the device's clock, which `cpapData` turns into its file name. The device's clock runs on the night's fixed offset from `AIRWAY_CLOCK_OFFSETS` and doesn't change for daylight saving time.
 
-- `nightFiles(night, offsets)` writes a BRP, PLD, and SAD file for each segment, and an EVE file, plus a CSL file when it has one, for each of `eventFiles`. PLD and SAD files start 1 s after their BRP file, as on the real machine. SAD holds only missing values, as it does without an oximeter. Each event goes in the last EVE file that starts at or before it. EVE starts with a "Recording starts" annotation, then lists each event with its onset at the event's end, measured from the file's start, which is how the machine writes them. CSL holds only "Recording starts".
+- `nightFiles(night, offsets)` writes a BRP, PLD, and SAD file for each segment, damaged as the segment says, and an EVE file, plus a CSL file when it has one, for each of `eventFiles`. PLD and SAD files start 1 s after their BRP file, as on the real machine. SAD holds only missing values, as it does without an oximeter. Each event goes in the last EVE file that starts at or before it. EVE starts with a "Recording starts" annotation, then lists each event with its onset at the event's end, measured from the file's start, which is how the machine writes them. CSL holds only "Recording starts".
 - `strFile(nights, offsets)` writes STR.edf with one record per day, from the earliest night to the latest, whatever order the nights come in. A day with no night is unused, and every value in its record is -1. MaskOn and MaskOff hold up to 10 mask-on periods, in minutes since noon on the device's clock; unused slots are -1. A mask-on before the night's noon belongs to the previous day's record, so its slot's MaskOn is -1.
 
 The serial, patient, and recording fields hold invented values.
@@ -166,7 +168,8 @@ The rows follow ingest's rules:
 - An event starts at its EVE file's start, plus its onset, minus its duration, with the onset rounded to the whole second EVE keeps.
 - Samples start at the PLD file's start, 1 s after the segment's, every 2 s.
 - Breaths are the model's own. `amplitude` is the in-breath's peak flow, and `duration` covers the in-breath and out-breath, so a pause is a gap between breaths.
-- `files` lists Identification.tgt, STR.edf, and each BRP, PLD, and EVE file, with its size and SHA-256. Ingest skips SAD, CSL, and `.crc` files.
+- Each written file goes through the contract's `checkFileSize`, the function ingest calls. Ingest makes a segment from each BRP file it reads, and samples from each PLD file it reads. A split PLD's segment names its first file in `pld_path`.
+- `files` lists Identification.tgt, STR.edf, and each BRP, PLD, and EVE file that `checkFileSize` reads or skips, with its size and SHA-256. Ingest skips SAD, CSL, and `.crc` files.
 - `column_units` has each STR and PLD signal's header unit and decimals. A breath's `amplitude` (L/s) and `inspiratory_volume` (L) come from the 25 Hz flow signal, so they take its decimals.
 - `daily_usage` covers every day from the first night to the last, with 0 on a day with no night.
 - `settings_changes` has a row for each setting that differs from the previous night's.
@@ -213,10 +216,28 @@ It creates the schema with `derivedTables`, COPYs each table parents first, then
 `pnpm synth` writes a CPAP data folder to disk, for local development and end-to-end tests:
 
 ```sh
-pnpm synth --out /tmp/airway-cpap-data [--seed 1] [--nights 10] [--patient child|adult]
+pnpm synth --out /tmp/airway-cpap-data [--seed 1] [--nights 10] [--patient child|adult] \
+  [--cases all|none|<name>,<name>...] [--time-zone America/Chicago]
 ```
 
-It defaults to 10 child nights from seed 1, including any short or bad nights the model draws. Its files use the offsets `syntheticNights` returns, a -05:00 device clock that matches `.env.example`'s `AIRWAY_CLOCK_OFFSETS`, so a folder written to `.env.example`'s `AIRWAY_CPAP_DATA_PATH` imports with the example config. `--out` must be missing or empty, so synthetic files never mix with real ones or with an older run.
+It defaults to 10 child nights from seed 1, including any short or bad nights the model draws, followed by every edge case in `'all'`. Unlike `syntheticNights`, `--cases` defaults to `all`, so local development and end-to-end tests always see the edge cases; pass `none` for plain nights, or name cases, DST ones included. `--time-zone` places bedtimes and DST nights, and defaults to America/Chicago, `.env.example`'s zone. Pass the server's `AIRWAY_TIME_ZONE`.
+
+It prints the `AIRWAY_CLOCK_OFFSETS` the folder needs. The `clock-change` case adds a second offset, so the server must use the printed value. With the default offset alone, the nights after the change import 5 minutes off. `--out` must be missing or empty, so synthetic files never mix with real ones or with an older run.
+
+## Checking a file's size
+
+`checkFileSize({ size, headerBytes, recordBytes, declaredRecords })` in `@airway/contract/edf/size` decides what ingest does with a file, from its size against its header. `synthesize` calls it on every file it writes, and ingest calls it on every file it scans, so the synthetic rows and ingest follow one rule.
+
+| On disk | `verdict` | `header` or `reason` |
+|---|---|---|
+| exactly the declared records | `read` | `header: matches` |
+| whole records under a -1 count, EDF's "unknown" | `read` | `header: unknown_length` |
+| more whole records than declared | `read`, every record | `header: undercounted` |
+| a header and no records | `skip` | `header: matches` or `unknown_length` |
+| fewer records than declared | `reject` | `reason: truncated` |
+| a trailing partial record | `reject` | `reason: partial_record` |
+
+`read` and `skip` carry `records`, counted from the size. A file that's both short and ends mid-record is `truncated`.
 
 ## Writing EDF files
 

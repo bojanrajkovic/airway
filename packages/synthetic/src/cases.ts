@@ -3,12 +3,14 @@ import type { ClockOffset } from "@airway/contract/clock";
 import {
   DEFAULT_UTC_OFFSET,
   randomNight,
+  UNDAMAGED_FILES,
   evening,
   nightFromLayout,
   type Interval,
   type MachineEvent,
   type MaskPeriod,
   type Random,
+  type SegmentFiles,
   type SyntheticNight,
 } from "./model.ts";
 import type { Breathing } from "./patients.ts";
@@ -191,6 +193,80 @@ function clockChange({ random, breathing, first, zone }: EdgeCaseContext): Built
   });
 }
 
+// One period of BRP files 30 s apart, each written as `files` says.
+function filesNight(
+  { random, breathing, first, zone }: EdgeCaseContext,
+  minutes: readonly number[],
+  files: readonly SegmentFiles[],
+): SyntheticNight {
+  const night = nightFromLayout(random, breathing, first, {
+    ...layPeriods(nineOClock(first, zone), [minutes], [], 30),
+    randomEvents: true,
+    extraEvents: [],
+  });
+
+  return {
+    ...night,
+    segments: night.segments.map((segment, i) => ({
+      ...segment,
+      ...(files[i] ?? UNDAMAGED_FILES),
+    })),
+  };
+}
+
+// Damaged files beside whole ones: a 2-minute stretch whose BRP, PLD, and SAD are header only;
+// a truncated BRP; a BRP with a -1 record count; and BRP, PLD, and SAD files that hold one more
+// record than they declare. Ingest skips the header-only files, rejects the truncated one, and
+// reads the rest.
+function damagedFiles(context: EdgeCaseContext): Built {
+  return only(
+    filesNight(
+      context,
+      [30, 2, 30, 30, 30, 30],
+      [
+        UNDAMAGED_FILES,
+        {
+          brp: "empty",
+          pldFiles: { files: "one", damage: "empty" },
+          sad: "empty",
+        },
+        { ...UNDAMAGED_FILES, brp: "truncated" },
+        { ...UNDAMAGED_FILES, brp: "unknown_length" },
+        {
+          brp: "undercounted",
+          pldFiles: { files: "one", damage: "undercounted" },
+          sad: "undercounted",
+        },
+      ],
+    ),
+  );
+}
+
+// A BRP with no PLD, a PLD split into two files halfway through its BRP, and three EVE files, the
+// last one without a CSL.
+function splitFiles(context: EdgeCaseContext): Built {
+  const night = filesNight(
+    context,
+    [30, 60, 60, 30],
+    [
+      UNDAMAGED_FILES,
+      { ...UNDAMAGED_FILES, pldFiles: { files: "none" } },
+      { ...UNDAMAGED_FILES, pldFiles: { files: "split", atRecord: 30 } },
+    ],
+  );
+  const before = (i: number): Temporal.Instant =>
+    (night.segments[i]?.start ?? nineOClock(context.first, context.zone)).subtract({ seconds: 10 });
+
+  return only({
+    ...night,
+    eventFiles: [
+      ...night.eventFiles,
+      { start: before(2), withCsl: true },
+      { start: before(3), withCsl: false },
+    ],
+  });
+}
+
 // The night before the zone's next transition in the given direction, searched from `first`.
 function transitionNight(
   first: Temporal.PlainDate,
@@ -245,6 +321,8 @@ export const EDGE_CASE_NAMES = [
   "settings-change",
   "ahi-rounding",
   "clock-change",
+  "damaged-files",
+  "split-files",
   "fall-back",
   "spring-forward",
 ] as const;
@@ -262,6 +340,8 @@ export const EDGE_CASES: Readonly<Record<EdgeCaseName, EdgeCase>> = {
   "settings-change": settingsChange,
   "ahi-rounding": ahiRounding,
   "clock-change": clockChange,
+  "damaged-files": damagedFiles,
+  "split-files": splitFiles,
   "fall-back": dstCase("fall-back"),
   "spring-forward": dstCase("spring-forward"),
 };

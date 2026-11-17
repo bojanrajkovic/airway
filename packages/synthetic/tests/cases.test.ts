@@ -2,7 +2,8 @@ import { describe, expect, it } from "vitest";
 import { offsetForNight } from "@airway/contract/clock";
 
 import { edgeCaseNames, type EdgeCaseName } from "../src/cases.ts";
-import { maskSlots, type MaskSlots } from "../src/files.ts";
+import { readAnnotations } from "@airway/testing/edf";
+import { maskSlots, nightFiles, sizeCheck, type MaskSlots, type NightFile } from "../src/files.ts";
 import { syntheticNights, type Synthetic, type SyntheticNight } from "../src/model.ts";
 import { synthesize, type Synthesized } from "../src/synthesize.ts";
 
@@ -197,6 +198,78 @@ describe("edge cases", () => {
       expect(
         lastSegment === undefined ? undefined : deviceTime(lastSegment.end, "-04:55").toPlainDate(),
       ).toEqual(second?.night.add({ days: 1 }));
+    });
+  });
+
+  describe("damaged-files", () => {
+    const { night, offsets, rows } = edgeCase("damaged-files");
+    const written = nightFiles(night, offsets)._unsafeUnwrap();
+    const verdicts = (kind: NightFile["kind"]): string[] =>
+      written
+        .filter((file) => file.kind === kind)
+        .map((file) => {
+          const size = sizeCheck(file);
+
+          return `${size.verdict} ${size.verdict === "reject" ? size.reason : size.header}`;
+        });
+
+    it("writes each damaged file at the size its header promises", () => {
+      expect(verdicts("brp")).toEqual([
+        "read matches",
+        "skip unknown_length",
+        "reject truncated",
+        "read unknown_length",
+        "read undercounted",
+        "read matches",
+      ]);
+      expect(verdicts("pld")[1]).toBe("skip unknown_length");
+      expect(verdicts("sad")[1]).toBe("skip unknown_length");
+      expect(verdicts("pld")[4]).toBe("read undercounted");
+      expect(verdicts("sad")[4]).toBe("read undercounted");
+    });
+
+    it("keeps a segment only for each BRP file ingest reads", () => {
+      expect(rows.segments.map(({ ts }) => ts)).toEqual(
+        [0, 3, 4, 5].map((i) => night.segments[i]?.start),
+      );
+    });
+
+    it("lists every file but the rejected one", () => {
+      const brps = rows.files.filter(({ kind }) => kind === "brp");
+
+      expect(brps).toHaveLength(5);
+      expect(rows.files.filter(({ kind }) => kind === "pld")).toHaveLength(6);
+    });
+  });
+
+  describe("split-files", () => {
+    const { night, offsets, rows } = edgeCase("split-files");
+    const written = nightFiles(night, offsets)._unsafeUnwrap();
+
+    it("gives a BRP with no PLD a segment without samples", () => {
+      const lonely = rows.segments[1];
+
+      expect(lonely?.pld_path).toBeNull();
+      expect(rows.samples.filter(({ segment }) => segment === 2)).toHaveLength(0);
+    });
+
+    it("splits a PLD into two files while its BRP keeps going, with every sample", () => {
+      const split = written.filter((file) => file.kind === "pld" && file.segment === 2);
+      const samples = rows.samples.filter(({ segment }) => segment === 3);
+
+      expect(split).toHaveLength(2);
+      expect(samples).toHaveLength(1800);
+      expect(samples.at(-1)?.ts).toEqual(samples[0]?.ts.add({ seconds: 2 * 1799 }));
+    });
+
+    it("writes three EVE files and two CSL files, with each event in one of them", () => {
+      const eves = written.filter((file) => file.kind === "eve");
+      const annotations = eves.flatMap((file) => readAnnotations(file.bytes).slice(1));
+
+      expect(eves).toHaveLength(3);
+      expect(written.filter((file) => file.kind === "csl")).toHaveLength(2);
+      expect(annotations).toHaveLength(night.events.length);
+      expect(rows.events).toHaveLength(night.events.length);
     });
   });
 
