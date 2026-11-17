@@ -19,7 +19,9 @@ export type EdfWriteError =
   | { kind: "missing_not_representable"; label: string }
   | { kind: "uneven_signals"; label: string; records: number; expected: number }
   | { kind: "field_too_long"; field: string; value: string }
-  | { kind: "annotation_too_long"; annotation: Annotation };
+  | { kind: "annotation_too_long"; annotation: Annotation }
+  // Real cards write every onset at or after the file's start.
+  | { kind: "negative_onset"; annotation: Annotation };
 
 const HEADER_BYTES = 256;
 const SIGNAL_HEADER_BYTES = 256;
@@ -234,6 +236,10 @@ export function writeAnnotations(
   const records: Uint8Array[] = [];
 
   for (const annotation of annotations) {
+    if (annotation.onset < 0) {
+      return err({ kind: "negative_onset", annotation });
+    }
+
     const text = `+0\x14\x14\0+${annotation.onset.toString()}\x15${annotation.duration.toString()}\x14${annotation.label}\x14\0`;
     const encoded = encoder.encode(text);
 

@@ -28,6 +28,8 @@ import { datalogFiles, folderFiles, type CpapFile, type DatalogFile } from "./cp
 import {
   DEVICE,
   EVENT_LABELS,
+  eventFileFor,
+  eventOnset,
   maskSlots,
   PLD_LAG_SECONDS,
   strFile,
@@ -204,13 +206,13 @@ function addNight(rows: DerivedRows, { night, files, offset, folder, options }: 
   });
   const brps = files.filter((file) => file.kind === "brp");
   const plds = files.filter((file) => file.kind === "pld");
-  const eve = files.find((file) => file.kind === "eve");
+  const eves = files.filter((file) => file.kind === "eve");
 
   // Ingest imports BRP, PLD, and EVE files, and skips SAD and CSL.
   const imported: FileSpec[] = [
     ...brps.map((file): FileSpec => ({ path: `${file.path}.edf`, kind: "brp", night: date })),
     ...plds.map((file): FileSpec => ({ path: `${file.path}.edf`, kind: "pld", night: date })),
-    ...(eve === undefined ? [] : [{ path: `${eve.path}.edf`, kind: "eve" as const, night: date }]),
+    ...eves.map((file): FileSpec => ({ path: `${file.path}.edf`, kind: "eve", night: date })),
   ];
 
   rows.files.push(...imported.map((spec) => fileRow(folder, spec, options.uploadedAt)));
@@ -277,21 +279,17 @@ function addNight(rows: DerivedRows, { night, files, offset, folder, options }: 
 }
 
 // Events as ingest reads them from EVE: the onset is written in whole seconds at the event's end,
-// so an event starts at the recording start, plus the rounded onset, minus its duration.
+// so an event starts at its EVE file's start, plus the rounded onset, minus its duration.
 function eventRows(
   night: SyntheticNight,
   sessions: Parameters<typeof assignEvents>[1],
 ): EventRow[] {
-  const recordingStart = night.segments[0]?.start;
-
-  if (recordingStart === undefined) {
-    return [];
-  }
-
   const starts = night.events.map((event) => {
-    const onset = Math.round(recordingStart.until(event.at).total("seconds") + event.duration);
+    const file = eventFileFor(night, event.at);
 
-    return recordingStart.add({ seconds: onset - event.duration });
+    return file === undefined
+      ? event.at
+      : file.start.add({ seconds: eventOnset(file, event) - event.duration });
   });
   const places = assignEvents(
     night.events.map((event, i) => {

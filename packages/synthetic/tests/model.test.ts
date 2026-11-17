@@ -2,8 +2,8 @@ import { describe, expect, it } from "vitest";
 import { AIRSENSE, step, type EdfFileType } from "@airway/contract/edf/airsense";
 import { syntheticNights, type SyntheticNight } from "../src/model.ts";
 
-const nights = syntheticNights({ seed: 7, nights: 30 });
-const adults = syntheticNights({ seed: 7, nights: 30, patient: "adult" });
+const { nights } = syntheticNights({ seed: 7, nights: 30 });
+const { nights: adults } = syntheticNights({ seed: 7, nights: 30, patient: "adult" });
 
 const seconds = (from: Temporal.Instant, to: Temporal.Instant): number =>
   from.until(to).total("seconds");
@@ -31,8 +31,22 @@ const median = (values: readonly number[]): number => {
 
 describe("syntheticNights", () => {
   it("gives the same nights for the same seed, and different ones for another", () => {
-    expect(syntheticNights({ seed: 7, nights: 30 })).toEqual(nights);
-    expect(syntheticNights({ seed: 8, nights: 30 })).not.toEqual(nights);
+    expect(syntheticNights({ seed: 7, nights: 30 }).nights).toEqual(nights);
+    expect(syntheticNights({ seed: 8, nights: 30 }).nights).not.toEqual(nights);
+  });
+
+  it("starts each night's EVE file 3 to 35 s before its first segment, as on the real card", () => {
+    for (const night of nights) {
+      const [file] = night.eventFiles;
+      const lead = seconds(
+        file?.start ?? night.night.toZonedDateTime("UTC").toInstant(),
+        night.segments[0]?.start ?? Temporal.Instant.fromEpochMilliseconds(0),
+      );
+
+      expect(night.eventFiles).toHaveLength(1);
+      expect(lead).toBeGreaterThanOrEqual(3);
+      expect(lead).toBeLessThanOrEqual(35);
+    }
   });
 
   it("starts each night on its own date, in order", () => {
@@ -151,8 +165,8 @@ describe("syntheticNights", () => {
   });
 
   describe("mask-on periods", () => {
-    const children = syntheticNights({ seed: 3, nights: 120 });
-    const grownUps = syntheticNights({ seed: 3, nights: 120, patient: "adult" });
+    const children = syntheticNights({ seed: 3, nights: 120 }).nights;
+    const grownUps = syntheticNights({ seed: 3, nights: 120, patient: "adult" }).nights;
 
     // The gaps between consecutive BRP files inside each period.
     const gaps = (list: SyntheticNight[]): number[] =>
@@ -205,12 +219,15 @@ describe("syntheticNights", () => {
     });
 
     // A night that ran past noon would put its last files in the next night's folder.
-    it("ends every night by 11:00", () => {
-      for (const night of [...children, ...grownUps]) {
+    it("ends every night by 11:00 on the device clock", () => {
+      // Seed 1's 31st night ends near the deadline, which is 10:00 in America/Chicago.
+      const { nights: late } = syntheticNights({ seed: 1, nights: 31 });
+
+      for (const night of [...children, ...grownUps, ...late]) {
         const last = night.periods.at(-1)?.off;
         const deadline = night.night
           .add({ days: 1 })
-          .toZonedDateTime({ timeZone: "America/Chicago", plainTime: "11:00" })
+          .toZonedDateTime({ timeZone: "-05:00", plainTime: "11:00" })
           .toInstant();
 
         expect(last === undefined ? 0 : seconds(last, deadline)).toBeGreaterThanOrEqual(0);

@@ -43,7 +43,7 @@ test(
   // Building and loading 30 nights takes about 7 s locally, past Vitest's 5 s default.
   { timeout: 30_000 },
   async ({ databaseUrl }) => {
-    const nights = syntheticNights({ seed: 7, nights: 30 });
+    const { nights } = syntheticNights({ seed: 7, nights: 30 });
 
     await load(databaseUrl, nights, "derived");
 
@@ -85,13 +85,17 @@ test("keeps only daily usage for a night with no segments, and lets the reader r
   databaseUrl,
   readerUrl,
 }) => {
-  const [first, second, third] = syntheticNights({ seed: 7, nights: 3 });
+  const [first, second, third] = syntheticNights({ seed: 7, nights: 3 }).nights;
 
   if (first === undefined || second === undefined || third === undefined) {
     throw new Error("expected three nights");
   }
 
-  await load(databaseUrl, [first, { ...second, segments: [] }, third], "derived_next");
+  await load(
+    databaseUrl,
+    [first, { ...second, segments: [], eventFiles: [] }, third],
+    "derived_next",
+  );
 
   const counts = await withClient(databaseUrl, async (client) => {
     const count = async (sql: string): Promise<number> =>

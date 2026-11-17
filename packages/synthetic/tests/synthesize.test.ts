@@ -6,7 +6,7 @@ import { synthesize, type Synthesized } from "../src/synthesize.ts";
 
 const offsets = ClockOffsets.parse([{ from: "2030-01-01", utcOffset: "-05:00" }]);
 const uploadedAt = Temporal.Instant.from("2030-03-01T12:00:00Z");
-const nights = syntheticNights({ seed: 7, nights: 4 });
+const { nights } = syntheticNights({ seed: 7, nights: 4 });
 
 const run = (list: readonly SyntheticNight[]): Synthesized =>
   synthesize(list, offsets, { patient: "child", uploadedAt })._unsafeUnwrap();
@@ -111,7 +111,7 @@ describe("synthesize", () => {
       throw new Error("expected four nights");
     }
 
-    const edited = run([first, { ...second, segments: [] }, ...rest]).rows;
+    const edited = run([first, { ...second, segments: [], eventFiles: [] }, ...rest]).rows;
 
     expect(edited.daily_usage.find((row) => row.day.equals(second.night))?.usage).toBe(
       second.str.get("OnDuration"),
@@ -162,7 +162,9 @@ describe("synthesize", () => {
 
   test("rebuilds sessions past STR.edf's 10 slots from the BRP files", () => {
     // Seed 1's second night has 15 periods.
-    const busy = syntheticNights({ seed: 1, nights: 2 }).find((night) => night.periods.length > 10);
+    const busy = syntheticNights({ seed: 1, nights: 2 }).nights.find(
+      (night) => night.periods.length > 10,
+    );
 
     if (busy === undefined) {
       throw new Error("expected a night with more than 10 periods");

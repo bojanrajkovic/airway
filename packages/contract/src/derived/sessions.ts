@@ -46,7 +46,8 @@ function overlap(span: Span, session: Span): number {
 }
 
 // STR.edf's used slots as spans. A slot 0 with a mask-off but no mask-on started before noon, so
-// it starts at noon (OSCAR's fix for the night's first period).
+// it starts at noon (OSCAR's fix for the night's first period). A slot whose mask-on and mask-off
+// fall in the same minute is dropped: that period lasted under a minute.
 function slotSpans({ night, offset, maskOn, maskOff }: SessionInputs): Span[] {
   const noon = night.toPlainDateTime("12:00").toZonedDateTime(offset.utcOffset).toInstant();
   const instant = (minutes: number): Temporal.Instant => noon.add({ minutes });
@@ -55,7 +56,9 @@ function slotSpans({ night, offset, maskOn, maskOff }: SessionInputs): Span[] {
     const on =
       slot === 0 && Number.isNaN(maskOn[slot] ?? Number.NaN) ? 0 : (maskOn[slot] ?? Number.NaN);
 
-    return Number.isNaN(on) || Number.isNaN(off) ? [] : [{ start: instant(on), end: instant(off) }];
+    return Number.isNaN(on) || Number.isNaN(off) || on === off
+      ? []
+      : [{ start: instant(on), end: instant(off) }];
   });
 }
 

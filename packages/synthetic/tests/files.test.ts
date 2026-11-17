@@ -9,7 +9,7 @@ const offsets = ClockOffsets.parse([
   { from: "2030-01-01", utcOffset: "-05:00" },
   { from: "2030-01-09", utcOffset: "-04:00" },
 ]);
-const nights = syntheticNights({ seed: 7, nights: 4 });
+const { nights } = syntheticNights({ seed: 7, nights: 4 });
 const [first, , third] = nights;
 
 const files = (night: (typeof nights)[number] | undefined): NightFile[] =>
@@ -55,7 +55,7 @@ describe("nightFiles", () => {
 
   it("puts each event's end in EVE, after the recording-start annotation", () => {
     const eve = written.find((file) => file.kind === "eve");
-    const start = first?.segments[0]?.start;
+    const start = first?.eventFiles[0]?.start;
     const expected = (first?.events ?? []).map((event) => ({
       onset: Math.round((start?.until(event.at).total("seconds") ?? 0) + event.duration),
       duration: event.duration,
@@ -65,6 +65,30 @@ describe("nightFiles", () => {
     expect(annotations[0]?.label).toBe("Recording starts");
     expect(annotations.slice(1).map(({ onset, duration }) => ({ onset, duration }))).toEqual(
       expected,
+    );
+  });
+
+  it("puts each event in the last EVE file starting before it, measured from that file", () => {
+    const split = first?.events[Math.floor(first.events.length / 2)]?.at;
+    const eventFiles = [
+      ...(first?.eventFiles ?? []),
+      { start: split ?? Temporal.Instant.fromEpochMilliseconds(0), withCsl: false },
+    ];
+    const edited = first === undefined ? undefined : { ...first, eventFiles };
+    const eves = files(edited).filter((file) => file.kind === "eve");
+    const later = (first?.events ?? []).filter(
+      (event) => split !== undefined && Temporal.Instant.compare(event.at, split) >= 0,
+    );
+    const onsets = readAnnotations(eves[1]?.bytes ?? new Uint8Array(256))
+      .slice(1)
+      .map(({ onset }) => onset);
+
+    expect(eves).toHaveLength(2);
+    expect(files(edited).filter((file) => file.kind === "csl")).toHaveLength(1);
+    expect(onsets).toEqual(
+      later.map((event) =>
+        Math.round((split?.until(event.at).total("seconds") ?? 0) + event.duration),
+      ),
     );
   });
 

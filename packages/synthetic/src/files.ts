@@ -1,4 +1,4 @@
-import { err, Result } from "neverthrow";
+import { err, ok, Result } from "neverthrow";
 import { offsetForNight, type NoOffsetForNight, type ClockOffset } from "@airway/contract/clock";
 import { AIRSENSE, dataSignals } from "@airway/contract/edf/airsense";
 import {
@@ -7,7 +7,7 @@ import {
   type EdfHeader,
   type EdfWriteError,
 } from "@airway/contract/edf/write";
-import type { SyntheticNight } from "./model.ts";
+import type { EventFile, MachineEvent, SyntheticNight } from "./model.ts";
 import type { MachineEventType } from "./patients.ts";
 import { renderBrp } from "./signals.ts";
 
@@ -53,9 +53,9 @@ const deviceTime = (at: Temporal.Instant, offset: ClockOffset): Temporal.PlainDa
 const missing = (length: number): Float64Array => new Float64Array(length).fill(Number.NaN);
 
 /**
- * A night's EDF files: a BRP, PLD, and SAD file for each segment, and one EVE and CSL pair. Each
- * start time uses the night's clock offset. EVE onsets mark each event's end, as the machine
- * writes them.
+ * A night's EDF files: a BRP, PLD, and SAD file for each segment, and an EVE file (plus a CSL
+ * file when it has one) for each of `eventFiles`. Each start time uses the night's clock offset.
+ * EVE onsets mark each event's end, as the machine writes them.
  */
 export function nightFiles(
   night: SyntheticNight,
@@ -96,32 +96,40 @@ export function nightFiles(
       ]);
     });
 
-    const recordingStart = night.segments[0]?.start;
+    const annotationFiles = night.eventFiles.map((file) => {
+      const start = deviceTime(file.start, offset);
+      const events = night.events
+        .filter((event) => eventFileFor(night, event.at) === file)
+        .map((event) => ({
+          onset: eventOnset(file, event),
+          duration: event.duration,
+          label: EVENT_LABELS[event.type],
+        }));
 
-    if (recordingStart === undefined) {
-      return Result.combine(segmentFiles).map((files) => files.flat());
-    }
+      return Result.combine([
+        writeAnnotations(AIRSENSE.eve, header(start), [RECORDING_STARTS, ...events]).map(
+          (bytes): NightFile[] => [{ kind: "eve", start, bytes }],
+        ),
+        file.withCsl
+          ? writeAnnotations(AIRSENSE.csl, header(start), [RECORDING_STARTS]).map(
+              (bytes): NightFile[] => [{ kind: "csl", start, bytes }],
+            )
+          : ok<NightFile[], SyntheticFileError>([]),
+      ]).map((files) => files.flat());
+    });
 
-    const start = deviceTime(recordingStart, offset);
-    const events = night.events.map((event) => ({
-      onset: Math.round(recordingStart.until(event.at).total("seconds") + event.duration),
-      duration: event.duration,
-      label: EVENT_LABELS[event.type],
-    }));
-    const annotationFiles = Result.combine([
-      writeAnnotations(AIRSENSE.eve, header(start), [RECORDING_STARTS, ...events]).map(
-        (bytes): NightFile => ({ kind: "eve", start, bytes }),
-      ),
-      writeAnnotations(AIRSENSE.csl, header(start), [RECORDING_STARTS]).map((bytes): NightFile => ({
-        kind: "csl",
-        start,
-        bytes,
-      })),
-    ]);
-
-    return Result.combine([...segmentFiles, annotationFiles]).map((files) => files.flat());
+    return Result.combine([...segmentFiles, ...annotationFiles]).map((files) => files.flat());
   });
 }
+
+/** The EVE file an event goes in: the last one that starts at or before it. */
+export const eventFileFor = (night: SyntheticNight, at: Temporal.Instant): EventFile | undefined =>
+  night.eventFiles.findLast((file) => Temporal.Instant.compare(file.start, at) <= 0) ??
+  night.eventFiles[0];
+
+/** An event's EVE onset: whole seconds from its file's start to the event's end. */
+export const eventOnset = (file: EventFile, event: MachineEvent): number =>
+  Math.round(file.start.until(event.at).total("seconds") + event.duration);
 
 const SLOTS = 10;
 const EPOCH = Temporal.PlainDate.from("1970-01-01");
@@ -129,7 +137,10 @@ const EPOCH = Temporal.PlainDate.from("1970-01-01");
 /** STR.edf's MaskOn and MaskOff for a night: whole minutes since noon on the device clock. */
 export type MaskSlots = { maskOn: number[]; maskOff: number[] };
 
-/** The night's first 10 mask-on periods as STR.edf records them. */
+/**
+ * The night's first 10 mask-on periods as STR.edf records them. A mask-on before the night's noon
+ * is in the previous day's record, so its slot has no mask-on (NaN).
+ */
 export function maskSlots(night: SyntheticNight, offset: ClockOffset): MaskSlots {
   const noon = night.night.toPlainDateTime("12:00");
   const minutes = (at: Temporal.Instant): number =>
@@ -137,7 +148,7 @@ export function maskSlots(night: SyntheticNight, offset: ClockOffset): MaskSlots
   const periods = night.periods.slice(0, SLOTS);
 
   return {
-    maskOn: periods.map(({ on }) => minutes(on)),
+    maskOn: periods.map(({ on }) => (minutes(on) < 0 ? Number.NaN : minutes(on))),
     maskOff: periods.map(({ off }) => minutes(off)),
   };
 }

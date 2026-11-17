@@ -7,7 +7,7 @@ const HZ = 25;
 const THRESHOLD = 0.01;
 
 // A night with a pause of each kind, so every kind gets rendered.
-const night = syntheticNights({ seed: 7, nights: 30 }).find((candidate) => {
+const night = syntheticNights({ seed: 7, nights: 30 }).nights.find((candidate) => {
   const kinds = new Set(candidate.pauses.map((pause) => pause.kind));
 
   return kinds.size === 3;

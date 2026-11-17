@@ -28,11 +28,12 @@ These details are the same on every AirSense 10. They come from the headers of r
 
 ## Synthetic nights
 
-`syntheticNights({ seed, nights, start, patient, zone })` in `@airway/synthetic/model` builds the nights everything else is written from. The same options always give the same nights. All randomness comes from d3-random distributions drawing on one seeded generator.
+`syntheticNights({ seed, nights, start, patient, zone, cases })` in `@airway/synthetic/model` builds the nights everything else is written from, and returns them with the clock offsets their files use. The same options always give the same nights. All randomness comes from d3-random distributions drawing on one seeded generator.
 
 ```ts
-const nights = syntheticNights({ seed: 7, nights: 30 });
+const { nights, offsets } = syntheticNights({ seed: 7, nights: 30 });
 // nights[0].night is 2030-01-07; nights[0].str.get("AHI") is the machine's AHI for it.
+// offsets is one -05:00 entry from the first night.
 ```
 
 Each night holds:
@@ -47,6 +48,7 @@ Each night holds:
   | `pediatric` | 2 breaths to 10 s | no | only airway's pediatric step |
   | `dip` | under 2 breaths | no | nothing |
 
+- `eventFiles`: the night's EVE files, each with its start and whether a CSL file comes with it. A night has one, starting 3 to 35 s before its first segment, as on the real card, so ingest has to measure onsets from the EVE header. The lead has its own generator, seeded next to the first segment's, so it changes no other value. A night with no segments has an empty list.
 - `str`: the night's STR.edf values by label, rounded to each signal's step. `NaN` marks values the machine writes as -1, such as SpO2 without an oximeter. `strFile` fills in Date, MaskOn, and MaskOff, which depend on the device clock, and the writer adds each record's Crc16.
 
 Unused days are days with no night in the list.
@@ -62,11 +64,27 @@ Mask-on periods and file gaps differ by patient:
 
 STR.edf has slots for 10 periods, so on a child's longer nights ingest rebuilds the rest from BRP files, joining files 90 s or less apart. A child's file gaps fall on both sides of 90 s, so those nights test the join's mistakes too. Adult nights stay inside the slots and under 90 s, so ingest's sessions always match their periods.
 
-Breaks between periods are 60 s plus a long-tailed draw: a median near 200 s, sometimes 25 minutes or more, at most 3 hours. On a night with many periods, the breaks shrink so the last mask-off comes by 11:00. Files after noon would belong to the next night.
+Breaks between periods are 60 s plus a long-tailed draw: a median near 200 s, sometimes 25 minutes or more, at most 3 hours. On a night with many periods, the breaks shrink so the last mask-off comes by 11:00 on the device clock. Files after the device clock's noon would belong to the next night.
 
 Ordinary variation comes from the seed: about 1 night in 8 is short, about 1 in 10 is bad with four times the events, events sometimes cluster, and leak spikes for a few minutes now and then.
 
 The AHI and its parts are `(600 × events) div minutes` in tenths, and MaskEvents is twice the sessions. The STR medians and leak percentiles are computed from the stored 2 s series. The maxima and pressure statistics are drawn near them instead. That's how the real machine's summary relates to its PLD files: its medians and leak percentiles match the 2 s data, but its maxima come from finer data.
+
+## Edge cases
+
+`cases` adds nights that each hold an edge case ingest must handle. It's `'all'` or a list of names, and defaults to none, so tests get edge cases only when they ask. Case nights follow the base nights on consecutive dates, and each case draws from its own generator, seeded from `seed` plus the case's name. The base nights are the same with or without cases. A test that wants one case on its own passes `nights: 0`:
+
+```ts
+const { nights, offsets } = syntheticNights({ seed: 7, nights: 0, cases: ["noon-edge"] });
+```
+
+A case sets its night's mask-on periods and BRP file times by hand through `nightFromLayout`. Events, pauses, 2 s series, and STR.edf values are then drawn as for any night, so they agree with the layout.
+
+| Case | What it tests |
+|---|---|
+| `many-periods` | 13 mask-on periods: 10 in STR.edf's slots and 3 derived. Period 5 starts 40 s after period 4, so its file is within 60 s of both slots and goes to the one it overlaps most. Period 11's two files are 90 s apart and join; periods 12 and 13 are 91 s apart and split. Events 45 s before a period are inside it, and events 120 s after one are outside mask-on. |
+| `noon-edge` | The first period starts at 11:55 on the device clock, before the night's noon, so STR.edf's slot 0 has a mask-off but no mask-on. Ingest starts that session at noon. |
+| `sub-minute-period` | A 30 s period between two others, too short for a BRP file. STR.edf records its mask-on and mask-off in the same minute, so ingest drops it and the night's session count is approximate. |
 
 ## The 25 Hz waveform
 
@@ -80,8 +98,8 @@ Flow is a half sine wave up while breathing in and a half sine wave down while b
 
 `@airway/synthetic/files` turns the model into EDF bytes, one file at a time. Each file comes with its start time on the device's clock, which `cpapData` turns into its file name. The device's clock runs on the night's fixed offset from `AIRWAY_CLOCK_OFFSETS` and doesn't change for daylight saving time.
 
-- `nightFiles(night, offsets)` writes a BRP, PLD, and SAD file for each segment, and one EVE and CSL pair for the night. PLD and SAD files start 1 s after their BRP file, as on the real machine. SAD holds only missing values, as it does without an oximeter. EVE starts with a "Recording starts" annotation, then lists each event with its onset at the event's end, which is how the machine writes them. CSL holds only "Recording starts".
-- `strFile(nights, offsets)` writes STR.edf with one record per day, from the earliest night to the latest, whatever order the nights come in. A day with no night is unused, and every value in its record is -1. MaskOn and MaskOff hold up to 10 mask-on periods, in minutes since noon on the device's clock; unused slots are -1.
+- `nightFiles(night, offsets)` writes a BRP, PLD, and SAD file for each segment, and an EVE file, plus a CSL file when it has one, for each of `eventFiles`. PLD and SAD files start 1 s after their BRP file, as on the real machine. SAD holds only missing values, as it does without an oximeter. Each event goes in the last EVE file that starts at or before it. EVE starts with a "Recording starts" annotation, then lists each event with its onset at the event's end, measured from the file's start, which is how the machine writes them. CSL holds only "Recording starts".
+- `strFile(nights, offsets)` writes STR.edf with one record per day, from the earliest night to the latest, whatever order the nights come in. A day with no night is unused, and every value in its record is -1. MaskOn and MaskOff hold up to 10 mask-on periods, in minutes since noon on the device's clock; unused slots are -1. A mask-on before the night's noon belongs to the previous day's record, so its slot's MaskOn is -1.
 
 The serial, patient, and recording fields hold invented values.
 
@@ -112,7 +130,7 @@ DATALOG/
 `synthesize(nights, offsets, { patient, uploadedAt })` in `@airway/synthetic/synthesize` returns the CPAP data folder together with the rows ingest should derive from it, one list per derived table. Both come from the same nights, so a test that edits a night gets files and rows that agree. The row types live in `@airway/contract/derived/rows`, and ingest writes the same shapes.
 
 ```ts
-const nights = syntheticNights({ seed: 7, nights: 10 });
+const { nights, offsets } = syntheticNights({ seed: 7, nights: 10 });
 const result = synthesize(nights, offsets, { patient: "child", uploadedAt });
 
 if (result.isErr()) {
@@ -126,7 +144,7 @@ const { files, rows } = result.value;
 The rows follow ingest's rules:
 
 - Sessions come from `buildSessions` and events get their session from `assignEvents`, the functions ingest calls ([Ingest](ingest.md#sessions)).
-- An event starts at its EVE onset minus its duration, with the onset rounded to the whole second EVE keeps.
+- An event starts at its EVE file's start, plus its onset, minus its duration, with the onset rounded to the whole second EVE keeps.
 - Samples start at the PLD file's start, 1 s after the segment's, every 2 s.
 - Breaths are the model's own. `amplitude` is the in-breath's peak flow, and `duration` covers the in-breath and out-breath, so a pause is a gap between breaths.
 - `files` lists Identification.tgt, STR.edf, and each BRP, PLD, and EVE file, with its size and SHA-256. Ingest skips SAD, CSL, and `.crc` files.
@@ -154,7 +172,8 @@ Ingesting `synthesize`'s files must produce its rows. The comparison skips `ctim
 
 ```ts
 test("counts a night with 12 mask-on periods", async ({ databaseUrl }) => {
-  const busy = syntheticNights({ seed: 3, nights: 60 }).filter((night) => night.periods.length > 10);
+  const { nights, offsets } = syntheticNights({ seed: 3, nights: 60 });
+  const busy = nights.filter((night) => night.periods.length > 10);
   const { rows } = synthesize(busy, offsets, { patient: "child", uploadedAt })._unsafeUnwrap();
   const client = new pg.Client(databaseUrl);
   await client.connect();
@@ -178,14 +197,14 @@ It creates the schema with `derivedTables`, COPYs each table parents first, then
 pnpm synth --out /tmp/airway-cpap-data [--seed 1] [--nights 10] [--patient child|adult]
 ```
 
-It defaults to 10 child nights from seed 1, including any short or bad nights the model draws. It uses `.env.example`'s clock offsets, so a folder written to `.env.example`'s `AIRWAY_CPAP_DATA_PATH` imports with the example config. `--out` must be missing or empty, so synthetic files never mix with real ones or with an older run.
+It defaults to 10 child nights from seed 1, including any short or bad nights the model draws. Its files use the offsets `syntheticNights` returns, a -05:00 device clock that matches `.env.example`'s `AIRWAY_CLOCK_OFFSETS`, so a folder written to `.env.example`'s `AIRWAY_CPAP_DATA_PATH` imports with the example config. `--out` must be missing or empty, so synthetic files never mix with real ones or with an older run.
 
 ## Writing EDF files
 
 `@airway/contract/edf/write` writes the bytes of any file type in the list. The synthetic generator uses it to write its files.
 
 - `writeSignals(file, header, values)` takes one `Float64Array` of physical values per label, leaving out `Crc16`. Each value is rounded to the signal's step and clamped to its digital range. `NaN` means "no value" and is written as -1, the machine's marker for missing data. That marker only works where -1 is outside the signal's digital range, as in SAD and STR.edf, so `NaN` for a signal such as flow, where -1 is a real value, is an error.
-- `writeAnnotations(file, header, annotations)` writes an EDF+D file with one annotation per record, as the machine does. Each record starts with the timekeeping entry EDF+ requires. An EVE record holds 38 bytes of annotation text, and a longer annotation returns an error.
+- `writeAnnotations(file, header, annotations)` writes an EDF+D file with one annotation per record, as the machine does. Each record starts with the timekeeping entry EDF+ requires. An EVE record holds 38 bytes of annotation text, and a longer annotation returns an error. So does a negative onset: real cards write every onset at or after the file's start.
 
 The header's start time is a `Temporal.PlainDateTime` on the device's clock, which has no zone. Header text fields are padded with spaces by bytes, not characters, because `°C` takes 3 bytes in UTF-8. The record count comes from the data, so a file's size is always its header plus its records.
 

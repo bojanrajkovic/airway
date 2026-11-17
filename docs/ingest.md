@@ -8,7 +8,7 @@ The importer isn't built yet. The rules it shares with the synthetic data genera
 
 A session is one mask-on period. `buildSessions` in `@airway/contract/derived/sessions` builds a night's sessions from `STR.edf` and the night's BRP segments:
 
-1. Each used `STR.edf` slot is a session with `source = str`. Its times are the slot's minutes since noon on the device clock, converted with the night's clock offset. A slot 0 with a mask-off but no mask-on starts at noon.
+1. Each used `STR.edf` slot is a session with `source = str`. Its times are the slot's minutes since noon on the device clock, converted with the night's clock offset. A slot 0 with a mask-off but no mask-on starts at noon. A slot whose mask-on and mask-off are the same minute lasted under a minute and makes no session, so that night's count can't match `MaskEvents`.
 2. Each BRP segment joins the `str` session it overlaps most, allowing 60 s on either side, because `STR.edf` keeps whole minutes.
 3. `STR.edf` has only 10 slots, but `MaskEvents` counts every period. Segments that match no slot join their neighbor when the gap is 90 s or less, and each run becomes a session with `source = derived`.
 4. Sessions are numbered from 1 in time order. A night is flagged approximate when its session count differs from `MaskEvents / 2`.
