@@ -9,7 +9,7 @@ const offsets = ClockOffsets.parse([
   { from: "2030-01-01", utcOffset: "-05:00" },
   { from: "2030-01-09", utcOffset: "-04:00" },
 ]);
-const { nights } = syntheticNights({ seed: 7, nights: 4 });
+const { nights } = syntheticNights({ seed: 7, nights: 4 })._unsafeUnwrap();
 const [first, , third] = nights;
 
 const files = (night: (typeof nights)[number] | undefined): NightFile[] =>

@@ -1,4 +1,5 @@
 import { randomLcg, randomNormal, randomPoisson, randomUniform } from "d3-random";
+import { err, ok, type Result } from "neverthrow";
 import type { ClockOffset } from "@airway/contract/clock";
 import {
   AIRSENSE,
@@ -16,7 +17,13 @@ import {
   type Patient,
   type WeightedRanges,
 } from "./patients.ts";
-import { EDGE_CASES, edgeCaseNames, edgeCaseSeed, type EdgeCaseName } from "./cases.ts";
+import {
+  EDGE_CASES,
+  edgeCaseNames,
+  edgeCaseSeed,
+  type EdgeCaseError,
+  type EdgeCaseName,
+} from "./cases.ts";
 
 export type SyntheticOptions = {
   seed: number;
@@ -161,26 +168,33 @@ const snapStr = roundToStep(AIRSENSE.str);
 /**
  * Builds a fixed, invented set of nights from a seed, then the edge-case nights `cases` asks for
  * on the dates after them. The same options always give the same nights, and the base nights are
- * the same with or without cases. Unused days are days with no night in the list.
+ * the same with or without cases. Unused days are days with no night in the list. Fails when a
+ * named case can't be built, such as a DST case in a zone without daylight saving time.
  */
-export function syntheticNights(options: SyntheticOptions): Synthetic {
+export function syntheticNights(options: SyntheticOptions): Result<Synthetic, EdgeCaseError> {
   const r = random(options.seed);
   const breathing = BREATHING[options.patient ?? "child"];
   const start = options.start ?? DEFAULT_START;
   const zone = options.zone ?? DEFAULT_ZONE;
   const nights = Array.from({ length: options.nights }, (_, i) =>
-    buildNight(r, breathing, evening(start.add({ days: i }), zone)),
+    randomNight(r, breathing, evening(start.add({ days: i }), zone)),
   );
   const offsets: ClockOffset[] = [{ from: start, utcOffset: DEFAULT_UTC_OFFSET }];
   let next = start.add({ days: options.nights });
 
   for (const name of edgeCaseNames(options.cases ?? [])) {
-    const built = EDGE_CASES[name]({
+    const result = EDGE_CASES[name]({
       random: random(edgeCaseSeed(options.seed, name)),
       breathing,
       first: next,
       zone,
     });
+
+    if (result.isErr()) {
+      return err(result.error);
+    }
+
+    const built = result.value;
 
     nights.push(...built.nights);
     offsets.push(...built.offsets);
@@ -190,21 +204,22 @@ export function syntheticNights(options: SyntheticOptions): Synthetic {
   // The machine's running total of hours used, starting from an invented number.
   let patientHours = 100;
 
-  return {
+  return ok({
     nights: nights.map((night) => {
       patientHours += (night.str.get("OnDuration") ?? 0) / 60;
 
       return { ...night, str: new Map(night.str).set("PatientHours", Math.floor(patientHours)) };
     }),
     offsets: offsets.toSorted((a, b) => Temporal.PlainDate.compare(a.from, b.from)),
-  };
+  });
 }
 
 /** 20:00 on a night's date in the home time zone. */
 export const evening = (night: Temporal.PlainDate, zone: string): Temporal.ZonedDateTime =>
   night.toZonedDateTime({ timeZone: zone, plainTime: "20:00" });
 
-function buildNight(
+/** A night drawn the way the base nights are, from 20:00 on `evening`'s date. */
+export function randomNight(
   r: Random,
   breathing: Breathing,
   evening: Temporal.ZonedDateTime,
@@ -220,16 +235,22 @@ function buildNight(
     .toInstant();
   const placed = placePeriods(r, { breathing, bedtime, latest, usageTarget });
 
-  return finishNight(r, breathing, evening.toPlainDate(), { ...placed, bad, extraEvents: [] });
+  return finishNight(r, breathing, evening.toPlainDate(), {
+    ...placed,
+    bad,
+    randomEvents: true,
+    extraEvents: [],
+  });
 }
 
 /**
- * A night's mask-on periods and BRP file times, set by hand, plus events placed outside the
- * model's own (which only falls inside segments).
+ * A night's mask-on periods and BRP file times, set by hand. `randomEvents` adds the model's own
+ * events and pauses, which fall inside segments; `extraEvents` go wherever they say.
  */
 export type NightLayout = {
   periods: readonly MaskPeriod[];
   segmentTimes: readonly Interval[];
+  randomEvents: boolean;
   extraEvents: readonly MachineEvent[];
 };
 
@@ -252,13 +273,15 @@ function finishNight(
   r: Random,
   breathing: Breathing,
   night: Temporal.PlainDate,
-  { periods, segmentTimes, extraEvents, bad }: FinishInputs,
+  { periods, segmentTimes, randomEvents, extraEvents, bad }: FinishInputs,
 ): SyntheticNight {
   const usage = Math.floor(
     periods.reduce((sum, { on, off }) => sum + on.until(off).total("seconds"), 0) / 60,
   );
   const rate = r.normal(breathing.rate.mean, breathing.rate.sd);
-  const placed = placeEpisodes(r, { breathing, segmentTimes, usage, bad, rate });
+  const placed = randomEvents
+    ? placeEpisodes(r, { breathing, segmentTimes, usage, bad, rate })
+    : { events: [], pauses: [] };
   const events = [...placed.events, ...extraEvents].sort((a, b) =>
     Temporal.Instant.compare(a.at, b.at),
   );
