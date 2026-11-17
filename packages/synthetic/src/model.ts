@@ -7,7 +7,7 @@ import {
   PLD_SAMPLE_SECONDS,
   step,
   type EdfFileType,
-} from "@airway/contract/edf/airsense";
+} from "@airway/edf/airsense";
 import {
   APNEAS,
   BREATHING,

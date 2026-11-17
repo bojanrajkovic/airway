@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { ClockOffsets } from "@airway/contract/clock";
 import { nightFiles, strFile, type NightFile } from "../src/files.ts";
 import { syntheticNights } from "../src/model.ts";
-import { readAnnotations, readEdf } from "@airway/testing/edf";
+import { readBackAnnotations, readBackEdf } from "@airway/testing/edf-readback";
 
 // The second entry starts on the third night, so nights 1-2 and 3-4 use different offsets.
 const offsets = ClockOffsets.parse([
@@ -40,7 +40,7 @@ describe("nightFiles", () => {
     expect(segment).toBeDefined();
     expect(brp?.start).toEqual(segment?.start.toZonedDateTimeISO(utcOffset).toPlainDateTime());
     expect(pld?.start).toEqual(brp?.start.add({ seconds: 1 }));
-    expect(readEdf(brp?.bytes ?? new Uint8Array(256)).startTime).toBe(
+    expect(readBackEdf(brp?.bytes ?? new Uint8Array(256)).startTime).toBe(
       brp?.start.toPlainTime().toString().replaceAll(":", "."),
     );
   });
@@ -50,7 +50,7 @@ describe("nightFiles", () => {
     const brp = written.find((file) => file.kind === "brp");
     const minutes = segment === undefined ? -1 : segment.start.until(segment.end).total("minutes");
 
-    expect(readEdf(brp?.bytes ?? new Uint8Array(256)).records).toBe(minutes);
+    expect(readBackEdf(brp?.bytes ?? new Uint8Array(256)).records).toBe(minutes);
   });
 
   it("puts each event's end in EVE, after the recording-start annotation", () => {
@@ -60,7 +60,7 @@ describe("nightFiles", () => {
       onset: Math.round((start?.until(event.at).total("seconds") ?? 0) + event.duration),
       duration: event.duration,
     }));
-    const annotations = readAnnotations(eve?.bytes ?? new Uint8Array(256));
+    const annotations = readBackAnnotations(eve?.bytes ?? new Uint8Array(256));
 
     expect(annotations[0]?.label).toBe("Recording starts");
     expect(annotations.slice(1).map(({ onset, duration }) => ({ onset, duration }))).toEqual(
@@ -79,7 +79,7 @@ describe("nightFiles", () => {
     const later = (first?.events ?? []).filter(
       (event) => split !== undefined && Temporal.Instant.compare(event.at, split) >= 0,
     );
-    const onsets = readAnnotations(eves[1]?.bytes ?? new Uint8Array(256))
+    const onsets = readBackAnnotations(eves[1]?.bytes ?? new Uint8Array(256))
       .slice(1)
       .map(({ onset }) => onset);
 
@@ -94,7 +94,7 @@ describe("nightFiles", () => {
 
   it("writes SAD as missing throughout", () => {
     const sad = written.find((file) => file.kind === "sad");
-    const pulse = readEdf(sad?.bytes ?? new Uint8Array(256)).digital.get("Pulse.1s");
+    const pulse = readBackEdf(sad?.bytes ?? new Uint8Array(256)).digital.get("Pulse.1s");
 
     expect(pulse?.every((value) => value === -1)).toBe(true);
   });
@@ -102,7 +102,7 @@ describe("nightFiles", () => {
 
 describe("strFile", () => {
   // Leaving out the second night makes it an unused day.
-  const read = readEdf(
+  const read = readBackEdf(
     strFile(
       nights.filter((_night, i) => i !== 1 && i !== 3),
       offsets,

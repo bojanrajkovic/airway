@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { Result } from "neverthrow";
-import type { FileSizeCheck } from "@airway/contract/edf/size";
+import type { FileSizeCheck } from "@airway/edf/size";
 import { offsetForNight, type ClockOffset } from "@airway/contract/clock";
 import type {
   BreathRow,
@@ -22,7 +22,7 @@ import {
   PLD_SAMPLE_SECONDS,
   step,
   type EdfFileType,
-} from "@airway/contract/edf/airsense";
+} from "@airway/edf/airsense";
 import type { RuleSet } from "@airway/contract/profile";
 import { decimalsForStep } from "@airway/contract/registry/units";
 import { datalogFiles, folderFiles, type CpapFile, type DatalogFile } from "./cpap-data.ts";

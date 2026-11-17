@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { checkFileSize, type FileSizeCheck } from "../../src/edf/size.ts";
+import { checkFileSize, type FileSizeCheck } from "../src/size.ts";
 
 // A file with a 768-byte header and 40-byte records.
 const file = (size: number, declaredRecords: number): FileSizeCheck =>

@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { offsetForNight } from "@airway/contract/clock";
 
 import { edgeCaseNames, type EdgeCaseName } from "../src/cases.ts";
-import { readAnnotations } from "@airway/testing/edf";
+import { readBackAnnotations } from "@airway/testing/edf-readback";
 import { maskSlots, nightFiles, sizeCheck, type MaskSlots, type NightFile } from "../src/files.ts";
 import { syntheticNights, type Synthetic, type SyntheticNight } from "../src/model.ts";
 import { synthesize, type Synthesized } from "../src/synthesize.ts";
@@ -268,7 +268,7 @@ describe("edge cases", () => {
 
     it("writes three EVE files and two CSL files, with each event in one of them", () => {
       const eves = written.filter((file) => file.kind === "eve");
-      const annotations = eves.flatMap((file) => readAnnotations(file.bytes).slice(1));
+      const annotations = eves.flatMap((file) => readBackAnnotations(file.bytes).slice(1));
 
       expect(eves).toHaveLength(3);
       expect(written.filter((file) => file.kind === "csl")).toHaveLength(2);

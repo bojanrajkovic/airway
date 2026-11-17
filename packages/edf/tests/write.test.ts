@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { AIRSENSE, type EdfFileType } from "../../src/edf/airsense.ts";
-import { writeAnnotations, writeSignals, type EdfHeader } from "../../src/edf/write.ts";
-import { readAnnotations, readEdf } from "@airway/testing/edf";
+import { AIRSENSE, type EdfFileType } from "../src/airsense.ts";
+import { writeAnnotations, writeSignals, type EdfHeader } from "../src/write.ts";
+import { readBackAnnotations, readBackEdf } from "@airway/testing/edf-readback";
 
 const header: EdfHeader = {
   start: Temporal.PlainDateTime.from("2030-01-07T22:15:03"),
@@ -52,7 +52,7 @@ describe("writeSignals", () => {
   });
 
   it("writes the signal headers as the list declares them", () => {
-    const read = readEdf(bytes);
+    const read = readBackEdf(bytes);
 
     expect(AIRSENSE.pld.signals).toMatchObject(read.signals);
   });
@@ -65,7 +65,7 @@ describe("writeSignals", () => {
 
   it("pads text by bytes, so a UTF-8 °C keeps the next fields in place", () => {
     const str = writeSignals(AIRSENSE.str, header, filled(AIRSENSE.str, 1))._unsafeUnwrap();
-    const read = readEdf(str);
+    const read = readBackEdf(str);
     const temp = read.signals.find((signal) => signal.label === "S.Temp");
 
     expect(temp).toMatchObject({ unit: "°C", physicalMin: "16.00", digitalMax: 300 });
@@ -77,7 +77,7 @@ describe("writeSignals", () => {
     const flow = values.get("Flow.40ms");
 
     flow?.set([0.1234, -5, 9]);
-    const read = readEdf(writeSignals(AIRSENSE.brp, header, values)._unsafeUnwrap());
+    const read = readBackEdf(writeSignals(AIRSENSE.brp, header, values)._unsafeUnwrap());
 
     // Flow's step is 0.002 L/s, and 0 L/s is digital 0.
     expect([...(read.digital.get("Flow.40ms")?.subarray(0, 3) ?? [])]).toEqual([62, -1000, 1500]);
@@ -85,7 +85,7 @@ describe("writeSignals", () => {
 
   it("writes NaN as -1 where -1 is outside the digital range", () => {
     const values = filled(AIRSENSE.sad, 1, Number.NaN);
-    const read = readEdf(writeSignals(AIRSENSE.sad, header, values)._unsafeUnwrap());
+    const read = readBackEdf(writeSignals(AIRSENSE.sad, header, values)._unsafeUnwrap());
 
     expect(read.digital.get("Pulse.1s")?.every((value) => value === -1)).toBe(true);
   });
@@ -155,8 +155,12 @@ describe("writeAnnotations", () => {
   const bytes = writeAnnotations(AIRSENSE.eve, header, annotations)._unsafeUnwrap();
 
   it("writes one annotation per record that reads back unchanged", () => {
-    expect(readAnnotations(bytes)).toEqual(annotations);
-    expect(readEdf(bytes)).toMatchObject({ reserved: "EDF+D", records: 3, recordDuration: "0.00" });
+    expect(readBackAnnotations(bytes)).toEqual(annotations);
+    expect(readBackEdf(bytes)).toMatchObject({
+      reserved: "EDF+D",
+      records: 3,
+      recordDuration: "0.00",
+    });
   });
 
   it("is exactly the header plus 40-byte records", () => {

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { AIRSENSE, step } from "../../src/edf/airsense.ts";
-import { nights } from "../../src/registry/nights.ts";
-import { samples } from "../../src/registry/samples.ts";
+import { AIRSENSE, step } from "../src/airsense.ts";
+import { nights } from "@airway/contract/registry/nights";
+import { samples } from "@airway/contract/registry/samples";
 
 const metricsOf = (columns: readonly { name: string; role: string }[]): Set<string> =>
   new Set(columns.filter((column) => column.role === "metric").map((column) => column.name));

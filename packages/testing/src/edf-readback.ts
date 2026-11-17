@@ -30,7 +30,7 @@ export type ParsedEdf = {
   digital: Map<string, Int16Array>;
 };
 
-export function readEdf(bytes: Uint8Array): ParsedEdf {
+export function readBackEdf(bytes: Uint8Array): ParsedEdf {
   let offset = 0;
   const text = (width: number): string => {
     const value = decoder.decode(bytes.subarray(offset, offset + width)).trimEnd();
@@ -106,8 +106,8 @@ export function readEdf(bytes: Uint8Array): ParsedEdf {
 export type ReadAnnotation = { onset: number; duration: number; label: string };
 
 /** The annotations in an EDF+ file, without the timekeeping entries. */
-export function readAnnotations(bytes: Uint8Array): ReadAnnotation[] {
-  const file = readEdf(bytes);
+export function readBackAnnotations(bytes: Uint8Array): ReadAnnotation[] {
+  const file = readBackEdf(bytes);
   const [signal] = file.signals;
   const recordBytes = 2 * file.signals.reduce((sum, s) => sum + s.samplesPerRecord, 0);
   const annotationBytes = 2 * (signal?.samplesPerRecord ?? 0);

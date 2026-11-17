@@ -1,4 +1,4 @@
-import { PLD_SAMPLE_SECONDS } from "@airway/contract/edf/airsense";
+import { PLD_SAMPLE_SECONDS } from "@airway/edf/airsense";
 import { random, type Segment, type SyntheticNight } from "./model.ts";
 
 /** One breath, with times in seconds from the segment's start and its volume in litres. */
