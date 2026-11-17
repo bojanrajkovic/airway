@@ -16,7 +16,7 @@ The importer isn't built yet. The rules it shares with the synthetic data genera
 - `size` is `checkFileSize`'s verdict for the file's size on disk: `read`, `skip`, or `reject`. Only a file whose verdict is `read` can be decoded; `isReadable(file)` checks that.
 - `warnings` lists anything the header contradicts without stopping the read. A `startdate_mismatch` means the recording field's `Startdate` names a different day from the header's start date.
 
-`readHeaderFile(path)` reads only a file's header from disk and checks the file's size against it. The scan uses it on every poll, so it never reads records. A header's length depends on its signal count, 1,024 bytes for BRP and about 21 KB for `STR.edf`, so it reads the first 256 bytes, which say how long the header is, then the rest. A file it can't open returns `read_failed`.
+`readFileHeader(path)` reads only a file's header from disk and checks the file's size against it. The scan uses it on every poll, so it never reads records. A header's length depends on its signal count, 1,024 bytes for BRP and about 21 KB for `STR.edf`, so it reads the first 256 bytes, which say how long the header is, then the rest. A file it can't open returns `read_failed`.
 
 `readHeader(bytes, size)` parses bytes already in memory. `bytes` must hold the whole header, and `size` defaults to `bytes.length`. Bytes that end inside the header return `header_too_short`, with `headerBytes` set to the header's length.
 

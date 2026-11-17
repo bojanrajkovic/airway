@@ -9,7 +9,7 @@ const FIXED_BYTES = 256;
  * Reads a file's header from disk, without reading its records, and checks the file's size
  * against it. It reads the first 256 bytes, then the rest of the header if there's more.
  */
-export function readHeaderFile(path: string): ResultAsync<EdfFile, EdfReadError> {
+export function readFileHeader(path: string): ResultAsync<EdfFile, EdfReadError> {
   return ResultAsync.fromPromise(open(path, "r"), (cause) => readFailed(path, cause)).andThen(
     (handle) => new ResultAsync(readOpen(path, handle)),
   );
