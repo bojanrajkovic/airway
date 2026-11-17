@@ -291,6 +291,9 @@ importers:
       '@airway/testing':
         specifier: workspace:*
         version: link:../testing
+      '@tsconfig/node':
+        specifier: 'catalog:'
+        version: '@tsconfig/node26@26.0.2'
       '@tsconfig/strictest':
         specifier: 'catalog:'
         version: 2.0.9

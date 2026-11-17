@@ -43,7 +43,8 @@ export type EdfWarning = {
 export type EdfReadError =
   /** `bytes` ends before the header does; `headerBytes` is how many it needs, 256 when unknown. */
   | { kind: "header_too_short"; headerBytes: number }
-  | { kind: "bad_field"; field: string; value: string };
+  | { kind: "bad_field"; field: string; value: string }
+  | { kind: "read_failed"; path: string; message: string };
 
 /** A parsed header, the file's size verdict, and any warnings. */
 export type EdfFile = { header: EdfHeader; size: FileSizeCheck; warnings: EdfWarning[] };
