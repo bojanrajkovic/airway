@@ -40,7 +40,14 @@ export type EdfReadError =
   /** `bytes` ends before the header does; `headerBytes` is how many it needs, 256 when unknown. */
   | { kind: "header_too_short"; headerBytes: number }
   | { kind: "bad_field"; field: string; value: string }
-  | { kind: "read_failed"; path: string; message: string };
+  | { kind: "read_failed"; path: string; message: string }
+  | { kind: "missing_signal"; label: string }
+  | { kind: "range_out_of_bounds"; fromRecord: number; toRecord: number; records: number }
+  /** `bytes` ends before the file's last record, as when a caller passes only the header. */
+  | { kind: "bytes_too_short"; needed: number; got: number }
+  | { kind: "no_annotations" }
+  /** A TAL that doesn't follow EDF+'s grammar, in the record it came from. */
+  | { kind: "bad_annotation"; record: number; tal: string };
 
 /** A parsed header, `checkFileSize`'s result for the file, and any warnings. */
 export type EdfFile = { header: EdfHeader; size: FileSizeCheck; warnings: EdfWarning[] };
@@ -49,6 +56,19 @@ export type EdfFile = { header: EdfHeader; size: FileSizeCheck; warnings: EdfWar
 export type ReadableEdfFile = EdfFile & { size: Extract<FileSizeCheck, { verdict: "read" }> };
 
 export const isReadable = (file: EdfFile): file is ReadableEdfFile => file.size.verdict === "read";
+
+/** Checks that `bytes` reach the end of record `toRecord`, exclusive. */
+export function coversRecords(
+  bytes: Uint8Array,
+  header: EdfHeader,
+  toRecord: number,
+): Result<void, EdfReadError> {
+  const needed = header.headerBytes + toRecord * recordBytes(header);
+
+  return bytes.length >= needed
+    ? ok(undefined)
+    : err({ kind: "bytes_too_short", needed, got: bytes.length });
+}
 
 /** The bytes in one data record, Crc16 included. */
 export const recordBytes = (file: { signals: readonly SignalHeader[] }): number =>

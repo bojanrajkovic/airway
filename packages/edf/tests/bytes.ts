@@ -103,3 +103,61 @@ export const plain = (overrides: Partial<HeaderFields> = {}): HeaderFields => ({
   signals: [flow, crc16],
   ...overrides,
 });
+
+/** A header followed by records of int16 samples, each record's samples in header order. */
+export function withSamples(fields: HeaderFields, records: number[][]): Uint8Array {
+  const head = header(fields);
+  const samples = records.flat();
+  const bytes = new Uint8Array(head.length + 2 * samples.length);
+  const view = new DataView(bytes.buffer);
+
+  bytes.set(head);
+  samples.forEach((sample, i) => {
+    view.setInt16(head.length + 2 * i, sample, true);
+  });
+
+  return bytes;
+}
+
+/** An annotation signal holding `samples` int16 samples (twice as many bytes) per record. */
+export const annotationSignal = (samples: number): SignalFields => ({
+  label: "EDF Annotations",
+  unit: "",
+  physicalMin: "-1",
+  physicalMax: "1",
+  digitalMin: "-32768",
+  digitalMax: "32767",
+  samples: samples.toString(),
+});
+
+// The annotation bytes in each record of annotated().
+const TAL_BYTES = 64;
+
+/** An EDF+D header with one 64-byte annotation signal and a Crc16. */
+export const annotated = (records: number): HeaderFields =>
+  plain({
+    reserved: "EDF+D",
+    records: records.toString(),
+    recordSeconds: "0.00",
+    signals: [annotationSignal(TAL_BYTES / 2), crc16],
+  });
+
+// "+1": a Crc16 that a reader running past the annotation bytes would misread as a TAL.
+const CRC = [0x2b, 0x31];
+
+/** An annotation file: each record's TAL text, zero-padded to 64 bytes, then a Crc16. */
+export function withTals(fields: HeaderFields, records: string[]): Uint8Array {
+  const head = header(fields);
+  const size = TAL_BYTES + CRC.length;
+  const bytes = new Uint8Array(head.length + size * records.length);
+
+  bytes.set(head);
+  records.forEach((text, i) => {
+    const start = head.length + size * i;
+
+    bytes.set(encoder.encode(text).subarray(0, TAL_BYTES), start);
+    bytes.set(CRC, start + TAL_BYTES);
+  });
+
+  return bytes;
+}

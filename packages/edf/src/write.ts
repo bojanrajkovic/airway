@@ -1,13 +1,11 @@
 import crc16ccitt from "crc/calculators/crc16ccitt";
 import { err, ok, Result } from "neverthrow";
 import { dataSignals, step, type EdfFileType, type EdfSignal } from "./airsense.ts";
+import type { Annotation } from "./annotations.ts";
 import { recordBytes, type EdfHeader } from "./header.ts";
 
 /** The header fields that change from file to file. The file type sets the rest. */
 export type PerFileHeader = Pick<EdfHeader, "start" | "patient" | "recording">;
-
-/** One EDF+ annotation, with times in seconds from the file's start. */
-export type Annotation = { onset: number; duration: number; label: string };
 
 export type EdfWriteError =
   | { kind: "missing_signal"; label: string }
