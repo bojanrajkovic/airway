@@ -1,9 +1,4 @@
 {
-  "extends": "../../tsconfig.base.json",
-  "compilerOptions": {
-    // DOM for TextEncoder and TextDecoder, which browsers and Node both have.
-    "lib": ["ESNext", "DOM"],
-    "types": []
-  },
+  "extends": ["@tsconfig/node/tsconfig.json", "../../tsconfig.base.json"],
   "include": ["src"]
 }

@@ -1,3 +1,5 @@
+import type { EdfHeader, SignalHeader } from "./header.ts";
+
 /**
  * Where a signal's values go when ingest reads them: a column of the `samples` or `nights`
  * dataset, a named setting in `settings_changes`, or nowhere.
@@ -8,33 +10,19 @@ export type SignalTarget =
   | { table: "settings"; name: string }
   | { table: "none" };
 
-/** One signal as an AirSense 10 file header declares it. */
-export type EdfSignal = {
-  label: string;
-  /** Empty when the header leaves the unit blank. */
-  unit: string;
-  /** The header's text, exactly as the machine writes it: `0.00` for some signals, `0` for others. */
-  physicalMin: string;
-  physicalMax: string;
-  /** The range of the int16 values stored in the file. */
-  digitalMin: number;
-  digitalMax: number;
-  samplesPerRecord: number;
-  target: SignalTarget;
-};
+/** One signal of an AirSense 10 file type, and where ingest puts its values. */
+export type EdfSignal = SignalHeader & { target: SignalTarget };
 
 /** One AirSense 10 file type. */
-export type EdfFileType = {
-  /** The header's reserved field: `EDF` for signal files, `EDF+D` for annotation files. */
-  format: "EDF" | "EDF+D";
-  /** Seconds per data record. Annotation files use 0. */
-  recordSeconds: number;
-  /** In header order. Every file ends with `Crc16`. */
+export type EdfFileType = Pick<EdfHeader, "recordSeconds"> & {
+  /** `EDF` for signal files, `EDF+D` for annotation files. */
+  format: Exclude<EdfHeader["format"], "EDF+C">;
+  /** In header order. Every file ends with `Crc16`. Annotation files use 0 record seconds. */
   signals: readonly EdfSignal[];
 };
 
 /** One digital step in physical units, such as 0.02 cmH2O for pressure. */
-export function step(signal: EdfSignal): number {
+export function step(signal: SignalHeader): number {
   return (
     (Number(signal.physicalMax) - Number(signal.physicalMin)) /
     (signal.digitalMax - signal.digitalMin)

@@ -1,14 +1,10 @@
 import crc16ccitt from "crc/calculators/crc16ccitt";
 import { err, ok, Result } from "neverthrow";
 import { dataSignals, step, type EdfFileType, type EdfSignal } from "./airsense.ts";
+import { recordBytes, type EdfHeader } from "./header.ts";
 
-/** The header fields that change from file to file. */
-export type EdfHeader = {
-  /** The device clock's time, which has no zone, as the machine writes it. */
-  start: Temporal.PlainDateTime;
-  patient: string;
-  recording: string;
-};
+/** The header fields that change from file to file. The file type sets the rest. */
+export type PerFileHeader = Pick<EdfHeader, "start" | "patient" | "recording">;
 
 /** One EDF+ annotation, with times in seconds from the file's start. */
 export type Annotation = { onset: number; duration: number; label: string };
@@ -58,7 +54,7 @@ const two = (value: number): string => value.toString().padStart(2, "0");
 
 function writeHeader(
   file: EdfFileType,
-  header: EdfHeader,
+  header: PerFileHeader,
   records: number,
 ): Result<Uint8Array, EdfWriteError> {
   const { signals } = file;
@@ -131,10 +127,6 @@ function digitize(signal: EdfSignal, samples: Float64Array): Result<Int16Array, 
   return ok(digital);
 }
 
-/** The bytes in one data record of a file type, Crc16 included. */
-export const recordBytes = (file: EdfFileType): number =>
-  2 * file.signals.reduce((sum, signal) => sum + signal.samplesPerRecord, 0);
-
 // Every record ends with its Crc16 sample: the CRC-16/CCITT-FALSE of the record's other bytes,
 // little-endian, as the AirSense writes it.
 function signRecords(bytes: Uint8Array, first: number, size: number): Uint8Array {
@@ -185,7 +177,7 @@ function recordCount(
  */
 export function writeSignals(
   file: EdfFileType,
-  header: EdfHeader,
+  header: PerFileHeader,
   values: ReadonlyMap<string, Float64Array>,
 ): Result<Uint8Array, EdfWriteError> {
   const signals = dataSignals(file);
@@ -229,7 +221,7 @@ export function writeSignals(
  */
 export function writeAnnotations(
   file: EdfFileType,
-  header: EdfHeader,
+  header: PerFileHeader,
   annotations: readonly Annotation[],
 ): Result<Uint8Array, EdfWriteError> {
   const [annotationSignal] = file.signals;

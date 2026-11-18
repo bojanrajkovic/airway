@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { AIRSENSE, type EdfFileType } from "../src/airsense.ts";
-import { writeAnnotations, writeSignals, type EdfHeader } from "../src/write.ts";
+import { writeAnnotations, writeSignals, type PerFileHeader } from "../src/write.ts";
 import { readBackAnnotations, readBackEdf } from "@airway/testing/edf-readback";
 
-const header: EdfHeader = {
+const header: PerFileHeader = {
   start: Temporal.PlainDateTime.from("2030-01-07T22:15:03"),
   patient: "X X X Synthetic",
   recording: "Startdate 07-JAN-2030 X X SYNTHETIC-0001",

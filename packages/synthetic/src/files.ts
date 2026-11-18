@@ -2,12 +2,12 @@ import { err, ok, Result } from "neverthrow";
 import { offsetForNight, type NoOffsetForNight, type ClockOffset } from "@airway/contract/clock";
 import { AIRSENSE, dataSignals, PLD_SAMPLE_SECONDS } from "@airway/edf/airsense";
 import { checkFileSize, type FileSizeCheck } from "@airway/edf/size";
+import { recordBytes } from "@airway/edf/header";
 import {
-  recordBytes,
   writeAnnotations,
   writeSignals,
-  type EdfHeader,
   type EdfWriteError,
+  type PerFileHeader,
 } from "@airway/edf/write";
 import type { EventFile, FileDamage, MachineEvent, Segment, SyntheticNight } from "./model.ts";
 import type { MachineEventType } from "./patients.ts";
@@ -46,7 +46,7 @@ const MONTHS = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "
 
 // EDF+'s recording field: "Startdate", the date as 07-JAN-2030, then hospital code, technician,
 // and equipment, with X for unknown.
-const header = (start: Temporal.PlainDateTime): EdfHeader => ({
+const header = (start: Temporal.PlainDateTime): PerFileHeader => ({
   start,
   patient: EDF_PATIENT_FIELD,
   recording: `Startdate ${String(start.day).padStart(2, "0")}-${MONTHS[start.month - 1] ?? "X"}-${start.year.toString()} X X ${DEVICE.serial}`,
