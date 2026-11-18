@@ -20,7 +20,8 @@ const conversionFor = (unit: string): Conversion => DISPLAY[unit] ?? { unit, fac
 // then 1.14. The extra decimals keep a value between two steps, such as an average or a filter
 // bound, where it is instead of moving it onto a step.
 const GUARD_DECIMALS = 6;
-const round = (value: number, decimals: number): number =>
+/** `value` to `decimals` places, keeping 6 more places for a value between two steps. */
+export const round = (value: number, decimals: number): number =>
   Math.round(value * 10 ** (decimals + GUARD_DECIMALS)) / 10 ** (decimals + GUARD_DECIMALS);
 
 /** The decimals needed to write every multiple of `step`, an EDF signal's physical step. */
