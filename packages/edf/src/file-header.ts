@@ -1,5 +1,5 @@
 import { open, type FileHandle } from "node:fs/promises";
-import { err, ResultAsync, type Result } from "neverthrow";
+import { errAsync, ResultAsync } from "neverthrow";
 import { readHeader, type EdfFile, type EdfReadError } from "./header.ts";
 
 // The fixed part of every header, which says how long the whole header is.
@@ -10,46 +10,52 @@ const FIXED_BYTES = 256;
  * against it. It reads the first 256 bytes, then the rest of the header if there's more.
  */
 export function readFileHeader(path: string): ResultAsync<EdfFile, EdfReadError> {
-  return ResultAsync.fromPromise(open(path, "r"), (cause) => readFailed(path, cause)).andThen(
-    (handle) => new ResultAsync(readHeaderFromHandle(path, handle)),
+  const failed = (cause: unknown): EdfReadError => ({
+    kind: "read_failed",
+    path,
+    message: cause instanceof Error ? cause.message : String(cause),
+  });
+
+  return ResultAsync.fromPromise(open(path, "r"), failed).andThen((handle) =>
+    closeAfter(handle, readHeaderFromHandle(handle, failed)),
   );
 }
 
-// Reads the header through an open file, and closes the file whatever happens.
-async function readHeaderFromHandle(
-  path: string,
+function readHeaderFromHandle(
   handle: FileHandle,
-): Promise<Result<EdfFile, EdfReadError>> {
-  try {
-    const { size } = await handle.stat();
-    const readFirstBytes = async (length: number): Promise<Uint8Array> => {
-      const bytes = new Uint8Array(length);
-      const { bytesRead } = await handle.read(bytes, 0, length, 0);
+  failed: (cause: unknown) => EdfReadError,
+): ResultAsync<EdfFile, EdfReadError> {
+  const readFirstBytes = (length: number): ResultAsync<Uint8Array, EdfReadError> =>
+    ResultAsync.fromPromise(handle.read(new Uint8Array(length), 0, length, 0), failed).map(
+      ({ buffer, bytesRead }) => buffer.subarray(0, bytesRead),
+    );
 
-      return bytes.subarray(0, bytesRead);
-    };
-
-    const fromFixedPart = readHeader(await readFirstBytes(Math.min(FIXED_BYTES, size)), size);
-
-    // The first 256 bytes give the header's length; a file shorter than that is truncated.
-    if (fromFixedPart.isErr() && fromFixedPart.error.kind === "header_too_short") {
-      const { headerBytes } = fromFixedPart.error;
-
-      return headerBytes > FIXED_BYTES && headerBytes <= size
-        ? readHeader(await readFirstBytes(headerBytes), size)
-        : fromFixedPart;
-    }
-
-    return fromFixedPart;
-  } catch (cause) {
-    return err(readFailed(path, cause));
-  } finally {
-    await handle.close();
-  }
+  return ResultAsync.fromPromise(handle.stat(), failed).andThen(({ size }) =>
+    readFirstBytes(Math.min(FIXED_BYTES, size))
+      .andThen((bytes) => readHeader(bytes, size))
+      // The first 256 bytes give the header's length; a file shorter than that is truncated.
+      .orElse((error) =>
+        error.kind === "header_too_short" &&
+        error.headerBytes > FIXED_BYTES &&
+        error.headerBytes <= size
+          ? readFirstBytes(error.headerBytes).andThen((bytes) => readHeader(bytes, size))
+          : errAsync(error),
+      ),
+  );
 }
 
-const readFailed = (path: string, cause: unknown): EdfReadError => ({
-  kind: "read_failed",
-  path,
-  message: cause instanceof Error ? cause.message : String(cause),
-});
+// Closes the file once the work settles, whether it succeeded or not.
+function closeAfter<T>(
+  handle: FileHandle,
+  work: ResultAsync<T, EdfReadError>,
+): ResultAsync<T, EdfReadError> {
+  return new ResultAsync(
+    (async () => {
+      try {
+        return await work;
+      } finally {
+        await handle.close();
+      }
+    })(),
+  );
+}
