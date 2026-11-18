@@ -42,10 +42,10 @@ export type EdfReadError =
   | { kind: "bad_field"; field: string; value: string }
   | { kind: "read_failed"; path: string; message: string };
 
-/** A parsed header, the file's size verdict, and any warnings. */
+/** A parsed header, `checkFileSize`'s result for the file, and any warnings. */
 export type EdfFile = { header: EdfHeader; size: FileSizeCheck; warnings: EdfWarning[] };
 
-/** A file whose size verdict is `read`, so it has whole records to decode. */
+/** A file that `checkFileSize` says to read, so it has whole records to decode. */
 export type ReadableEdfFile = EdfFile & { size: Extract<FileSizeCheck, { verdict: "read" }> };
 
 export const isReadable = (file: EdfFile): file is ReadableEdfFile => file.size.verdict === "read";
