@@ -66,27 +66,26 @@ export function readAnnotations(
     offset += 2 * signal.samplesPerRecord;
   }
 
-  if (spans.length === 0) {
-    return err({ kind: "no_annotations" });
-  }
+  const found: Result<typeof spans, EdfReadError> =
+    spans.length === 0 ? err({ kind: "no_annotations" }) : ok(spans);
 
-  const covered = coversRecords(bytes, header, file.size.records);
+  return found
+    .andThen((annotationSpans) =>
+      coversRecords(bytes, header, file.size.records).map(() => annotationSpans),
+    )
+    .andThen((annotationSpans) => {
+      const parsed: Result<Annotation[], EdfReadError>[] = [];
 
-  if (covered.isErr()) {
-    return err(covered.error);
-  }
+      for (let record = 0; record < file.size.records; record += 1) {
+        const base = header.headerBytes + record * stride;
 
-  const parsed: Result<Annotation[], EdfReadError>[] = [];
+        for (const span of annotationSpans) {
+          const chunk = bytes.subarray(base + span.offset, base + span.offset + span.length);
 
-  for (let record = 0; record < file.size.records; record += 1) {
-    const base = header.headerBytes + record * stride;
+          parsed.push(...tals(chunk).map((tal) => parseTal(record, tal)));
+        }
+      }
 
-    for (const span of spans) {
-      const chunk = bytes.subarray(base + span.offset, base + span.offset + span.length);
-
-      parsed.push(...tals(chunk).map((tal) => parseTal(record, tal)));
-    }
-  }
-
-  return Result.combine(parsed).map((lists) => lists.flat());
+      return Result.combine(parsed).map((lists) => lists.flat());
+    });
 }

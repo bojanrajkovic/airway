@@ -1,6 +1,12 @@
 import { err, ok, type Result } from "neverthrow";
 import { step } from "./airsense.ts";
-import { coversRecords, recordBytes, type EdfReadError, type ReadableEdfFile } from "./header.ts";
+import {
+  coversRecords,
+  recordBytes,
+  type EdfHeader,
+  type EdfReadError,
+  type ReadableEdfFile,
+} from "./header.ts";
 
 /** Which records to read, with `Array.slice`'s rules: 0-based, `toRecord` exclusive. */
 export type RecordRange = { fromRecord?: number; toRecord?: number };
@@ -32,12 +38,18 @@ export function readSignals<L extends string>(
     return err({ kind: "range_out_of_bounds", fromRecord, toRecord, records });
   }
 
-  const covered = coversRecords(bytes, header, toRecord);
+  return coversRecords(bytes, header, toRecord).andThen(() =>
+    decode(bytes, header, labels, { fromRecord, toRecord }),
+  );
+}
 
-  if (covered.isErr()) {
-    return err(covered.error);
-  }
-
+// Decodes the records in [fromRecord, toRecord) for each label, once the range is checked.
+function decode<L extends string>(
+  bytes: Uint8Array,
+  header: EdfHeader,
+  labels: readonly L[],
+  { fromRecord, toRecord }: Required<RecordRange>,
+): Result<Record<L, Float64Array>, EdfReadError> {
   const stride = recordBytes(header);
   const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
   // Each signal's byte offset within a record: the samples of the signals before it.
