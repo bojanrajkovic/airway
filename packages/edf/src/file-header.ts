@@ -11,32 +11,36 @@ const FIXED_BYTES = 256;
  */
 export function readFileHeader(path: string): ResultAsync<EdfFile, EdfReadError> {
   return ResultAsync.fromPromise(open(path, "r"), (cause) => readFailed(path, cause)).andThen(
-    (handle) => new ResultAsync(readOpen(path, handle)),
+    (handle) => new ResultAsync(readHeaderFromHandle(path, handle)),
   );
 }
 
-async function readOpen(path: string, handle: FileHandle): Promise<Result<EdfFile, EdfReadError>> {
+// Reads the header through an open file, and closes the file whatever happens.
+async function readHeaderFromHandle(
+  path: string,
+  handle: FileHandle,
+): Promise<Result<EdfFile, EdfReadError>> {
   try {
     const { size } = await handle.stat();
-    const start = async (length: number): Promise<Uint8Array> => {
+    const readFirstBytes = async (length: number): Promise<Uint8Array> => {
       const bytes = new Uint8Array(length);
       const { bytesRead } = await handle.read(bytes, 0, length, 0);
 
       return bytes.subarray(0, bytesRead);
     };
 
-    const first = readHeader(await start(Math.min(FIXED_BYTES, size)), size);
+    const fromFixedPart = readHeader(await readFirstBytes(Math.min(FIXED_BYTES, size)), size);
 
     // The first 256 bytes give the header's length; a file shorter than that is truncated.
-    if (first.isErr() && first.error.kind === "header_too_short") {
-      const { headerBytes } = first.error;
+    if (fromFixedPart.isErr() && fromFixedPart.error.kind === "header_too_short") {
+      const { headerBytes } = fromFixedPart.error;
 
       return headerBytes > FIXED_BYTES && headerBytes <= size
-        ? readHeader(await start(headerBytes), size)
-        : first;
+        ? readHeader(await readFirstBytes(headerBytes), size)
+        : fromFixedPart;
     }
 
-    return first;
+    return fromFixedPart;
   } catch (cause) {
     return err(readFailed(path, cause));
   } finally {
