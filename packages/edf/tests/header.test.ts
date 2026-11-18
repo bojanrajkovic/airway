@@ -110,7 +110,7 @@ describe("readHeader", () => {
     expect(readHeader(file(fields, 0))._unsafeUnwrap().warnings).toEqual([
       {
         kind: "startdate_mismatch",
-        header: Temporal.PlainDate.from("2030-01-07"),
+        headerDate: Temporal.PlainDate.from("2030-01-07"),
         startdate: Temporal.PlainDate.from("2030-01-08"),
       },
     ]);

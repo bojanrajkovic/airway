@@ -31,14 +31,10 @@ export type EdfHeader = {
   signals: readonly SignalHeader[];
 };
 
-/** Something the header says that disagrees with itself, without stopping the read. */
-export type EdfWarning = {
-  kind: "startdate_mismatch";
-  /** The header's start date. */
-  header: Temporal.PlainDate;
-  /** The `Startdate` in the recording field. */
-  startdate: Temporal.PlainDate;
-};
+/** Something the header contradicts without stopping the read. */
+export type EdfWarning =
+  /** The recording field's `Startdate` names a different day from the header's start date. */
+  { kind: "startdate_mismatch"; headerDate: Temporal.PlainDate; startdate: Temporal.PlainDate };
 
 export type EdfReadError =
   /** `bytes` ends before the header does; `headerBytes` is how many it needs, 256 when unknown. */
@@ -66,13 +62,16 @@ const MONTHS = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "
 // Latin-1 maps every byte to a character, so a stray high byte can't fail the decode.
 const decoder = new TextDecoder("latin1");
 
-/** Reads fixed-width, space-padded text fields in order. */
+/** Whether a numeric field must be a whole number. */
+type NumberKind = "integer" | "decimal";
+
+/** Reads a header's fixed-width, space-padded text fields in order. */
 class FieldReader {
   #offset = 0;
 
   constructor(readonly bytes: Uint8Array) {}
 
-  text(width: number): string {
+  readString(width: number): string {
     const value = decoder.decode(this.bytes.subarray(this.#offset, this.#offset + width)).trim();
 
     this.#offset += width;
@@ -80,13 +79,33 @@ class FieldReader {
     return value;
   }
 
-  number(field: string, width: number, integer = true): Result<number, EdfReadError> {
-    return parseNumber(field, this.text(width), integer);
+  /** Reads a number; `field` names it in a `bad_field` error. */
+  readNumber(
+    field: string,
+    width: number,
+    kind: NumberKind = "integer",
+  ): Result<number, EdfReadError> {
+    return parseNumber(field, this.readString(width), kind);
   }
 
-  // EDF stores each field for every signal before the next field.
-  column(count: number, width: number): string[] {
-    return Array.from({ length: count }, () => this.text(width));
+  /**
+   * Reads one field for every signal: EDF stores each field for all signals before the next.
+   * With `parse`, each signal's text is parsed, and the first failure is returned.
+   */
+  readColumn(signals: number, width: number): string[];
+  readColumn<T>(
+    signals: number,
+    width: number,
+    parse: (text: string, signal: number) => Result<T, EdfReadError>,
+  ): Result<T[], EdfReadError>;
+  readColumn<T>(
+    signals: number,
+    width: number,
+    parse?: (text: string, signal: number) => Result<T, EdfReadError>,
+  ): string[] | Result<T[], EdfReadError> {
+    const texts = Array.from({ length: signals }, () => this.readString(width));
+
+    return parse === undefined ? texts : Result.combine(texts.map(parse));
   }
 }
 
@@ -96,11 +115,16 @@ const badField = (field: string, value: string): EdfReadError => ({
   value,
 });
 
-function parseNumber(field: string, value: string, integer = true): Result<number, EdfReadError> {
-  const parsed = Number(value);
-  const valid = value !== "" && (integer ? Number.isInteger(parsed) : Number.isFinite(parsed));
+function parseNumber(
+  field: string,
+  text: string,
+  kind: NumberKind = "integer",
+): Result<number, EdfReadError> {
+  const value = Number(text);
+  const valid =
+    text !== "" && (kind === "integer" ? Number.isInteger(value) : Number.isFinite(value));
 
-  return valid ? ok(parsed) : err(badField(field, value));
+  return valid ? ok(value) : err(badField(field, text));
 }
 
 // EDF+'s rule for its two-digit years: 85 to 99 are 19xx, the rest 20xx.
@@ -153,51 +177,52 @@ function startdate(recording: string): Temporal.PlainDate | null {
 }
 
 function parseSignals(reader: FieldReader, count: number): Result<SignalHeader[], EdfReadError> {
-  const labels = reader.column(count, 16);
-  reader.column(count, 80); // transducer
-  const units = reader.column(count, 8);
-  const physicalMins = reader.column(count, 8);
-  const physicalMaxes = reader.column(count, 8);
-  const digitalMins = reader.column(count, 8);
-  const digitalMaxes = reader.column(count, 8);
-  reader.column(count, 80); // prefiltering
-  const samples = reader.column(count, 8);
+  const labels = reader.readColumn(count, 16);
+  const name = (signal: number, field: string): string => `${labels[signal] ?? ""} ${field}`;
+  const integer =
+    (field: string) =>
+    (text: string, signal: number): Result<number, EdfReadError> =>
+      parseNumber(name(signal, field), text);
+  // Kept as text, so it round-trips exactly; parsed only to check it's a number.
+  const physical =
+    (field: string) =>
+    (text: string, signal: number): Result<string, EdfReadError> =>
+      parseNumber(name(signal, field), text, "decimal").map(() => text);
 
-  return Result.combine(
-    labels.map((label, i): Result<SignalHeader, EdfReadError> => {
-      const text = (column: string[]): string => column[i] ?? "";
-      const integer = (field: string, column: string[]): Result<number, EdfReadError> =>
-        parseNumber(`${label} ${field}`, text(column));
-      // Kept as text, so it round-trips exactly; parsed only to check it's a number.
-      const physical = (field: string, column: string[]): Result<string, EdfReadError> =>
-        parseNumber(`${label} ${field}`, text(column), false).map(() => text(column));
+  reader.readColumn(count, 80); // transducer
+  const units = reader.readColumn(count, 8);
+  const physicalMins = reader.readColumn(count, 8, physical("physical minimum"));
+  const physicalMaxes = reader.readColumn(count, 8, physical("physical maximum"));
+  const digitalMins = reader.readColumn(count, 8, integer("digital minimum"));
+  const digitalMaxes = reader.readColumn(count, 8, integer("digital maximum"));
+  reader.readColumn(count, 80); // prefiltering
+  const samples = reader.readColumn(count, 8, integer("samples per record"));
 
-      return Result.combine([
-        physical("physical minimum", physicalMins),
-        physical("physical maximum", physicalMaxes),
-        integer("digital minimum", digitalMins),
-        integer("digital maximum", digitalMaxes),
-        integer("samples per record", samples),
-      ]).andThen(([physicalMin, physicalMax, digitalMin, digitalMax, samplesPerRecord]) =>
-        // An empty digital range would make every step a division by zero.
-        digitalMax > digitalMin && samplesPerRecord > 0
-          ? ok({
-              label,
-              unit: text(units),
-              physicalMin,
-              physicalMax,
-              digitalMin,
-              digitalMax,
-              samplesPerRecord,
-            })
-          : err(
-              badField(
-                `${label} digital range`,
-                `${digitalMin.toString()} to ${digitalMax.toString()}`,
-              ),
-            ),
-      );
-    }),
+  return Result.combine([physicalMins, physicalMaxes, digitalMins, digitalMaxes, samples]).andThen(
+    ([physicalMin, physicalMax, digitalMin, digitalMax, samplesPerRecord]) =>
+      Result.combine(
+        labels.map((label, i): Result<SignalHeader, EdfReadError> => {
+          const signal = {
+            label,
+            unit: units[i] ?? "",
+            physicalMin: physicalMin[i] ?? "",
+            physicalMax: physicalMax[i] ?? "",
+            digitalMin: digitalMin[i] ?? 0,
+            digitalMax: digitalMax[i] ?? 0,
+            samplesPerRecord: samplesPerRecord[i] ?? 0,
+          };
+
+          // An empty digital range would make every step a division by zero.
+          return signal.digitalMax > signal.digitalMin && signal.samplesPerRecord > 0
+            ? ok(signal)
+            : err(
+                badField(
+                  `${label} digital range`,
+                  `${signal.digitalMin.toString()} to ${signal.digitalMax.toString()}`,
+                ),
+              );
+        }),
+      ),
   );
 }
 
@@ -214,19 +239,19 @@ export function readHeader(bytes: Uint8Array, size = bytes.length): Result<EdfFi
   }
 
   const reader = new FieldReader(bytes);
-  const version = reader.text(8);
-  const patient = reader.text(80);
-  const recording = reader.text(80);
-  const date = reader.text(8);
-  const time = reader.text(8);
+  const version = reader.readString(8);
+  const patient = reader.readString(80);
+  const recording = reader.readString(80);
+  const date = reader.readString(8);
+  const time = reader.readString(8);
 
   return Result.combine([
-    reader.number("header bytes", 8),
+    reader.readNumber("header bytes", 8),
     // Plain EDF leaves the reserved field blank; the card writes "EDF" there.
-    ok(reader.text(44).replace(/^$/v, "EDF")),
-    reader.number("records", 8),
-    reader.number("record duration", 8, false),
-    reader.number("signals", 4),
+    ok(reader.readString(44).replace(/^$/v, "EDF")),
+    reader.readNumber("records", 8),
+    reader.readNumber("record duration", 8, "decimal"),
+    reader.readNumber("signals", 4),
   ])
     .andThen(([headerBytes, format, declaredRecords, recordSeconds, count]) => {
       if (version !== "0") {
@@ -271,7 +296,7 @@ export function readHeader(bytes: Uint8Array, size = bytes.length): Result<EdfFi
       const date = header.start.toPlainDate();
       const warnings: EdfWarning[] =
         stated !== null && !stated.equals(date)
-          ? [{ kind: "startdate_mismatch", header: date, startdate: stated }]
+          ? [{ kind: "startdate_mismatch", headerDate: date, startdate: stated }]
           : [];
       const check = checkFileSize({
         size,
