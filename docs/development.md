@@ -43,6 +43,8 @@ Adding a package takes four things:
 
 `@airway/testing` holds test helpers that more than one package uses. It never ships in the image. A package that uses it lists `"@airway/testing": "workspace:*"` in its `devDependencies`.
 
+`@airway/edf` reads and writes the card's EDF files: the AirSense signal list, `checkFileSize`, and the writer. It's separate from `@airway/contract` because only the server and the synthetic generator use it, and contract holds what the web app shares with the server.
+
 `@airway/synthetic` generates the synthetic CPAP data that tests and local development use ([Synthetic data](synthetic-data.md)). Like `@airway/testing`, only tests and scripts import it, so it never ships in the image.
 
 ## Dependencies

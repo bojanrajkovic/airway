@@ -1,14 +1,14 @@
 import { err, ok, Result } from "neverthrow";
 import { offsetForNight, type NoOffsetForNight, type ClockOffset } from "@airway/contract/clock";
-import { AIRSENSE, dataSignals, PLD_SAMPLE_SECONDS } from "@airway/contract/edf/airsense";
-import { checkFileSize, type FileSizeCheck } from "@airway/contract/edf/size";
+import { AIRSENSE, dataSignals, PLD_SAMPLE_SECONDS } from "@airway/edf/airsense";
+import { checkFileSize, type FileSizeCheck } from "@airway/edf/size";
 import {
   recordBytes,
   writeAnnotations,
   writeSignals,
   type EdfHeader,
   type EdfWriteError,
-} from "@airway/contract/edf/write";
+} from "@airway/edf/write";
 import type { EventFile, FileDamage, MachineEvent, Segment, SyntheticNight } from "./model.ts";
 import type { MachineEventType } from "./patients.ts";
 import { renderBrp } from "./signals.ts";

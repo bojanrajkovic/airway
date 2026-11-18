@@ -1,0 +1,23 @@
+{
+  "name": "@airway/edf",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./*": "./src/*.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --project . && tsc --project tests"
+  },
+  "dependencies": {
+    "crc": "catalog:",
+    "neverthrow": "catalog:"
+  },
+  "devDependencies": {
+    "@airway/contract": "workspace:*",
+    "@airway/testing": "workspace:*",
+    "@tsconfig/strictest": "catalog:",
+    "@types/node": "catalog:",
+    "vitest": "catalog:"
+  }
+}

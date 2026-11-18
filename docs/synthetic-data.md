@@ -4,7 +4,7 @@ How the synthetic SD-card data that tests, screenshots, and local development us
 
 ## The AirSense 10's signals
 
-`@airway/contract/edf/airsense` lists every EDF file type the AirSense 10 writes, as its headers declare them. The EDF writer uses it, and ingest's reader will too, so writing and reading follow one description of the format.
+`@airway/edf/airsense` lists every EDF file type the AirSense 10 writes, as its headers declare them. The EDF writer uses it, and ingest's reader will too, so writing and reading follow one description of the format.
 
 | File | Format | Record | What it holds |
 |---|---|---|---|
@@ -226,7 +226,7 @@ It prints the `AIRWAY_CLOCK_OFFSETS` the folder needs. The `clock-change` case a
 
 ## Checking a file's size
 
-`checkFileSize({ size, headerBytes, recordBytes, declaredRecords })` in `@airway/contract/edf/size` decides what ingest does with a file, from its size against its header. `synthesize` calls it on every file it writes, and ingest calls it on every file it scans, so the synthetic rows and ingest follow one rule.
+`checkFileSize({ size, headerBytes, recordBytes, declaredRecords })` in `@airway/edf/size` decides what ingest does with a file, from its size against its header. `synthesize` calls it on every file it writes, and ingest calls it on every file it scans, so the synthetic rows and ingest follow one rule.
 
 | On disk | `verdict` | `header` or `reason` |
 |---|---|---|
@@ -241,7 +241,7 @@ It prints the `AIRWAY_CLOCK_OFFSETS` the folder needs. The `clock-change` case a
 
 ## Writing EDF files
 
-`@airway/contract/edf/write` writes the bytes of any file type in the list. The synthetic generator uses it to write its files.
+`@airway/edf/write` writes the bytes of any file type in the list. The synthetic generator uses it to write its files.
 
 - `writeSignals(file, header, values)` takes one `Float64Array` of physical values per label, leaving out `Crc16`. Each value is rounded to the signal's step and clamped to its digital range. `NaN` means "no value" and is written as -1, the machine's marker for missing data. That marker only works where -1 is outside the signal's digital range, as in SAD and STR.edf, so `NaN` for a signal such as flow, where -1 is a real value, is an error.
 - `writeAnnotations(file, header, annotations)` writes an EDF+D file with one annotation per record, as the machine does. Each record starts with the timekeeping entry EDF+ requires. An EVE record holds 38 bytes of annotation text, and a longer annotation returns an error. So does a negative onset: real cards write every onset at or after the file's start.
@@ -250,4 +250,4 @@ The header's start time is a `Temporal.PlainDateTime` on the device's clock, whi
 
 Both functions return a `Result`. The errors name the signal or field at fault: a missing signal, a signal that doesn't fill a whole number of records, `NaN` where -1 is a real value, signals with different record counts, text too long for its field, or an annotation too long for its record.
 
-The writer's tests read files back with a small reader in `@airway/testing/edf`.
+The writer's tests read files back with a small reader in `@airway/testing/edf-readback`.
