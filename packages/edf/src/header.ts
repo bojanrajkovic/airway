@@ -43,7 +43,7 @@ export type EdfReadError =
   | { kind: "read_failed"; path: string; message: string }
   | { kind: "missing_signal"; label: string }
   | { kind: "range_out_of_bounds"; fromRecord: number; toRecord: number; records: number }
-  /** The bytes hold fewer records than the file's size verdict counts, such as a header alone. */
+  /** `bytes` ends before the file's last record, as when a caller passes only the header. */
   | { kind: "bytes_too_short"; needed: number; got: number }
   | { kind: "no_annotations" }
   /** A TAL that doesn't follow EDF+'s grammar, in the record it came from. */
