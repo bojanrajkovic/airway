@@ -240,7 +240,7 @@ export function maskSlots(night: SyntheticNight, offset: ClockOffset): MaskSlots
 
 /**
  * STR.edf for every day from the earliest night to the latest, one record per day. The nights can
- * come in any order. A day without a night is unused: every value is -1. MaskOn and MaskOff are
+ * come in any order. A day without a night is unused: every value but its Date is -1. MaskOn and MaskOff are
  * minutes since noon on the device's clock, for up to 10 periods; unused slots are -1.
  */
 export function strFile(
@@ -271,6 +271,8 @@ export function strFile(
     const date = first.night.add({ days: day });
     const night = byDate.get(date.toString());
 
+    put("Date", day, EPOCH.until(date).days);
+
     if (night === undefined) {
       continue;
     }
@@ -283,7 +285,6 @@ export function strFile(
 
     const slots = maskSlots(night, offset.value);
 
-    put("Date", day, EPOCH.until(date).days);
     slots.maskOn.forEach((minutes, slot) => {
       put("MaskOn", day * SLOTS + slot, minutes);
     });
