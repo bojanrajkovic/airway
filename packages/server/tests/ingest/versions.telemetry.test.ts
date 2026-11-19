@@ -48,8 +48,10 @@ describe("checkVersions", () => {
     const first = await poll(ctx, seen, at(0));
     const kept = first.waiting.length;
     expect(first).toMatchObject({ ready: [], rejected: [], hashes: 0 });
-    // Every file but Identification.tgt is EDF.
-    expect(first.reads).toBe(kept - 1);
+    // Identification.tgt and .crc files aren't EDF, so only the rest have headers to read.
+    expect(first.reads).toBe(
+      first.waiting.filter(({ kind }) => kind !== "identification" && kind !== "crc").length,
+    );
 
     const second = await poll(ctx, seen, at(2));
     expect(second).toMatchObject({ waiting: [], rejected: [], reads: 0, hashes: kept });

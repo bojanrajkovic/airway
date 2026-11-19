@@ -11,18 +11,21 @@ async function scan(root: string): Promise<Scan> {
 }
 
 describe("scanCpapData", () => {
-  it("lists the root files and each night's BRP, PLD, and EVE files, and counts the rest", async () => {
+  it("lists the root files and each night's BRP, PLD, and EVE files with their .crc, and counts the rest", async () => {
     const files = syntheticFolder(2);
     const { files: scanned, skipped } = await scan(await writeFolder(files));
 
-    const kept = files.filter(({ path }) => /(STR\.edf|\.tgt|_(BRP|PLD|EVE)\.edf)$/v.test(path));
+    const kept = files.filter(({ path }) =>
+      /(STR\.edf|Identification\.(tgt|crc)|_(BRP|PLD|EVE)\.(edf|crc))$/v.test(path),
+    );
     expect(scanned.map(({ path }) => path).toSorted(byText)).toEqual(
       kept.map(({ path }) => path).toSorted(byText),
     );
+    expect(scanned.filter(({ kind }) => kind === "crc")).not.toHaveLength(0);
     expect(skipped).toEqual({
       sad: files.filter(({ path }) => path.endsWith("_SAD.edf")).length,
       csl: files.filter(({ path }) => path.endsWith("_CSL.edf")).length,
-      crc: files.filter(({ path }) => path.endsWith(".crc")).length,
+      crc: files.filter(({ path }) => /_(SAD|CSL)\.crc$/v.test(path)).length,
       other: 0,
       folder: 0,
     });
@@ -71,9 +74,10 @@ describe("scanCpapData", () => {
       syntheticFolder(1).filter(({ path }) => !path.startsWith("DATALOG/")),
     );
 
-    expect((await scan(root)).files.map(({ kind }) => kind).toSorted(byText)).toEqual([
-      "identification",
-      "str",
+    expect((await scan(root)).files.map(({ path }) => path).toSorted(byText)).toEqual([
+      "Identification.crc",
+      "Identification.tgt",
+      "STR.edf",
     ]);
   });
 

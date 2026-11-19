@@ -140,7 +140,7 @@ async function update(
 }
 
 async function readHeaderOf(ctx: AppContext, file: ScannedFile): Promise<HeaderRead> {
-  if (file.kind === "identification") {
+  if (file.kind === "identification" || file.kind === "crc") {
     return { kind: "not_edf" };
   }
 

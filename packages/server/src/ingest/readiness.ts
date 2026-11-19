@@ -3,7 +3,7 @@ import type { EdfFile, EdfReadError } from "@airway/edf/header";
 /** How long a file's size and ctime must hold before it's imported. */
 export const STABLE_FOR = Temporal.Duration.from({ minutes: 2 });
 
-/** A file's header, as last read: parsed, failed, or not EDF (Identification.tgt). */
+/** A file's header, as last read: parsed, failed, or not EDF (Identification.tgt and .crc files). */
 export type HeaderRead =
   | { kind: "read"; file: EdfFile }
   | { kind: "failed"; error: EdfReadError }
