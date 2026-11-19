@@ -19,7 +19,7 @@ Each `ScannedFile` has its path relative to the folder, its kind, its night, and
 
 Everything else is counted by reason and skipped: SAD and CSL files, `.crc` files, other entries, folders whose names aren't real dates, and files that vanish between the listing and the `stat`, as they can while the card syncs. The `ingest.scan` span records the file count and each skip count. A folder with no `DATALOG` yet has no nights. A folder that can't be read fails the scan with `read_failed`.
 
-`readEdfFile(ctx, path)` in `ingest/edf.ts` reads one file's header with `readFileHeader` inside an `edf.read_file` span. The span records the path, the format, the size verdict, the whole records on disk, and the warning kinds. Each warning, such as a `startdate_mismatch`, is logged at `warn` with the file's path.
+`readEdfFile(ctx, path)` in `ingest/edf.ts` reads one file's header with `readFileHeader` inside an `edf.read_file` span. The span records the path, the format, the size verdict, the whole records on disk, and the warning count. Each warning, such as a `startdate_mismatch`, becomes an `edf.warning` span event with its kind and details, and is logged at `warn` with the file's path.
 
 ## Reading EDF files
 

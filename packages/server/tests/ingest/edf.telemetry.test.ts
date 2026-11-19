@@ -2,7 +2,7 @@ import { inMemoryTelemetry } from "@airway/testing/telemetry";
 import { beforeEach, describe, expect, it } from "vitest";
 import type { ReadableSpan } from "@opentelemetry/sdk-trace";
 import type { Result } from "neverthrow";
-import type { EdfFile, EdfReadError } from "@airway/edf/header";
+import { readHeader, type EdfFile, type EdfReadError } from "@airway/edf/header";
 import type { CpapFile } from "@airway/synthetic/cpap-data";
 import { readEdfFile } from "../../src/ingest/edf.ts";
 import {
@@ -57,7 +57,7 @@ describe("readEdfFile", () => {
       "edf.verdict": "read",
       "edf.records": records.verdict === "read" ? records.records : -1,
       "edf.header_count": "matches",
-      "edf.warnings": [],
+      "edf.warning_count": 0,
     });
   });
 
@@ -85,7 +85,18 @@ describe("readEdfFile", () => {
 
     const { span, lines } = await read({ ...file, bytes });
 
-    expect(span?.attributes["edf.warnings"]).toEqual(["startdate_mismatch"]);
+    const [warning] = readHeader(bytes)._unsafeUnwrap().warnings;
+    expect(span?.attributes["edf.warning_count"]).toBe(1);
+    expect(span?.events.map(({ name, attributes }) => ({ name, attributes }))).toEqual([
+      {
+        name: "edf.warning",
+        attributes: {
+          "edf.warning.kind": "startdate_mismatch",
+          "edf.warning.header_date": warning?.headerDate.toString(),
+          "edf.warning.startdate": warning?.startdate.toString(),
+        },
+      },
+    ]);
     expect(lines).toHaveLength(1);
     expect(lines[0]).toMatchObject({
       level: "warn",
