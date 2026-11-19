@@ -37,6 +37,7 @@ stateDiagram-v2
 
 - A file waits until its size and ctime have held for 2 minutes, measured on airway's clock. The pure `checkReadiness` in `ingest/readiness.ts` makes that call.
 - Its header is read through `readEdfFile` only when its size or ctime changed, and then the size check decides. Identification.tgt isn't EDF, so its size alone decides.
+- A header that can't be read for an I/O reason (`read_failed`) is logged and read again on every poll, without restarting the clock. A header that won't parse is rejected as `unreadable` until the file changes, because the same bytes give the same answer.
 - A rejected file is logged once per version at `warn`, with its path, reason, size, declared records, and records on disk.
 - A ready file is hashed once per version, with SHA-256 streamed from disk in an `ingest.hash` span. Its version is its path, size, and hash.
 - An unchanged folder costs only the scan: no header reads and no hashes. After a restart, `seen` starts empty, so the first poll reads every header and the second hashes every file.

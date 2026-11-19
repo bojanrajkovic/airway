@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { rm, writeFile } from "node:fs/promises";
+import { chmod, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { inMemoryTelemetry } from "@airway/testing/telemetry";
 import { beforeEach, describe, expect, it } from "vitest";
@@ -105,6 +105,28 @@ describe("checkVersions", () => {
     });
     expect(Number(logged[0]?.["recordsOnDisk"])).toBeLessThan(
       Number(logged[0]?.["declaredRecords"]),
+    );
+  });
+
+  it("reads a header again after an I/O failure, and logs each failure", async () => {
+    const { logger, lines } = capturingLogger();
+    const root = await writeFolder(syntheticFolder(1));
+    const ctx = folderContext(root, { logger });
+    const seen = new Map<string, SeenFile>();
+    await chmod(join(root, "STR.edf"), 0o000);
+
+    await poll(ctx, seen, at(0));
+    const failing = await poll(ctx, seen, at(2));
+    await chmod(join(root, "STR.edf"), 0o644);
+    // chmod changes the ctime, so the recovered file waits 2 minutes before it's ready.
+    await poll(ctx, seen, at(7));
+    const recovered = await poll(ctx, seen, at(9));
+
+    expect(failing.rejected.map(({ path }) => path)).toEqual(["STR.edf"]);
+    expect(recovered.ready.map(({ path }) => path)).toContain("STR.edf");
+    expect(recovered.rejected).toEqual([]);
+    expect(lines.filter(({ msg }) => msg === "header not read; retrying next poll")).toHaveLength(
+      2,
     );
   });
 

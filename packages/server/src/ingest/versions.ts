@@ -108,24 +108,34 @@ async function sort(
   return states;
 }
 
-/** The path's state after this scan: the same entry if nothing changed, or a fresh one. */
+/**
+ * The path's state after this scan: the same entry if nothing changed, or a fresh one. A header
+ * that couldn't be read for an I/O reason is read again on every poll, keeping its clock.
+ */
 async function update(
   ctx: AppContext,
   previous: SeenFile | undefined,
   file: ScannedFile,
   now: Temporal.Instant,
 ): Promise<SeenFile> {
-  if (previous?.size === file.size && previous.ctime.equals(file.ctime)) {
-    return previous;
+  const unchanged =
+    previous !== undefined && previous.size === file.size && previous.ctime.equals(file.ctime)
+      ? previous
+      : undefined;
+  const ioFailed =
+    unchanged?.header.kind === "failed" && unchanged.header.error.kind === "read_failed";
+
+  if (unchanged !== undefined && !ioFailed) {
+    return unchanged;
   }
 
   return {
     size: file.size,
     ctime: file.ctime,
-    since: now,
+    since: unchanged?.since ?? now,
     header: await readHeaderOf(ctx, file),
     sha256: null,
-    rejectionLogged: false,
+    rejectionLogged: unchanged?.rejectionLogged ?? false,
   };
 }
 
@@ -136,7 +146,15 @@ async function readHeaderOf(ctx: AppContext, file: ScannedFile): Promise<HeaderR
 
   return await readEdfFile(ctx, file.path).match(
     (edf): HeaderRead => ({ kind: "read", file: edf }),
-    (error): HeaderRead => ({ kind: "failed", error }),
+    (error): HeaderRead => {
+      if (error.kind === "read_failed") {
+        ctx.logger
+          .child({ module: "ingest.readiness" })
+          .warn({ path: file.path, error }, "header not read; retrying next poll");
+      }
+
+      return { kind: "failed", error };
+    },
   );
 }
 
