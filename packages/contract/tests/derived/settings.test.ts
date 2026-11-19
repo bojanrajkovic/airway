@@ -18,7 +18,7 @@ const used = (day: number, settings: Partial<typeof BASE> = {}): StrDay => ({
 const unused = (day: number): StrDay => ({ day: date(day), used: false });
 
 describe("settingsChanges", () => {
-  it("gives one row for a pressure change and one for a ramp-only change", () => {
+  it("gives one row per changed setting", () => {
     const days = [
       used(0),
       used(1, { max_pressure: 14 }),
@@ -31,7 +31,7 @@ describe("settingsChanges", () => {
     ]);
   });
 
-  it("compares across unused days and gives them no rows", () => {
+  it("skips unused days and compares with the last used day", () => {
     const days = [used(0), unused(1), unused(2), used(3, { min_pressure: 7 })];
 
     expect(settingsChanges(days, date(0))).toEqual([
@@ -39,7 +39,7 @@ describe("settingsChanges", () => {
     ]);
   });
 
-  it("compares the first day from `from` with the used day before it", () => {
+  it("compares the first day from `from` with an earlier used day", () => {
     const days = [used(0), used(1, { epr_level: 3 }), used(2, { epr_level: 3 })];
 
     expect(settingsChanges(days, date(1))).toEqual([
@@ -53,11 +53,11 @@ describe("settingsChanges", () => {
     expect(settingsChanges(days, date(2))).toEqual([]);
   });
 
-  it("gives the first used day no rows, since nothing came before it", () => {
+  it("gives the first used day no rows", () => {
     expect(settingsChanges([unused(0), used(1, { max_pressure: 20 })], date(0))).toEqual([]);
   });
 
-  it("reads a setting the machine wrote as -1 as null", () => {
+  it("reports a setting that became null as a change", () => {
     const days = [used(0), { ...used(1), settings: { ...BASE, ramp_time: null } }];
 
     expect(settingsChanges(days, date(0))).toEqual([

@@ -2,9 +2,9 @@ import type { SettingsChangeRow } from "./rows.ts";
 import type { StrDay, UsedStrDay } from "./str.ts";
 
 /**
- * The settings that changed on each used day from `from` on, compared with the used day before
- * it. That day can come before `from` or have no DATALOG folder, so a change shows on the day the
- * machine first used it. Unused days are skipped, and the first used day has nothing to compare.
+ * Compares each used day's settings with the previous used day's, and returns a row for each
+ * setting that changed. Only days on or after `from` get rows, but the previous used day can be
+ * earlier. A day with no DATALOG folder still gets its rows. Unused days are skipped.
  */
 export function settingsChanges(
   days: readonly StrDay[],

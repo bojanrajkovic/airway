@@ -76,9 +76,9 @@ The 90 s join can't be exact: the machine starts new BRP files inside one period
 
 ## Settings changes
 
-`settingsChanges(days, from)` in `@airway/contract/derived/settings` turns `STR.edf`'s days into `settings_changes` rows. It compares each used day's S.* settings with the previous used day's, and gives a row for each setting that differs, on days from `from` on. Ingest passes the first imported night as `from`.
+`settingsChanges(days, from)` in `@airway/contract/derived/settings` turns `STR.edf`'s days into `settings_changes` rows. It compares each used day's S.* settings with the previous used day's, and returns a row for each setting that changed. Only days on or after `from` get rows. Ingest passes the first imported night as `from`.
 
-The previous used day can come before `from`, or have no DATALOG folder, so the first imported night shows a change made during the months `STR.edf` covers before it. A change lands on the day the machine first used it, even when that day has no `nights` row. Unused days are skipped. Four settings get names: `min_pressure`, `max_pressure`, `epr_level`, and `ramp_time`. The rest keep their S.* label.
+The comparison uses every used day in `STR.edf`, including days before `from` and days with no DATALOG folder. So the first imported night shows a change made before it, and a change made on a day with no folder gets its row on that day. Unused days are skipped. Four settings get names: `min_pressure`, `max_pressure`, `epr_level`, and `ramp_time`. The rest keep their S.* label.
 
 ## Events
 

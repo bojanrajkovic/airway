@@ -1,22 +1,22 @@
 import type { SignalValues } from "./rows.ts";
 
-/** A day STR.edf covers when the machine wasn't used: every value but the date is missing. */
+/** A day the machine wasn't used. STR.edf writes -1 for every value except Date. */
 export type UnusedStrDay = { day: Temporal.PlainDate; used: false };
 
-/** A day of STR.edf with the machine's statistics and settings. */
+/** A day the machine was used, with its statistics, settings, and mask-on periods. */
 export type UsedStrDay = {
   day: Temporal.PlainDate;
   used: true;
-  /** MaskOn and MaskOff: minutes since noon on the device clock, NaN for an unused slot. */
+  /** Minutes since noon on the device clock, one per slot. An unused slot is NaN. */
   maskOn: readonly number[];
   maskOff: readonly number[];
-  /** MaskEvents: two per mask-on period, including periods past the 10 slots. */
+  /** Mask-on and mask-off events, two per period, including periods past the 10 slots. */
   maskEvents: number;
-  /** The `nights` columns STR.edf fills, such as usage and leak_p95, null where it wrote -1. */
+  /** Values for the `nights` columns, such as usage and leak_p95. Null where STR.edf has -1. */
   signals: SignalValues;
-  /** Each S.* setting by its name, such as max_pressure, null where it wrote -1. */
+  /** Each S.* setting by name, such as max_pressure. Null where STR.edf has -1. */
   settings: Readonly<Record<string, number | null>>;
 };
 
-/** One record of STR.edf, the machine's daily summary. */
+/** One day of STR.edf, the machine's daily summary. */
 export type StrDay = UnusedStrDay | UsedStrDay;
