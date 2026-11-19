@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@airway/contract": "workspace:*",
+    "@airway/edf": "workspace:*",
     "@hono/node-server": "catalog:",
     "@hono/trpc-server": "catalog:",
     "@opentelemetry/api": "catalog:",
@@ -35,6 +36,7 @@
     "zod": "catalog:"
   },
   "devDependencies": {
+    "@airway/synthetic": "workspace:*",
     "@airway/testing": "workspace:*",
     "@tsconfig/node": "catalog:",
     "@tsconfig/strictest": "catalog:",

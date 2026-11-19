@@ -309,6 +309,9 @@ importers:
       '@airway/contract':
         specifier: workspace:*
         version: link:../contract
+      '@airway/edf':
+        specifier: workspace:*
+        version: link:../edf
       '@hono/node-server':
         specifier: 'catalog:'
         version: 2.1.8(hono@4.13.18)
@@ -373,6 +376,9 @@ importers:
         specifier: 'catalog:'
         version: 4.6.7
     devDependencies:
+      '@airway/synthetic':
+        specifier: workspace:*
+        version: link:../synthetic
       '@airway/testing':
         specifier: workspace:*
         version: link:../testing
