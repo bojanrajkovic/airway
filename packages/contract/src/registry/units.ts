@@ -20,7 +20,7 @@ const conversionFor = (unit: string): Conversion => DISPLAY[unit] ?? { unit, fac
 // then 1.14. The extra decimals keep a value between two steps, such as an average or a filter
 // bound, where it is instead of moving it onto a step.
 const GUARD_DECIMALS = 6;
-/** `value` to `decimals` places, keeping 6 more places for a value between two steps. */
+/** Rounds `value` to `decimals` places, plus 6 more, so a value between two steps stays there. */
 export const round = (value: number, decimals: number): number =>
   Math.round(value * 10 ** (decimals + GUARD_DECIMALS)) / 10 ** (decimals + GUARD_DECIMALS);
 

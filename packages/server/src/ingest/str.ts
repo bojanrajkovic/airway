@@ -5,7 +5,7 @@ import { AIRSENSE, dataSignals, step } from "@airway/edf/airsense";
 import type { EdfReadError, ReadableEdfFile } from "@airway/edf/header";
 import { readSignals } from "@airway/edf/signals";
 
-/** A record whose Date signal isn't the header's start date plus its index; null when it's -1. */
+/** A record whose Date signal differs from the header's start date plus the record index. `date` is null when STR.edf has -1. */
 export type StrWarning = {
   kind: "date_mismatch";
   record: number;
@@ -13,7 +13,7 @@ export type StrWarning = {
   date: Temporal.PlainDate | null;
 };
 
-/** STR.edf's days, oldest first, and what didn't match on the way. */
+/** STR.edf's days, oldest first, and a warning for each record whose Date is off. */
 export type StrFile = { days: StrDay[]; warnings: StrWarning[] };
 
 const SIGNALS = dataSignals(AIRSENSE.str);
@@ -22,9 +22,9 @@ const EPOCH = Temporal.PlainDate.from("1970-01-01");
 
 /**
  * Reads STR.edf's records, one per day. A day's date is the header's start date plus its record
- * index; a Date signal that disagrees gives a warning. A day is unused when OnDuration is -1.
+ * index, and a Date signal that disagrees adds a warning. A day is unused when OnDuration is -1.
  * Values are physical, rounded to their signal's step, and null where the machine wrote -1.
- * MaskOn and MaskOff keep NaN for an unused slot, as `buildSessions` takes them.
+ * Unused MaskOn and MaskOff slots stay NaN, which is what `buildSessions` expects.
  */
 export function readStr(bytes: Uint8Array, file: ReadableEdfFile): Result<StrFile, EdfReadError> {
   const start = file.header.start.toPlainDate();
@@ -32,7 +32,7 @@ export function readStr(bytes: Uint8Array, file: ReadableEdfFile): Result<StrFil
 
   return readSignals(bytes, file, LABELS).map((values) => {
     const samples = (label: string): Float64Array => values[label] ?? new Float64Array();
-    // A signal's value in `record`, rounded to the step the file's header gives it.
+    // A signal's value in `record`, rounded to the signal's step in the file's header.
     const at = (label: string, record: number): number | null => {
       const value = samples(label)[record] ?? Number.NaN;
       const header = headers.get(label);

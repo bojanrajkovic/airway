@@ -21,7 +21,7 @@ function readable(bytes: Uint8Array): ReadableEdfFile {
   return file;
 }
 
-// STR.edf keeps 10 slots a day, with -1 (NaN) in those it didn't use.
+// STR.edf has 10 slots a day and writes -1, read as NaN, in each unused one.
 const tenSlots = (slots: readonly number[]): number[] =>
   Array.from({ length: 10 }, (_, i) => slots[i] ?? Number.NaN);
 
@@ -40,7 +40,7 @@ function edgeCase(name: EdgeCaseName): Case {
 }
 
 describe("readStr", () => {
-  it("reads used days' values and slots, and leaves unused days with their date", () => {
+  it("reads each used day's values and mask slots, and marks the days between as unused", () => {
     const { nights, offsets, bytes, rows } = edgeCase("unused-days");
     const { days, warnings } = readStr(bytes, readable(bytes))._unsafeUnwrap();
 
@@ -67,7 +67,7 @@ describe("readStr", () => {
     }
   });
 
-  it("reads the settings that give synthetic's settings changes", () => {
+  it("reads settings that show the one max_pressure change", () => {
     const { nights, bytes, rows } = edgeCase("settings-change");
     const { days } = readStr(bytes, readable(bytes))._unsafeUnwrap();
     const [first] = nights;
@@ -76,11 +76,11 @@ describe("readStr", () => {
       throw new Error("expected two nights");
     }
 
-    expect(rows.settings_changes).toHaveLength(1);
+    expect(rows.settings_changes).toEqual([expect.objectContaining({ setting: "max_pressure" })]);
     expect(settingsChanges(days, first.night)).toEqual(rows.settings_changes);
   });
 
-  it("warns when a record's Date disagrees with its place in the file, and keeps its place", () => {
+  it("warns when a record's Date is -1, and dates the day by its record index", () => {
     const { bytes } = edgeCase("unused-days");
     const file = readable(bytes);
     const changed = bytes.slice();

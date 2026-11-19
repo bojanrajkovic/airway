@@ -78,7 +78,7 @@ The 90 s join can't be exact: the machine starts new BRP files inside one period
 
 `STR.edf` is the machine's daily summary, with one 86,400 s record per day. `readStr(bytes, file)` in `packages/server/src/ingest/str.ts` reads it into one `StrDay` per record, oldest first. `StrDay` lives in `@airway/contract/derived/str`, because synthetic builds the same days from its model.
 
-- A day's date is the header's start date plus the record's index. The `Date` signal should say the same. When it doesn't, `readStr` returns a `date_mismatch` warning with both dates, and the caller logs it.
+- A day's date is the header's start date plus the record's index. When the `Date` signal disagrees, `readStr` returns a `date_mismatch` warning with both dates, and the caller logs it.
 - A day is unused when `OnDuration` is -1. The machine writes -1 for every other signal that day too, so an unused day has only its date.
 - A used day has its `nights` column values, its S.* settings by name, `MaskEvents`, and the 10 `MaskOn` and `MaskOff` slots. Values are physical, rounded to their signal's step, and null where the machine wrote -1. The slots stay minutes since noon on the device clock, with NaN for an unused slot, because `buildSessions` converts them with the night's clock offset.
 
