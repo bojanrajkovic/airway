@@ -21,6 +21,29 @@ Everything else is counted by reason and skipped: SAD and CSL files, `.crc` file
 
 `readEdfFile(ctx, path)` in `ingest/edf.ts` reads one file's header with `readFileHeader` inside an `edf.read_file` span. The span records the path, the format, the size verdict, the whole records on disk, and the warning count. Each warning, such as a `startdate_mismatch`, becomes an `edf.warning` span event with its kind and details, and is logged at `warn` with the file's path.
 
+## Readiness
+
+The card uploads files while airway polls, so a file can be mid-upload. `checkVersions(ctx, seen, scan, now)` in `ingest/versions.ts` sorts each scanned file into ready, waiting, or rejected. `seen` is the poller's memory between polls, one `SeenFile` per path. It holds the size, ctime, when that size and ctime were first seen, the parsed header, and the hash.
+
+```mermaid
+stateDiagram-v2
+  [*] --> waiting: first sight
+  waiting --> waiting: size or ctime changed (clock restarts)
+  waiting --> ready: held for 2 minutes, header passes the size check
+  waiting --> rejected: held for 2 minutes, truncated, partial record, or unreadable header
+  ready --> waiting: size or ctime changed
+  rejected --> waiting: size or ctime changed
+```
+
+- A file waits until its size and ctime have held for 2 minutes, measured on airway's clock. The pure `checkReadiness` in `ingest/readiness.ts` makes that call.
+- Its header is read through `readEdfFile` only when its size or ctime changed, and then the size check decides. Identification.tgt isn't EDF, so its size alone decides.
+- A rejected file is logged once per version at `warn`, with its path, reason, size, declared records, and records on disk.
+- A ready file is hashed once per version, with SHA-256 streamed from disk in an `ingest.hash` span. Its version is its path, size, and hash.
+- An unchanged folder costs only the scan: no header reads and no hashes. After a restart, `seen` starts empty, so the first poll reads every header and the second hashes every file.
+- A path missing from the scan is forgotten. A file that can't be hashed, such as one removed mid-poll, is forgotten and waits.
+
+The `ingest.readiness` span records how many files are ready, waiting, and rejected.
+
 ## Reading EDF files
 
 `@airway/edf` reads the card's EDF files. BRP, PLD, SAD, and `STR.edf` are plain EDF. EVE and CSL are EDF+D, and hold annotations.
