@@ -22,7 +22,7 @@ Each dataset has a grain, the shortest time step its rows can be bucketed into. 
 
 `events`, `samples`, and `breaths` share three columns. `session` is the mask-on period's number within the night, so any of them can be broken down by session without a join. `night` is the sleep day. `hour_of_night` is the wall-clock hour in the home time zone.
 
-A breath's amplitude and inspiratory volume are computed from the flow signal, so their units follow from flow's and are recorded with it in `column_units`: amplitude in flow's unit, and volume in litres when flow is in L/s.
+A breath's amplitude and inspiratory volume are computed from the flow signal, so `column_units` gives amplitude flow's unit, L/s, and gives volume litres.
 
 `registry/columns.ts` holds the columns and units more than one dataset uses, and each dataset is one file beside it. The `nights` and `samples` tables get their machine-signal columns from these files, so a signal is listed once.
 
@@ -34,7 +34,7 @@ A dataset is a list of columns, and each column is described once, in `@airway/c
 
 | Function | Role | For |
 |---|---|---|
-| `signal(name, description)` | metric | A value the machine recorded. Its unit comes from the file header ([Units](#units)) |
+| `signal(name, description)` | metric | A value the machine recorded. Its unit comes from the AirSense table ([Units](#units)) |
 | `metric(name, unit, description)` | metric | A value airway computes, in a unit airway chooses |
 | `dimension(name, kind, description)` | dimension | An integer or boolean to filter and group by |
 | `enumeration(name, values, description)` | dimension | One of a fixed list of spelled-out values |
@@ -64,7 +64,9 @@ render(hour, { homeZone: 3 });
 
 A stored value keeps the machine's unit. The app shows some units as others: L/s as L/min, and L as mL.
 
-A machine signal's unit and decimals aren't in the registry. Each EDF file's header declares a signal's unit and its physical and digital ranges, which give the step between two values. `decimalsForStep(step)` turns the step into the decimals needed to write every value. For example, an AirSense 10 declares leak in L/s with a step of 0.02, so leak has 2 decimals. Another model or firmware can declare a different unit or step, and nothing in the code assumes these. A column airway computes declares its unit and decimals in the registry.
+A machine signal's unit and decimals come from `@airway/edf`'s AirSense table, which copies each signal's unit and its physical and digital ranges from the real headers. The ranges give the step between two values, and `decimalsForStep(step)` turns the step into the decimals needed to write every value. For example, leak is in L/s with a step of 0.02, so it has 2 decimals. Ingest writes these rows to `column_units` from `COLUMN_UNITS`.
+
+The units are fixed in code because ResMed hasn't changed them: OSCAR hard-codes the same units for the S9, AirSense 10, and AirSense 11. Decoding still uses each file's own step, so a file with a different step decodes correctly. A column airway computes declares its unit and decimals in the registry.
 
 `toDisplay(value, stored)` and `toStored(value, stored)` convert between the stored and display units. A stored value converts to display and back exactly.
 
@@ -109,7 +111,7 @@ erDiagram
 | `settings_changes` | Setting that changed on a used day, compared with the previous used day | `night, setting` |
 | `daily_usage` | Day `STR.edf` covers, used or not | `day` |
 | `period_percentiles` | Week or month, and signal (leak or mask pressure): the P50 and P95 of its samples | `period, period_start, signal` |
-| `column_units` | Machine signal: the unit and decimals its headers declare ([Units](#units)) | `dataset, column_name` |
+| `column_units` | Machine signal, with its unit and decimals from the AirSense table ([Units](#units)) | `dataset, column_name` |
 | `meta` | The schema: its `derived_version` and when it was built | one row |
 
 ### Keys
