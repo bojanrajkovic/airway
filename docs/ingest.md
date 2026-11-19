@@ -2,7 +2,24 @@
 
 How airway reads the CPAP data folder and builds the derived tables.
 
-The importer isn't built yet. The rules it shares with the synthetic data generator are, and this page describes them.
+The importer isn't finished. This page describes the parts that are built, and the rules ingest shares with the synthetic data generator.
+
+## Scanning
+
+Each poll starts with `scanCpapData(ctx)` in `packages/server/src/ingest/scan.ts`. It lists the files ingest reads from the CPAP data folder (`AIRWAY_CPAP_DATA_PATH`) without opening any of them:
+
+```
+STR.edf, Identification.tgt          night = null
+DATALOG/YYYYMMDD/*_BRP.edf           night = the folder's date
+DATALOG/YYYYMMDD/*_PLD.edf
+DATALOG/YYYYMMDD/*_EVE.edf
+```
+
+Each `ScannedFile` has its path relative to the folder, its kind, its night, and the size and ctime from one `stat` call. ctime only tells ingest that a file changed. Ingest never compares it with its own clock, because the file server's clock isn't airway's.
+
+Everything else is counted by reason and skipped: SAD and CSL files, `.crc` files, other entries, folders whose names aren't real dates, and files that vanish between the listing and the `stat`, as they can while the card syncs. The `ingest.scan` span records the file count and each skip count. A folder with no `DATALOG` yet has no nights. A folder that can't be read fails the scan with `read_failed`.
+
+`readEdfFile(ctx, path)` in `ingest/edf.ts` reads one file's header with `readFileHeader` inside an `edf.read_file` span. The span records the path, the format, the size verdict, the whole records on disk, and the warning kinds. Each warning, such as a `startdate_mismatch`, is logged at `warn` with the file's path.
 
 ## Reading EDF files
 
