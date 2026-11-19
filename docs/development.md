@@ -8,7 +8,7 @@ You need [mise](https://mise.jdx.dev) and a container runtime, [Podman](https://
 
 | Script | What it does |
 |---|---|
-| `pnpm dev` | The server and Vite's dev server together, with settings from `.env.example` and your `.env` ([Configuration](configuration.md)) |
+| `pnpm dev` | Vite's dev server for the web app. A Vite plugin builds the server with its rolldown config, runs the bundle with settings from `.env.example` and your `.env` ([Configuration](configuration.md)), and restarts it after each rebuild. A failed build leaves the last good server running |
 | `pnpm build` | Each package's `build`: the web app, into the server's `dist/public/`, and the server bundle |
 | `pnpm check` | Runs `typecheck`, `lint`, `format:check`, and `test`, reporting every failure instead of stopping at the first |
 | `pnpm typecheck` | Runs `tsc` on the root project, then each package's own `typecheck` script |
@@ -20,6 +20,8 @@ You need [mise](https://mise.jdx.dev) and a container runtime, [Podman](https://
 | `pnpm test:image` | The image tests, against the image in `AIRWAY_IMAGE` ([Testing](testing.md#image-tests)) |
 | `pnpm db:up` / `db:down` | Start or stop Postgres 18 in Podman or Docker |
 | `pnpm synth --out <dir>` | Write a synthetic CPAP data folder ([Synthetic data](synthetic-data.md#pnpm-synth)) |
+
+Node always runs compiled bundles. `pnpm dev`, `pnpm synth`, and the image build TypeScript with rolldown first, so code can use all of TypeScript, including syntax Node's type stripping can't handle, such as parameter properties.
 
 ## Workspace
 

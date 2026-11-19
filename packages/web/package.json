@@ -21,7 +21,9 @@
     "@vitejs/plugin-react": "catalog:",
     "@vitest/browser-playwright": "catalog:",
     "babel-plugin-react-compiler": "catalog:",
+    "pino-pretty": "catalog:",
     "playwright": "catalog:",
+    "rolldown": "catalog:",
     "vite": "catalog:",
     "vitest": "catalog:",
     "vitest-browser-react": "catalog:"

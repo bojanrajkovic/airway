@@ -7,7 +7,7 @@
     "node": ">=26"
   },
   "scripts": {
-    "dev": "node scripts/dev.ts",
+    "dev": "pnpm --filter @airway/web exec vite",
     "typecheck": "pnpm run --no-bail \"/^typecheck:/\"",
     "typecheck:root": "tsc --project .",
     "typecheck:packages": "pnpm --recursive --no-bail typecheck",
@@ -21,7 +21,7 @@
     "check": "pnpm run --no-bail \"/^(typecheck|lint|format:check|test)$/\"",
     "db:up": "scripts/db.sh up",
     "db:down": "scripts/db.sh down",
-    "synth": "node packages/synthetic/src/cli.ts",
+    "synth": "pnpm --filter @airway/synthetic build && node packages/synthetic/dist/cli.js",
     "build": "pnpm --recursive build"
   },
   "devDependencies": {
@@ -35,7 +35,6 @@
     "oxlint": "catalog:",
     "oxlint-plugin-eslint": "catalog:",
     "oxlint-tsgolint": "catalog:",
-    "pino-pretty": "catalog:",
     "playwright": "catalog:",
     "testcontainers": "catalog:",
     "typescript": "catalog:",

@@ -213,7 +213,7 @@ It creates the schema with `derivedTables`, COPYs each table parents first, then
 
 ## pnpm synth
 
-`pnpm synth` writes a CPAP data folder to disk, for local development and end-to-end tests:
+`pnpm synth` builds the generator into `packages/synthetic/dist/cli.js`, then runs it to write a CPAP data folder to disk, for local development and end-to-end tests:
 
 ```sh
 pnpm synth --out /tmp/airway-cpap-data [--seed 1] [--nights 10] [--patient child|adult] \
