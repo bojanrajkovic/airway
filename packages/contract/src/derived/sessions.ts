@@ -1,4 +1,5 @@
 import type { ClockOffset } from "../clock.ts";
+import type { UsedStrDay } from "./str.ts";
 import type { SESSION_SOURCES } from "./values.ts";
 
 /** A stretch of time, such as a BRP segment or an event. */
@@ -7,15 +8,11 @@ export type Span = { start: Temporal.Instant; end: Temporal.Instant };
 /** A mask-on period, numbered from 1 in time order. */
 export type Session = Span & { session: number; source: (typeof SESSION_SOURCES)[number] };
 
-export type SessionInputs = {
+/** A night's STR.edf slots and mask events, and its BRP segments. */
+export type SessionInputs = Pick<UsedStrDay, "maskOn" | "maskOff" | "maskEvents"> & {
   night: Temporal.PlainDate;
   /** The night's clock offset, which turns STR.edf's device-clock minutes into instants. */
   offset: ClockOffset;
-  /** STR.edf's MaskOn and MaskOff slots: minutes since noon on the device clock, NaN when unused. */
-  maskOn: readonly number[];
-  maskOff: readonly number[];
-  /** STR.edf's MaskEvents: two per mask-on period, including periods past the 10 slots. */
-  maskEvents: number;
   /** The night's BRP segments, in time order. */
   segments: readonly Span[];
 };

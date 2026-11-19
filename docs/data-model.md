@@ -106,7 +106,7 @@ erDiagram
 | `breaths` | Breath detected in the flow signal. `amplitude` is the in-breath's peak flow, and `duration` ends when the out-breath does, so a pause is a gap between breaths | none |
 | `files` | Imported file, with its size, SHA-256, and ctime. `night` is null for `STR.edf` and `Identification.tgt`. `segment` names the segment a BRP or PLD file's data belongs to, so a segment's files are one join away, including both halves of a split PLD. It's null for other files and for a file no segment reads | `path` |
 | `device` | Machine: serial and model | `serial` |
-| `settings_changes` | Setting that changed on a night | `night, setting` |
+| `settings_changes` | Setting that changed on a used day, compared with the previous used day | `night, setting` |
 | `daily_usage` | Day `STR.edf` covers, used or not | `day` |
 | `period_percentiles` | Week or month, and signal (leak or mask pressure): the P50 and P95 of its samples | `period, period_start, signal` |
 | `column_units` | Machine signal: the unit and decimals its headers declare ([Units](#units)) | `dataset, column_name` |

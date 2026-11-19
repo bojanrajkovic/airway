@@ -1,3 +1,5 @@
+import type { DailyUsageRow } from "../derived/rows.ts";
+
 /**
  * Whether last night's data is here.
  *
@@ -14,9 +16,6 @@ export type LastNightStatus = "arrived" | "pending" | "missing" | "unused";
  */
 export const DATA_MISSING_CUTOFF = Temporal.PlainTime.from("15:00");
 
-/** STR.edf's record of a day: minutes of use. */
-export type StrDay = { usage: number };
-
 /**
  * The night that ended this morning: today's date in the home time zone, minus one day. Nights
  * run noon to noon and are named for the date they start on.
@@ -26,8 +25,8 @@ export function lastNightKey(now: Temporal.Instant, zone: string): Temporal.Plai
 }
 
 /**
- * Last night's status at `now`. `strDay` is STR.edf's record of last night, and `folderImported`
- * says whether its DATALOG folder was imported.
+ * Last night's status at `now`. `strDay` is last night's `daily_usage` row, from STR.edf, and
+ * `folderImported` says whether its DATALOG folder was imported.
  *
  * A night with no STR.edf record counts as used. STR.edf arrives with each upload, so a missed
  * upload also leaves it without last night's record, and that night should show as missing, not
@@ -35,7 +34,7 @@ export function lastNightKey(now: Temporal.Instant, zone: string): Temporal.Plai
  * 15:00 cutoff is defined only here.
  */
 export function dataMissing(
-  strDay: StrDay | undefined,
+  strDay: Pick<DailyUsageRow, "usage"> | undefined,
   folderImported: boolean,
   now: Temporal.Instant,
   zone: string,

@@ -1,6 +1,7 @@
 import { instantAt as at } from "@airway/testing/time";
 import { describe, expect, test } from "vitest";
-import { dataMissing, lastNightKey, type StrDay } from "../../src/api/last-night.ts";
+import { dataMissing, lastNightKey } from "../../src/api/last-night.ts";
+import type { DailyUsageRow } from "../../src/derived/rows.ts";
 
 // Two zones with daylight saving time on different dates, and a DST-change day in each.
 const ZONES = [
@@ -8,8 +9,8 @@ const ZONES = [
   ["Europe/Berlin", "2030-03-31"],
 ] as const;
 
-const used: StrDay = { usage: 420 };
-const unused: StrDay = { usage: 0 };
+const used: Pick<DailyUsageRow, "usage"> = { usage: 420 };
+const unused: Pick<DailyUsageRow, "usage"> = { usage: 0 };
 
 describe.each(ZONES)("in %s, on its DST-change day %s", (zone, day) => {
   test.for([

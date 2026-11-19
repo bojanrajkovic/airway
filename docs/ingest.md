@@ -74,6 +74,12 @@ The 90 s join can't be exact: the machine starts new BRP files inside one period
 
 `assignEvents` puts each event in the session that contains it, allowing 60 s on either side. An event outside every session goes to the nearest one and is marked `outside_mask_on`, so the sessions' counts add up to the night's total. On a night with no sessions, an event has no session.
 
+## Settings changes
+
+`settingsChanges(days, from)` in `@airway/contract/derived/settings` turns `STR.edf`'s days into `settings_changes` rows. It compares each used day's S.* settings with the previous used day's, and returns a row for each setting that changed. Only days on or after `from` get rows. Ingest passes the first imported night as `from`.
+
+The comparison uses every used day in `STR.edf`, including days before `from` and days with no DATALOG folder. So the first imported night shows a change made before it, and a change made on a day with no folder gets its row on that day. Unused days are skipped. Four settings get names: `min_pressure`, `max_pressure`, `epr_level`, and `ramp_time`. The rest keep their S.* label.
+
 ## Events
 
 An EVE annotation's onset marks the end of the event, so an event starts at its onset minus its duration.
