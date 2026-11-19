@@ -120,7 +120,7 @@ Flow is a half sine wave up while breathing in and a half sine wave down while b
 `@airway/synthetic/files` turns the model into EDF bytes, one file at a time. Each file comes with its start time on the device's clock, which `cpapData` turns into its file name. The device's clock runs on the night's fixed offset from `AIRWAY_CLOCK_OFFSETS` and doesn't change for daylight saving time.
 
 - `nightFiles(night, offsets)` writes a BRP, PLD, and SAD file for each segment, damaged as the segment says, and an EVE file, plus a CSL file when it has one, for each of `eventFiles`. PLD and SAD files start 1 s after their BRP file, as on the real machine. SAD holds only missing values, as it does without an oximeter. Each event goes in the last EVE file that starts at or before it. EVE starts with a "Recording starts" annotation, then lists each event with its onset at the event's end, measured from the file's start, which is how the machine writes them. CSL holds only "Recording starts".
-- `strFile(nights, offsets)` writes STR.edf with one record per day, from the earliest night to the latest, whatever order the nights come in. A day with no night is unused: its record holds its Date, and every other value is -1, as on the card. MaskOn and MaskOff hold up to 10 mask-on periods, in minutes since noon on the device's clock; unused slots are -1. A mask-on before the night's noon belongs to the previous day's record, so its slot's MaskOn is -1.
+- `strFile(nights, offsets)` writes STR.edf with one record per day, from the earliest night to the latest, whatever order the nights come in. A day with no night is unused. Its record holds its Date, and every other value is -1, as on the card. MaskOn and MaskOff hold up to 10 mask-on periods, in minutes since noon on the device's clock; unused slots are -1. A mask-on before the night's noon belongs to the previous day's record, so its slot's MaskOn is -1.
 
 The serial, patient, and recording fields hold invented values.
 
@@ -170,9 +170,9 @@ The rows follow ingest's rules:
 - Breaths are the model's own. `amplitude` is the in-breath's peak flow, and `duration` covers the in-breath and out-breath, so a pause is a gap between breaths.
 - Each written file goes through the contract's `checkFileSize`, the function ingest calls. Ingest makes a segment from each BRP file it reads, and samples from each PLD file it reads. Each read BRP and PLD file's `files` row names its segment, so both halves of a split PLD point at one segment.
 - `files` lists Identification.tgt, STR.edf, and each BRP, PLD, and EVE file that `checkFileSize` reads or skips, with its size and SHA-256. Ingest skips SAD, CSL, and `.crc` files.
-- `column_units` is `@airway/edf`'s `COLUMN_UNITS`: each STR and PLD signal's header unit and decimals. A breath's `amplitude` (L/s) and `inspiratory_volume` (L) come from the 25 Hz flow signal, so they take its decimals.
+- `column_units` is `@airway/edf`'s `COLUMN_UNITS`, which holds each STR and PLD signal's header unit and decimals. A breath's `amplitude` (L/s) and `inspiratory_volume` (L) come from the 25 Hz flow signal, so they take its decimals.
 - `daily_usage` covers every day from the first night to the last, with 0 on a day with no night.
-- `settings_changes` comes from the contract's `settingsChanges`, given every STR.edf day as a `StrDay` and the first night with a folder. A change on a night with no folder lands on that night.
+- `settings_changes` comes from the contract's `settingsChanges`, called with every STR.edf day and the first night that has a folder. A change made on a night with no folder gets its row on that night.
 - A night with no segments has no folder, so ingest never sees it. It gets only its `daily_usage` row.
 - `uploadedAt` fills every `ctime` and `uploaded_at`.
 

@@ -259,10 +259,10 @@ const unitRows = (file: EdfFileType, dataset: "nights" | "samples"): ColumnUnitR
 const flowDecimals = decimalsForStep(step(flow));
 
 /**
- * The `column_units` table's rows: for each column filled from a machine signal, the unit its
- * EDF header declares and the decimals one step of the signal needs, such as 0.02 cmH2O → 2.
- * The breaths table's amplitude and inspiratory_volume come from the 25 Hz flow signal, so they
- * take its decimals.
+ * The `column_units` table's rows. Each column filled from a machine signal gets the unit its EDF
+ * header declares and the decimals one step needs; a 0.02 cmH2O step needs 2. The breaths table's
+ * amplitude and inspiratory_volume are computed from the 25 Hz flow signal, so they use its
+ * decimals.
  */
 export const COLUMN_UNITS: readonly ColumnUnitRow[] = [
   ...unitRows(str, "nights"),

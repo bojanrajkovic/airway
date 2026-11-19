@@ -170,7 +170,7 @@ describe("synthesize", () => {
     ]);
   });
 
-  test("records a setting changed on a night with no folder on that night", () => {
+  test("puts a change made on a night with no folder on that night", () => {
     const [first, second, third] = nights;
 
     if (first === undefined || second === undefined || third === undefined) {

@@ -240,7 +240,7 @@ export function maskSlots(night: SyntheticNight, offset: ClockOffset): MaskSlots
 
 /**
  * STR.edf for every day from the earliest night to the latest, one record per day. The nights can
- * come in any order. A day without a night is unused: every value but its Date is -1. MaskOn and MaskOff are
+ * come in any order. A day without a night is unused, and every value except its Date is -1. MaskOn and MaskOff are
  * minutes since noon on the device's clock, for up to 10 periods; unused slots are -1.
  */
 export function strFile(
