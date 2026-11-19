@@ -80,7 +80,7 @@ export type Combine = (typeof COMBINE)[number];
 export type MetricColumn = Described & {
   role: "metric";
   kind: "number";
-  /** `from_header` when the unit isn't fixed in code: it's recorded when the files are imported. */
+  /** `from_header` for a machine signal, whose unit ingest writes to `column_units`. */
   unit: ColumnUnit | "from_header";
 };
 
@@ -99,8 +99,8 @@ export type Dataset = {
 };
 
 /**
- * A value whose unit isn't fixed here but recorded when the files are imported: the machine's own
- * unit from the EDF header, or one that follows from it.
+ * A value the machine recorded. Ingest writes its unit to `column_units` from `@airway/edf`'s
+ * AirSense table.
  */
 export function signal(name: string, description: string): MetricColumn {
   return {

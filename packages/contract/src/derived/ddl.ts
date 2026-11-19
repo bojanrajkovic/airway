@@ -54,7 +54,7 @@ create unlogged table ${schema}.device (
   model text not null
 );
 
--- One row per machine signal: the unit and decimals its EDF headers declare.
+-- Each machine signal's unit and decimals, written from @airway/edf's COLUMN_UNITS.
 create unlogged table ${schema}.column_units (
   dataset text not null,
   column_name text not null,
