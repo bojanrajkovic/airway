@@ -7,6 +7,7 @@
     "./*": "./src/*.ts"
   },
   "scripts": {
+    "build": "rolldown --config rolldown.config.ts",
     "typecheck": "tsc --project . && tsc --project tests"
   },
   "dependencies": {
@@ -25,6 +26,7 @@
     "@types/node": "catalog:",
     "@types/pg": "catalog:",
     "@types/pg-copy-streams": "catalog:",
+    "rolldown": "catalog:",
     "vitest": "catalog:",
     "zod": "catalog:"
   }
