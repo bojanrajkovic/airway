@@ -170,6 +170,31 @@ describe("synthesize", () => {
     ]);
   });
 
+  test("puts a change made on a night with no folder on that night", () => {
+    const [first, second, third] = nights;
+
+    if (first === undefined || second === undefined || third === undefined) {
+      throw new Error("expected four nights");
+    }
+
+    const raise = (night: SyntheticNight): SyntheticNight => ({
+      ...night,
+      str: new Map(night.str).set("S.AS.MaxPress", 14),
+    });
+    const folderless = { ...raise(second), segments: [], eventFiles: [], events: [] };
+    const { rows } = run([first, folderless, raise(third)]);
+
+    expect(rows.nights.map((row) => row.night)).toEqual([first.night, third.night]);
+    expect(rows.settings_changes).toEqual([
+      {
+        night: second.night,
+        setting: "max_pressure",
+        old_value: first.str.get("S.AS.MaxPress"),
+        new_value: 14,
+      },
+    ]);
+  });
+
   test("rebuilds sessions past STR.edf's 10 slots from the BRP files", () => {
     // Seed 1's second night has 15 periods.
     const busy = syntheticNights({ seed: 1, nights: 2 })

@@ -1,3 +1,5 @@
+import type { ColumnUnitRow } from "@airway/contract/derived/rows";
+import { decimalsForStep } from "@airway/contract/registry/units";
 import type { EdfHeader, SignalHeader } from "./header.ts";
 
 /**
@@ -102,15 +104,13 @@ function statistics(
 const index = (label: string): EdfSignal =>
   signal(label, ["", "0.00", "240.00", 0, 2400], 1, night(label.toLowerCase()));
 
+const flow = signal("Flow.40ms", ["L/s", "-2.00", "3.00", -1000, 1500], 1500);
+
 /** 25 Hz flow and pressure, in 60 s records. */
 const brp: EdfFileType = {
   format: "EDF",
   recordSeconds: 60,
-  signals: [
-    signal("Flow.40ms", ["L/s", "-2.00", "3.00", -1000, 1500], 1500),
-    signal("Press.40ms", ["cmH2O", "0.00", "40.00", 0, 2000], 1500),
-    crc16,
-  ],
+  signals: [flow, signal("Press.40ms", ["cmH2O", "0.00", "40.00", 0, 2000], 1500), crc16],
 };
 
 /** The 2 s signals, in 60 s records. */
@@ -241,3 +241,32 @@ export const AIRSENSE = { brp, pld, sad, eve, csl, str } as const satisfies Reco
 
 /** Seconds between two values of a PLD signal: each record's samples span its 60 s. */
 export const PLD_SAMPLE_SECONDS = pld.recordSeconds / (pld.signals[0]?.samplesPerRecord ?? 1);
+
+// The signals of `file` that fill a column of `dataset`, as column_units rows.
+const unitRows = (file: EdfFileType, dataset: "nights" | "samples"): ColumnUnitRow[] =>
+  dataSignals(file).flatMap((signal) =>
+    signal.target.table === dataset
+      ? [
+          {
+            dataset,
+            column_name: signal.target.column,
+            unit: signal.unit,
+            decimals: decimalsForStep(step(signal)),
+          },
+        ]
+      : [],
+  );
+const flowDecimals = decimalsForStep(step(flow));
+
+/**
+ * The `column_units` table's rows. Each column filled from a machine signal gets the unit its EDF
+ * header declares and the decimals one step needs; a 0.02 cmH2O step needs 2. The breaths table's
+ * amplitude and inspiratory_volume are computed from the 25 Hz flow signal, so they use its
+ * decimals.
+ */
+export const COLUMN_UNITS: readonly ColumnUnitRow[] = [
+  ...unitRows(str, "nights"),
+  ...unitRows(pld, "samples"),
+  { dataset: "breaths", column_name: "amplitude", unit: flow.unit, decimals: flowDecimals },
+  { dataset: "breaths", column_name: "inspiratory_volume", unit: "L", decimals: flowDecimals },
+];

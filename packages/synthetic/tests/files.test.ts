@@ -116,8 +116,9 @@ describe("strFile", () => {
     expect(read.signals).toHaveLength(81);
   });
 
-  it("writes an unused day as -1 throughout", () => {
-    expect(date?.[1]).toBe(-1);
+  it("writes -1 for every value of an unused day except its Date", () => {
+    expect(date?.[1]).toBe(Temporal.PlainDate.from("1970-01-01").until("2030-01-08").days);
+    expect(read.digital.get("OnDuration")?.[1]).toBe(-1);
     expect([...(maskOn?.subarray(10, 20) ?? [])].every((value) => value === -1)).toBe(true);
   });
 

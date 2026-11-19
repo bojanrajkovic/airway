@@ -4,7 +4,6 @@ import type { FileSizeCheck } from "@airway/edf/size";
 import { offsetForNight, type ClockOffset } from "@airway/contract/clock";
 import type {
   BreathRow,
-  ColumnUnitRow,
   DerivedRows,
   EventRow,
   FileRow,
@@ -12,19 +11,19 @@ import type {
   SampleRow,
   SegmentRow,
   SessionRow,
-  SettingsChangeRow,
   SignalValues,
 } from "@airway/contract/derived/rows";
 import { assignEvents, buildSessions } from "@airway/contract/derived/sessions";
+import { settingsChanges } from "@airway/contract/derived/settings";
+import type { StrDay, UsedStrDay } from "@airway/contract/derived/str";
 import {
   AIRSENSE,
+  COLUMN_UNITS,
   dataSignals,
   PLD_SAMPLE_SECONDS,
-  step,
   type EdfFileType,
 } from "@airway/edf/airsense";
 import type { RuleSet } from "@airway/contract/profile";
-import { decimalsForStep } from "@airway/contract/registry/units";
 import { datalogFiles, folderFiles, type CpapFile, type DatalogFile } from "./cpap-data.ts";
 import {
   DEVICE,
@@ -67,40 +66,6 @@ const SETTINGS = dataSignals(AIRSENSE.str).flatMap((signal) =>
   signal.target.table === "settings" ? [[signal.label, signal.target.name] as const] : [],
 );
 
-/**
- * Each machine signal's unit and decimals, as ingest records them from the headers. A breath's
- * amplitude and volume come from the 25 Hz flow signal, so they take its decimals.
- */
-function columnUnits(): ColumnUnitRow[] {
-  const fromFile = (file: EdfFileType, dataset: "nights" | "samples"): ColumnUnitRow[] =>
-    dataSignals(file).flatMap((signal) =>
-      signal.target.table === dataset
-        ? [
-            {
-              dataset,
-              column_name: signal.target.column,
-              unit: signal.unit,
-              decimals: decimalsForStep(step(signal)),
-            },
-          ]
-        : [],
-    );
-  const flow = AIRSENSE.brp.signals.find((signal) => signal.label === "Flow.40ms");
-  const flowDecimals = flow === undefined ? 3 : decimalsForStep(step(flow));
-
-  return [
-    ...fromFile(AIRSENSE.str, "nights"),
-    ...fromFile(AIRSENSE.pld, "samples"),
-    {
-      dataset: "breaths",
-      column_name: "amplitude",
-      unit: flow?.unit ?? "L/s",
-      decimals: flowDecimals,
-    },
-    { dataset: "breaths", column_name: "inspiratory_volume", unit: "L", decimals: flowDecimals },
-  ];
-}
-
 const sha256 = (bytes: Uint8Array): string => createHash("sha256").update(bytes).digest("hex");
 
 /**
@@ -120,11 +85,19 @@ export function synthesize(
   return Result.combine([
     strFile(sorted, offsets),
     Result.combine(sorted.map((night) => datalogFiles(night, offsets))),
-    Result.combine(sorted.map((night) => offsetForNight(offsets, night.night))),
-  ]).map(([str, datalog, nightOffsets]) => {
+    Result.combine(
+      sorted.map((night) =>
+        offsetForNight(offsets, night.night).map((offset) => ({
+          offset,
+          day: usedDay(night, offset),
+        })),
+      ),
+    ),
+  ]).map(([str, datalog, used]) => {
     const files = folderFiles(str, datalog.flat());
-    const rows = emptyRows(sorted);
-    let previous: SyntheticNight | undefined = undefined;
+    const days = strDays(used.map(({ day }) => day));
+    const rows = emptyRows(days);
+    const firstImported = sorted.find((_night, i) => (datalog[i] ?? []).length > 0);
 
     rows.files.push(
       fileRow(
@@ -141,37 +114,65 @@ export function synthesize(
 
     sorted.forEach((night, i) => {
       const nightFiles = datalog[i] ?? [];
-      const offset = nightOffsets[i];
+      const entry = used[i];
 
-      if (nightFiles.length === 0 || offset === undefined) {
+      if (nightFiles.length === 0 || entry === undefined) {
         return;
       }
 
-      addNight(rows, { night, files: nightFiles, offset, folder: files, options });
-      rows.settings_changes.push(...settingsChanges(previous, night));
-      previous = night;
+      addNight(rows, { night, ...entry, files: nightFiles, folder: files, options });
     });
+
+    if (firstImported !== undefined) {
+      rows.settings_changes.push(...settingsChanges(days, firstImported.night));
+    }
 
     return { files, rows };
   });
 }
 
-function emptyRows(nights: readonly SyntheticNight[]): DerivedRows {
-  const [first] = nights;
-  const last = nights.at(-1);
-  const byDate = new Map(nights.map((night) => [night.night.toString(), night]));
-  const days =
-    first === undefined || last === undefined ? 0 : first.night.until(last.night).days + 1;
+// A night's STR.edf record, as ingest reads it.
+function usedDay(night: SyntheticNight, offset: ClockOffset): UsedStrDay {
+  return {
+    day: night.night,
+    used: true,
+    ...maskSlots(night, offset),
+    maskEvents: night.str.get("MaskEvents") ?? 0,
+    signals: Object.fromEntries(
+      NIGHT_COLUMNS.map(([label, column]) => [column, value(night.str.get(label))]),
+    ),
+    settings: Object.fromEntries(
+      SETTINGS.map(([label, setting]) => [setting, value(night.str.get(label))]),
+    ),
+  };
+}
 
+// Every day STR.edf covers, from the first night to the last. A day with no night is unused.
+function strDays(used: readonly UsedStrDay[]): StrDay[] {
+  const [first] = used;
+  const last = used.at(-1);
+
+  if (first === undefined || last === undefined) {
+    return [];
+  }
+
+  const byDate = new Map(used.map((day) => [day.day.toString(), day]));
+
+  return Array.from({ length: first.day.until(last.day).days + 1 }, (_, i): StrDay => {
+    const day = first.day.add({ days: i });
+
+    return byDate.get(day.toString()) ?? { day, used: false };
+  });
+}
+
+function emptyRows(days: readonly StrDay[]): DerivedRows {
   return {
     device: [{ serial: DEVICE.serial, model: DEVICE.model }],
-    column_units: columnUnits(),
-    // Every day STR.edf covers. An unused day has no night and no usage.
-    daily_usage: Array.from({ length: days }, (_, i) => {
-      const day = (first?.night ?? Temporal.PlainDate.from("2030-01-01")).add({ days: i });
-
-      return { day, usage: value(byDate.get(day.toString())?.str.get("OnDuration")) ?? 0 };
-    }),
+    column_units: [...COLUMN_UNITS],
+    daily_usage: days.map(({ day, ...record }) => ({
+      day,
+      usage: record.used ? (record.signals["usage"] ?? 0) : 0,
+    })),
     settings_changes: [],
     nights: [],
     files: [],
@@ -198,6 +199,7 @@ function fileRow(folder: readonly CpapFile[], spec: FileSpec, ctime: Temporal.In
 
 type NightInputs = {
   night: SyntheticNight;
+  day: UsedStrDay;
   files: readonly DatalogFile[];
   offset: ClockOffset;
   folder: readonly CpapFile[];
@@ -205,9 +207,11 @@ type NightInputs = {
 };
 
 // Adds one night's rows to every table that holds a night's rows.
-function addNight(rows: DerivedRows, { night, files, offset, folder, options }: NightInputs): void {
+function addNight(
+  rows: DerivedRows,
+  { night, day, files, offset, folder, options }: NightInputs,
+): void {
   const date = night.night;
-  const maskEvents = night.str.get("MaskEvents") ?? 0;
   // Ingest imports BRP, PLD, and EVE files that checkFileSize doesn't reject, and skips SAD and CSL.
   const imported = files.flatMap((file): ImportedFile[] => {
     const { verdict } = sizeCheck(file);
@@ -228,8 +232,9 @@ function addNight(rows: DerivedRows, { night, files, offset, folder, options }: 
   const built = buildSessions({
     night: date,
     offset,
-    ...maskSlots(night, offset),
-    maskEvents,
+    maskOn: day.maskOn,
+    maskOff: day.maskOff,
+    maskEvents: day.maskEvents,
     segments: segments.map(({ segment }) => segment),
   });
   // A read BRP or PLD file names its segment, numbered from 1 like the segments rows.
@@ -383,23 +388,4 @@ function nightRow(
     rule_set: RULE_SETS[patient],
     uploaded_at: uploadedAt,
   };
-}
-
-// A row for each setting that differs from the previous imported night.
-function settingsChanges(
-  previous: SyntheticNight | undefined,
-  night: SyntheticNight,
-): SettingsChangeRow[] {
-  if (previous === undefined) {
-    return [];
-  }
-
-  return SETTINGS.flatMap(([label, setting]): SettingsChangeRow[] => {
-    const before = value(previous.str.get(label));
-    const after = value(night.str.get(label));
-
-    return before === after
-      ? []
-      : [{ night: night.night, setting, old_value: before, new_value: after }];
-  });
 }
