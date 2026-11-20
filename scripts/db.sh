@@ -1,9 +1,9 @@
 #!/bin/sh
-# Starts or stops Postgres 18 for the database tests, with Podman or Docker. `up` returns once
+# Starts or stops Postgres for the database tests, with Podman or Docker. `up` returns once
 # Postgres accepts connections. CI's service container in .github/workflows/ci.yml uses the same
 # image digest.
 set -eu
-IMAGE=docker.io/library/postgres:18@sha256:eb63372c1e05c755f55fa30cbd07aecc443676fc6c0fa90b9002d01537841e1a
+IMAGE=docker.io/library/postgres:19@sha256:bb6e70add742cd868fb62cb3b2f67d1dd2bdd2b65a521e778420748753687c60
 runtime=$(command -v podman || command -v docker || true)
 if [ -z "$runtime" ]; then
   echo "Needs Podman or Docker." >&2
