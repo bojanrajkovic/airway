@@ -28,7 +28,6 @@ const container = await new ReadOnlyContainer(image)
     AIRWAY_READER_DATABASE_URL: "postgres://airway_reader:airway@127.0.0.1:5432/airway",
     AIRWAY_PATIENT_NAME: "Sample Patient",
     AIRWAY_PATIENT_BIRTH_DATE: "2015-03-14",
-    AIRWAY_CLOCK_OFFSETS: '[{"from":"2025-01-01","utcOffset":"-05:00"}]',
     AIRWAY_TIME_ZONE: "America/Chicago",
     AIRWAY_CPAP_DATA_PATH: "/tmp/cpap-data",
     AIRWAY_AUTH: "none",

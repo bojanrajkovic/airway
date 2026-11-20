@@ -28,7 +28,7 @@ These details are the same on every AirSense 10. They come from the headers of r
 
 ## Synthetic nights
 
-`syntheticNights({ seed, nights, start, patient, zone, cases })` in `@airway/synthetic/model` builds the nights everything else is written from, and returns them with the clock offsets their files use, as a neverthrow `Result`. It returns an error when a named edge case can't be built, such as a DST case in a zone without daylight saving time. The same options always give the same nights. All randomness comes from d3-random distributions drawing on one seeded generator.
+`syntheticNights({ seed, nights, start, patient, zone, cases })` in `@airway/synthetic/model` builds the nights everything else is written from, and returns them with the zone, as a neverthrow `Result`. It returns an error when a named edge case can't be built, such as a DST case in a zone without daylight saving time. The same options always give the same nights. All randomness comes from d3-random distributions drawing on one seeded generator.
 
 ```ts
 const model = syntheticNights({ seed: 7, nights: 30 });
@@ -37,9 +37,9 @@ if (model.isErr()) {
   throw new Error(`can't build the nights: ${model.error.kind}`);
 }
 
-const { nights, offsets } = model.value;
+const { nights, zone } = model.value;
 // nights[0].night is 2030-01-07; nights[0].str.get("AHI") is the machine's AHI for it.
-// offsets is one -05:00 entry from the first night.
+// zone is America/Chicago, so the files' device clock runs at -06:00.
 ```
 
 Each night holds:
@@ -81,7 +81,7 @@ The AHI and its parts are `(600 × events) div minutes` in tenths, and MaskEvent
 `cases` adds nights that each hold an edge case ingest must handle. It's `'all'` or a list of names, and defaults to none, so tests get edge cases only when they ask. Each case's first night is the day after the previous night, and each case draws from its own generator, seeded from `seed` plus the case's name. The base nights are the same with or without cases. A test that wants one case on its own passes `nights: 0`:
 
 ```ts
-const { nights, offsets } = syntheticNights({
+const { nights, zone } = syntheticNights({
   seed: 7,
   nights: 0,
   cases: ["noon-edge"],
@@ -101,7 +101,6 @@ A case draws ordinary nights with `randomNight`, or sets a night's mask-on perio
 | `ahi-rounding` | 18 hypopneas in 400 minutes, an AHI of exactly 2.7, which floating point computes just under 2.7. |
 | `damaged-files` | One night whose files include a 2-minute stretch with header-only BRP, PLD, and SAD files; a truncated BRP; a BRP with a -1 count; and BRP, PLD, and SAD files holding one more record than they declare. |
 | `split-files` | One night with a BRP that has no PLD, a PLD split into two files halfway through its BRP, and three EVE files, the last without a CSL. |
-| `clock-change` | Two nights on each side of a second clock offset, -04:55 from the second night. The second night runs from 22:30 to 03:30, so it crosses midnight on one offset. |
 | `fall-back` | A night from 21:00 across the zone's next fall-back, so 01:00 happens twice. |
 | `spring-forward` | A night from 21:00 across the zone's next spring-forward, so there's no 02:00. |
 
@@ -117,16 +116,16 @@ Flow is a half sine wave up while breathing in and a half sine wave down while b
 
 ## A night's files
 
-`@airway/synthetic/files` turns the model into EDF bytes, one file at a time. Each file comes with its start time on the device's clock, which `cpapData` turns into its file name. The device's clock runs on the night's fixed offset from `AIRWAY_CLOCK_OFFSETS` and doesn't change for daylight saving time.
+`@airway/synthetic/files` turns the model into EDF bytes, one file at a time. Each file comes with its start time on the device's clock, which `cpapData` turns into its file name. The device's clock runs on the zone's winter offset all year, as `toDeviceTime` in `@airway/contract/clock` converts it.
 
-- `nightFiles(night, offsets)` writes a BRP, PLD, and SAD file for each segment, damaged as the segment says, and an EVE file, plus a CSL file when it has one, for each of `eventFiles`. PLD and SAD files start 1 s after their BRP file, as on the real machine. SAD holds only missing values, as it does without an oximeter. Each event goes in the last EVE file that starts at or before it. EVE starts with a "Recording starts" annotation, then lists each event with its onset at the event's end, measured from the file's start, which is how the machine writes them. CSL holds only "Recording starts".
-- `strFile(nights, offsets)` writes STR.edf with one record per day, from the earliest night to the latest, whatever order the nights come in. A day with no night is unused. Its record holds its Date, and every other value is -1, as on the card. MaskOn and MaskOff hold up to 10 mask-on periods, in minutes since noon on the device's clock; unused slots are -1. A mask-on before the night's noon belongs to the previous day's record, so its slot's MaskOn is -1.
+- `nightFiles(night, zone)` writes a BRP, PLD, and SAD file for each segment, damaged as the segment says, and an EVE file, plus a CSL file when it has one, for each of `eventFiles`. PLD and SAD files start 1 s after their BRP file, as on the real machine. SAD holds only missing values, as it does without an oximeter. Each event goes in the last EVE file that starts at or before it. EVE starts with a "Recording starts" annotation, then lists each event with its onset at the event's end, measured from the file's start, which is how the machine writes them. CSL holds only "Recording starts".
+- `strFile(nights, zone)` writes STR.edf with one record per day, from the earliest night to the latest, whatever order the nights come in. A day with no night is unused. Its record holds its Date, and every other value is -1, as on the card. MaskOn and MaskOff hold up to 10 mask-on periods, in minutes since noon on the device's clock; unused slots are -1. A mask-on before the night's noon belongs to the previous day's record, so its slot's MaskOn is -1.
 
 The serial, patient, and recording fields hold invented values.
 
 ## The CPAP data folder
 
-`cpapData(nights, offsets)` in `@airway/synthetic/cpap-data` returns the whole folder, as an SD card lays it out, as a list of paths and bytes:
+`cpapData(nights, zone)` in `@airway/synthetic/cpap-data` returns the whole folder, as an SD card lays it out, as a list of paths and bytes:
 
 ```
 Identification.tgt
@@ -148,11 +147,11 @@ DATALOG/
 
 ## Derived rows
 
-`synthesize(nights, offsets, { patient, arrivedAt })` in `@airway/synthetic/synthesize` returns the CPAP data folder together with the rows ingest should derive from it, one list per derived table. Both come from the same nights, so a test that edits a night gets files and rows that agree. The row types live in `@airway/contract/derived/rows`, and ingest writes the same shapes.
+`synthesize(nights, zone, { patient, arrivedAt })` in `@airway/synthetic/synthesize` returns the CPAP data folder together with the rows ingest should derive from it, one list per derived table. Both come from the same nights, so a test that edits a night gets files and rows that agree. The row types live in `@airway/contract/derived/rows`, and ingest writes the same shapes.
 
 ```ts
-const { nights, offsets } = syntheticNights({ seed: 7, nights: 10 })._unsafeUnwrap();
-const result = synthesize(nights, offsets, { patient: "child", arrivedAt });
+const { nights, zone } = syntheticNights({ seed: 7, nights: 10 })._unsafeUnwrap();
+const result = synthesize(nights, zone, { patient: "child", arrivedAt });
 
 if (result.isErr()) {
   throw new Error(`can't synthesize: ${result.error.kind}`);
@@ -194,9 +193,9 @@ Ingesting `synthesize`'s files must produce its rows. The comparison skips `ctim
 
 ```ts
 test("counts a night with 12 mask-on periods", async ({ databaseUrl }) => {
-  const { nights, offsets } = syntheticNights({ seed: 3, nights: 60 })._unsafeUnwrap();
+  const { nights, zone } = syntheticNights({ seed: 3, nights: 60 })._unsafeUnwrap();
   const busy = nights.filter((night) => night.periods.length > 10);
-  const { rows } = synthesize(busy, offsets, { patient: "child", arrivedAt })._unsafeUnwrap();
+  const { rows } = synthesize(busy, zone, { patient: "child", arrivedAt })._unsafeUnwrap();
   const client = new pg.Client(databaseUrl);
   await client.connect();
 
@@ -220,9 +219,9 @@ pnpm synth --out /tmp/airway-cpap-data [--seed 1] [--nights 10] [--patient child
   [--cases all|none|<name>,<name>...] [--time-zone America/Chicago]
 ```
 
-It defaults to 10 child nights from seed 1, including any short or bad nights the model draws, followed by every edge case in `'all'`. Unlike `syntheticNights`, `--cases` defaults to `all`, so local development and end-to-end tests always see the edge cases; pass `none` for plain nights, or name cases, DST ones included. `--time-zone` places bedtimes and DST nights, and defaults to America/Chicago, `.env.example`'s zone. Pass the server's `AIRWAY_TIME_ZONE`.
+It defaults to 10 child nights from seed 1, including any short or bad nights the model draws, followed by every edge case in `'all'`. Unlike `syntheticNights`, `--cases` defaults to `all`, so local development and end-to-end tests always see the edge cases; pass `none` for plain nights, or name cases, DST ones included. `--time-zone` places bedtimes and DST nights, sets the device clock's offset, and defaults to America/Chicago, `.env.example`'s zone.
 
-It prints the `AIRWAY_CLOCK_OFFSETS` the folder needs. The `clock-change` case adds a second offset, so the server must use the printed value. With the default offset alone, the nights after the change import 5 minutes off. `--out` must be missing or empty, so synthetic files never mix with real ones or with an older run.
+It prints the `AIRWAY_TIME_ZONE` the server must use, or the folder's nights import at the wrong times. `--out` must be missing or empty, so synthetic files never mix with real ones or with an older run.
 
 ## Checking a file's size
 

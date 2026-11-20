@@ -1,5 +1,4 @@
 import type { Author } from "@airway/contract/author";
-import { ClockOffsets, type ClockOffset } from "@airway/contract/clock";
 import { PlainDateString } from "@airway/contract/dates";
 import type { PatientProfile } from "@airway/contract/profile";
 import { err, ok, type Result } from "neverthrow";
@@ -27,8 +26,10 @@ export type Config = {
   databaseUrl: string;
   readerDatabaseUrl: string;
   patient: PatientProfile;
-  clockOffsets: ClockOffset[];
-  /** The IANA zone night boundaries, alert times, and every displayed time use. */
+  /**
+   * The IANA zone night boundaries, alert times, and every displayed time use. Its winter offset
+   * converts the CPAP's clock, which doesn't follow daylight saving time.
+   */
   timeZone: string;
   cpapDataPath: string;
   /** The home time by which a used night's folder should have arrived before it counts as missing. */
@@ -56,15 +57,6 @@ function isTimeZone(zone: string): boolean {
 }
 
 const postgresUrl = z.url({ protocol: /^postgres(?:ql)?$/v, error: "must be a postgres:// URL" });
-const json = z.string().transform((value, ctx): unknown => {
-  try {
-    return JSON.parse(value);
-  } catch {
-    ctx.addIssue({ code: "custom", message: "must be JSON" });
-
-    return z.NEVER;
-  }
-});
 
 const Env = z.object({
   DATABASE_URL: postgresUrl,
@@ -72,7 +64,6 @@ const Env = z.object({
   AIRWAY_PATIENT_NAME: z.string().trim().min(1, "must not be blank").max(80),
   AIRWAY_PATIENT_BIRTH_DATE: PlainDateString,
   AIRWAY_ADULT_RULES_FROM_13: z.enum(["true", "false"]).default("false"),
-  AIRWAY_CLOCK_OFFSETS: json.pipe(ClockOffsets),
   AIRWAY_TIME_ZONE: z.string().refine(isTimeZone, "must be an IANA time zone"),
   AIRWAY_CPAP_DATA_PATH: z.string().startsWith("/", "must be an absolute path"),
   AIRWAY_DATA_MISSING_CUTOFF: z.iso
@@ -126,7 +117,6 @@ export function parseConfig(env: Record<string, string | undefined>): Result<Con
       birthDate: data.AIRWAY_PATIENT_BIRTH_DATE,
       adultRulesFrom13: data.AIRWAY_ADULT_RULES_FROM_13 === "true",
     },
-    clockOffsets: data.AIRWAY_CLOCK_OFFSETS,
     timeZone: data.AIRWAY_TIME_ZONE,
     cpapDataPath: data.AIRWAY_CPAP_DATA_PATH,
     dataMissingCutoff: data.AIRWAY_DATA_MISSING_CUTOFF,

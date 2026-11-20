@@ -1,4 +1,4 @@
-import type { ClockOffset } from "../clock.ts";
+import { toInstant } from "../clock.ts";
 import type { UsedStrDay } from "./str.ts";
 import type { SESSION_SOURCES } from "./values.ts";
 
@@ -11,8 +11,8 @@ export type Session = Span & { session: number; source: (typeof SESSION_SOURCES)
 /** A night's STR.edf slots and mask events, and its BRP segments. */
 export type SessionInputs = Pick<UsedStrDay, "maskOn" | "maskOff" | "maskEvents"> & {
   night: Temporal.PlainDate;
-  /** The night's clock offset, which turns STR.edf's device-clock minutes into instants. */
-  offset: ClockOffset;
+  /** The home time zone, whose winter offset turns STR.edf's device-clock minutes into instants. */
+  zone: string;
   /** The night's BRP segments, in time order. */
   segments: readonly Span[];
 };
@@ -45,8 +45,8 @@ function overlap(span: Span, session: Span): number {
 // STR.edf's used slots as spans. A slot 0 with a mask-off but no mask-on started before noon, so
 // it starts at noon (OSCAR's fix for the night's first period). A slot whose mask-on and mask-off
 // fall in the same minute is dropped: that period lasted under a minute.
-function slotSpans({ night, offset, maskOn, maskOff }: SessionInputs): Span[] {
-  const noon = night.toPlainDateTime("12:00").toZonedDateTime(offset.utcOffset).toInstant();
+function slotSpans({ night, zone, maskOn, maskOff }: SessionInputs): Span[] {
+  const noon = toInstant(night.toPlainDateTime("12:00"), zone);
   const instant = (minutes: number): Temporal.Instant => noon.add({ minutes });
 
   return maskOff.flatMap((off, slot): Span[] => {

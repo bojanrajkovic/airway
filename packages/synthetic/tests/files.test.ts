@@ -1,22 +1,14 @@
 import { describe, expect, it } from "vitest";
-import { ClockOffsets } from "@airway/contract/clock";
 import { nightFiles, strFile, type NightFile } from "../src/files.ts";
 import { syntheticNights } from "../src/model.ts";
 import { readBackAnnotations, readBackEdf } from "@airway/testing/edf-readback";
 
-// The second entry starts on the third night, so nights 1-2 and 3-4 use different offsets.
-const offsets = ClockOffsets.parse([
-  { from: "2030-01-01", utcOffset: "-05:00" },
-  { from: "2030-01-09", utcOffset: "-04:00" },
-]);
+const zone = "America/New_York";
 const { nights } = syntheticNights({ seed: 7, nights: 4 })._unsafeUnwrap();
 const [first, , third] = nights;
 
 const files = (night: (typeof nights)[number] | undefined): NightFile[] =>
-  night === undefined ? [] : nightFiles(night, offsets)._unsafeUnwrap();
-
-const deviceTime = (at: Temporal.Instant, utcOffset: string): Temporal.PlainDateTime =>
-  at.toZonedDateTimeISO(utcOffset).toPlainDateTime();
+  night === undefined ? [] : nightFiles(night, zone)._unsafeUnwrap();
 
 describe("nightFiles", () => {
   const written = files(first);
@@ -30,15 +22,12 @@ describe("nightFiles", () => {
     expect(kinds.filter((kind) => kind === "eve" || kind === "csl")).toEqual(["eve", "csl"]);
   });
 
-  it.each([
-    ["the first offset", first, "-05:00"],
-    ["the second offset", third, "-04:00"],
-  ])("starts files on the device clock with %s", (_case, night, utcOffset) => {
-    const [segment] = night?.segments ?? [];
-    const [brp, pld] = files(night);
+  it("starts files on the device clock, at the zone's winter offset", () => {
+    const [segment] = first?.segments ?? [];
+    const [brp, pld] = written;
 
     expect(segment).toBeDefined();
-    expect(brp?.start).toEqual(segment?.start.toZonedDateTimeISO(utcOffset).toPlainDateTime());
+    expect(brp?.start).toEqual(segment?.start.toZonedDateTimeISO("-05:00").toPlainDateTime());
     expect(pld?.start).toEqual(brp?.start.add({ seconds: 1 }));
     expect(readBackEdf(brp?.bytes ?? new Uint8Array(256)).startTime).toBe(
       brp?.start.toPlainTime().toString().replaceAll(":", "."),
@@ -105,7 +94,7 @@ describe("strFile", () => {
   const read = readBackEdf(
     strFile(
       nights.filter((_night, i) => i !== 1 && i !== 3),
-      offsets,
+      zone,
     )._unsafeUnwrap(),
   );
   const date = read.digital.get("Date");
@@ -128,7 +117,9 @@ describe("strFile", () => {
     const minutes =
       period === undefined || noon === undefined
         ? -1
-        : Math.floor(noon.until(deviceTime(period.on, "-04:00")).total("minutes"));
+        : Math.floor(
+            noon.until(period.on.toZonedDateTimeISO("-05:00").toPlainDateTime()).total("minutes"),
+          );
 
     expect(date?.[2]).toBe(Temporal.PlainDate.from("1970-01-01").until("2030-01-09").days);
     expect(maskOn?.[20]).toBe(minutes);
@@ -136,12 +127,12 @@ describe("strFile", () => {
   });
 
   it("writes the same file whatever order the nights come in", () => {
-    const sorted = strFile(nights, offsets)._unsafeUnwrap();
+    const sorted = strFile(nights, zone)._unsafeUnwrap();
 
-    expect(strFile([...nights].reverse(), offsets)._unsafeUnwrap()).toEqual(sorted);
+    expect(strFile([...nights].reverse(), zone)._unsafeUnwrap()).toEqual(sorted);
   });
 
   it("refuses an empty list of nights", () => {
-    expect(strFile([], offsets)._unsafeUnwrapErr()).toEqual({ kind: "no_nights" });
+    expect(strFile([], zone)._unsafeUnwrapErr()).toEqual({ kind: "no_nights" });
   });
 });

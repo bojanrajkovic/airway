@@ -1,5 +1,5 @@
 import { err, ok, Result } from "neverthrow";
-import { offsetForNight, type NoOffsetForNight, type ClockOffset } from "@airway/contract/clock";
+import { toDeviceTime } from "@airway/contract/clock";
 import { AIRSENSE, dataSignals, PLD_SAMPLE_SECONDS } from "@airway/edf/airsense";
 import { checkFileSize, type FileSizeCheck } from "@airway/edf/size";
 import { recordBytes } from "@airway/edf/header";
@@ -24,7 +24,7 @@ export type NightFile = {
   segment: number | null;
 };
 
-export type SyntheticFileError = EdfWriteError | NoOffsetForNight | { kind: "no_nights" };
+export type SyntheticFileError = EdfWriteError | { kind: "no_nights" };
 
 /** How EVE files label each event type. */
 export const EVENT_LABELS: Readonly<Record<MachineEventType, string>> = {
@@ -52,81 +52,76 @@ const header = (start: Temporal.PlainDateTime): PerFileHeader => ({
   recording: `Startdate ${String(start.day).padStart(2, "0")}-${MONTHS[start.month - 1] ?? "X"}-${start.year.toString()} X X ${DEVICE.serial}`,
 });
 
-/** A moment as the device's clock shows it: a fixed offset, with no daylight saving time. */
-const deviceTime = (at: Temporal.Instant, offset: ClockOffset): Temporal.PlainDateTime =>
-  at.toZonedDateTimeISO(offset.utcOffset).toPlainDateTime();
-
 const missing = (length: number): Float64Array => new Float64Array(length).fill(Number.NaN);
 
 /**
  * A night's EDF files: a BRP, PLD, and SAD file for each segment, and an EVE file (plus a CSL
- * file when it has one) for each of `eventFiles`. Each start time uses the night's clock offset.
+ * file when it has one) for each of `eventFiles`. Each start time is on the device clock, which
+ * keeps `zone`'s winter offset.
  * EVE onsets mark each event's end, as the machine writes them.
  */
 export function nightFiles(
   night: SyntheticNight,
-  offsets: readonly ClockOffset[],
+  zone: string,
 ): Result<NightFile[], SyntheticFileError> {
-  return offsetForNight(offsets, night.night).andThen((offset) => {
-    const segmentFiles = night.segments.map((segment, i) => {
-      const start = deviceTime(segment.start, offset);
-      const pldSadStart = start.add({ seconds: PLD_LAG_SECONDS });
-      const { flow, pressure } = renderBrp(segment, night);
-      const seconds = segment.start.until(segment.end).total("seconds");
-      const sad = new Map([
-        ["Pulse.1s", missing(seconds)],
-        ["SpO2.1s", missing(seconds)],
-      ]);
-      const file =
-        (kind: NightFile["kind"], at: Temporal.PlainDateTime, damage: FileDamage) =>
-        (bytes: Uint8Array): NightFile[] => [
-          { kind, start: at, bytes: applyDamage(bytes, damage), segment: i },
-        ];
+  const segmentFiles = night.segments.map((segment, i) => {
+    const start = toDeviceTime(segment.start, zone);
+    const pldSadStart = start.add({ seconds: PLD_LAG_SECONDS });
+    const { flow, pressure } = renderBrp(segment, night);
+    const seconds = segment.start.until(segment.end).total("seconds");
+    const sad = new Map([
+      ["Pulse.1s", missing(seconds)],
+      ["SpO2.1s", missing(seconds)],
+    ]);
+    const file =
+      (kind: NightFile["kind"], at: Temporal.PlainDateTime, damage: FileDamage) =>
+      (bytes: Uint8Array): NightFile[] => [
+        { kind, start: at, bytes: applyDamage(bytes, damage), segment: i },
+      ];
 
-      return Result.combine([
-        writeSignals(
-          AIRSENSE.brp,
-          header(start),
-          new Map([
-            ["Flow.40ms", flow],
-            ["Press.40ms", pressure],
-          ]),
-        ).map(file("brp", start, segment.brp)),
-        ...pldParts(segment).map(({ series, offsetSeconds, damage }) => {
-          const at = pldSadStart.add({ seconds: offsetSeconds });
+    return Result.combine([
+      writeSignals(
+        AIRSENSE.brp,
+        header(start),
+        new Map([
+          ["Flow.40ms", flow],
+          ["Press.40ms", pressure],
+        ]),
+      ).map(file("brp", start, segment.brp)),
+      ...pldParts(segment).map(({ series, offsetSeconds, damage }) => {
+        const at = pldSadStart.add({ seconds: offsetSeconds });
 
-          return writeSignals(AIRSENSE.pld, header(at), series).map(file("pld", at, damage));
-        }),
-        writeSignals(AIRSENSE.sad, header(pldSadStart), sad).map(
-          file("sad", pldSadStart, segment.sad),
-        ),
-      ]).map((files) => files.flat());
-    });
-
-    const annotationFiles = night.eventFiles.map((file) => {
-      const start = deviceTime(file.start, offset);
-      const events = night.events
-        .filter((event) => eventFileFor(night, event.at) === file)
-        .map((event) => ({
-          onset: eventOnset(file, event),
-          duration: event.duration,
-          label: EVENT_LABELS[event.type],
-        }));
-
-      return Result.combine([
-        writeAnnotations(AIRSENSE.eve, header(start), [RECORDING_STARTS, ...events]).map(
-          (bytes): NightFile[] => [{ kind: "eve", start, bytes, segment: null }],
-        ),
-        file.withCsl
-          ? writeAnnotations(AIRSENSE.csl, header(start), [RECORDING_STARTS]).map(
-              (bytes): NightFile[] => [{ kind: "csl", start, bytes, segment: null }],
-            )
-          : ok<NightFile[], SyntheticFileError>([]),
-      ]).map((files) => files.flat());
-    });
-
-    return Result.combine([...segmentFiles, ...annotationFiles]).map((files) => files.flat());
+        return writeSignals(AIRSENSE.pld, header(at), series).map(file("pld", at, damage));
+      }),
+      writeSignals(AIRSENSE.sad, header(pldSadStart), sad).map(
+        file("sad", pldSadStart, segment.sad),
+      ),
+    ]).map((files) => files.flat());
   });
+
+  const annotationFiles = night.eventFiles.map((file) => {
+    const start = toDeviceTime(file.start, zone);
+    const events = night.events
+      .filter((event) => eventFileFor(night, event.at) === file)
+      .map((event) => ({
+        onset: eventOnset(file, event),
+        duration: event.duration,
+        label: EVENT_LABELS[event.type],
+      }));
+
+    return Result.combine([
+      writeAnnotations(AIRSENSE.eve, header(start), [RECORDING_STARTS, ...events]).map(
+        (bytes): NightFile[] => [{ kind: "eve", start, bytes, segment: null }],
+      ),
+      file.withCsl
+        ? writeAnnotations(AIRSENSE.csl, header(start), [RECORDING_STARTS]).map(
+            (bytes): NightFile[] => [{ kind: "csl", start, bytes, segment: null }],
+          )
+        : ok<NightFile[], SyntheticFileError>([]),
+    ]).map((files) => files.flat());
+  });
+
+  return Result.combine([...segmentFiles, ...annotationFiles]).map((files) => files.flat());
 }
 
 /** The EVE file an event goes in: the last one that starts at or before it. */
@@ -226,10 +221,10 @@ export type MaskSlots = { maskOn: number[]; maskOff: number[] };
  * The night's first 10 mask-on periods as STR.edf records them. A mask-on before the night's noon
  * is in the previous day's record, so its slot has no mask-on (NaN).
  */
-export function maskSlots(night: SyntheticNight, offset: ClockOffset): MaskSlots {
+export function maskSlots(night: SyntheticNight, zone: string): MaskSlots {
   const noon = night.night.toPlainDateTime("12:00");
   const minutes = (at: Temporal.Instant): number =>
-    Math.floor(noon.until(deviceTime(at, offset)).total("minutes"));
+    Math.floor(noon.until(toDeviceTime(at, zone)).total("minutes"));
   const periods = night.periods.slice(0, SLOTS);
 
   return {
@@ -245,7 +240,7 @@ export function maskSlots(night: SyntheticNight, offset: ClockOffset): MaskSlots
  */
 export function strFile(
   nights: readonly SyntheticNight[],
-  offsets: readonly ClockOffset[],
+  zone: string,
 ): Result<Uint8Array, SyntheticFileError> {
   const sorted = [...nights].sort((a, b) => Temporal.PlainDate.compare(a.night, b.night));
   const [first] = sorted;
@@ -277,13 +272,7 @@ export function strFile(
       continue;
     }
 
-    const offset = offsetForNight(offsets, date);
-
-    if (offset.isErr()) {
-      return err(offset.error);
-    }
-
-    const slots = maskSlots(night, offset.value);
+    const slots = maskSlots(night, zone);
 
     slots.maskOn.forEach((minutes, slot) => {
       put("MaskOn", day * SLOTS + slot, minutes);

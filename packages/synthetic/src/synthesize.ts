@@ -1,7 +1,6 @@
 import { createHash } from "node:crypto";
 import { Result } from "neverthrow";
 import type { FileSizeCheck } from "@airway/edf/size";
-import { offsetForNight, type ClockOffset } from "@airway/contract/clock";
 import type {
   BreathRow,
   DerivedRows,
@@ -77,25 +76,18 @@ const sha256 = (bytes: Uint8Array): string => createHash("sha256").update(bytes)
  */
 export function synthesize(
   nights: readonly SyntheticNight[],
-  offsets: readonly ClockOffset[],
+  zone: string,
   options: SynthesizeOptions,
 ): Result<Synthesized, SyntheticFileError> {
   const sorted = [...nights].sort((a, b) => Temporal.PlainDate.compare(a.night, b.night));
 
   return Result.combine([
-    strFile(sorted, offsets),
-    Result.combine(sorted.map((night) => datalogFiles(night, offsets))),
-    Result.combine(
-      sorted.map((night) =>
-        offsetForNight(offsets, night.night).map((offset) => ({
-          offset,
-          day: usedDay(night, offset),
-        })),
-      ),
-    ),
-  ]).map(([str, datalog, used]) => {
+    strFile(sorted, zone),
+    Result.combine(sorted.map((night) => datalogFiles(night, zone))),
+  ]).map(([str, datalog]) => {
     const files = folderFiles(str, datalog.flat());
-    const days = strDays(used.map(({ day }) => day));
+    const used = sorted.map((night) => usedDay(night, zone));
+    const days = strDays(used);
     const rows = emptyRows(days);
     const firstImported = sorted.find((_night, i) => (datalog[i] ?? []).length > 0);
 
@@ -119,13 +111,13 @@ export function synthesize(
 
     sorted.forEach((night, i) => {
       const nightFiles = datalog[i] ?? [];
-      const entry = used[i];
+      const day = used[i];
 
-      if (nightFiles.length === 0 || entry === undefined) {
+      if (nightFiles.length === 0 || day === undefined) {
         return;
       }
 
-      addNight(rows, { night, ...entry, files: nightFiles, folder: files, options });
+      addNight(rows, { night, day, zone, files: nightFiles, folder: files, options });
     });
 
     if (firstImported !== undefined) {
@@ -137,11 +129,11 @@ export function synthesize(
 }
 
 // A night's STR.edf record, as ingest reads it.
-function usedDay(night: SyntheticNight, offset: ClockOffset): UsedStrDay {
+function usedDay(night: SyntheticNight, zone: string): UsedStrDay {
   return {
     day: night.night,
     used: true,
-    ...maskSlots(night, offset),
+    ...maskSlots(night, zone),
     maskEvents: night.str.get("MaskEvents") ?? 0,
     signals: Object.fromEntries(
       NIGHT_COLUMNS.map(([label, column]) => [column, value(night.str.get(label))]),
@@ -206,7 +198,7 @@ type NightInputs = {
   night: SyntheticNight;
   day: UsedStrDay;
   files: readonly DatalogFile[];
-  offset: ClockOffset;
+  zone: string;
   folder: readonly CpapFile[];
   options: SynthesizeOptions;
 };
@@ -214,7 +206,7 @@ type NightInputs = {
 // Adds one night's rows to every table that holds a night's rows.
 function addNight(
   rows: DerivedRows,
-  { night, day, files, offset, folder, options }: NightInputs,
+  { night, day, files, zone, folder, options }: NightInputs,
 ): void {
   const date = night.night;
   // Ingest imports BRP, PLD, and EVE files that checkFileSize doesn't reject, and skips SAD and CSL.
@@ -236,7 +228,7 @@ function addNight(
   });
   const built = buildSessions({
     night: date,
-    offset,
+    zone,
     maskOn: day.maskOn,
     maskOff: day.maskOff,
     maskEvents: day.maskEvents,

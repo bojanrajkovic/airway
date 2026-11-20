@@ -1,17 +1,16 @@
 import { crc32 } from "node:zlib";
 import { test as base, describe, expect } from "vitest";
-import { ClockOffsets } from "@airway/contract/clock";
 import { cpapData, type CpapFile } from "../src/cpap-data.ts";
 import { DEVICE } from "../src/files.ts";
 import { syntheticNights, type SyntheticNight } from "../src/model.ts";
 
-const offsets = ClockOffsets.parse([{ from: "2030-01-01", utcOffset: "-05:00" }]);
+const zone = "America/New_York";
 const { nights } = syntheticNights({ seed: 7, nights: 3 })._unsafeUnwrap();
 
 // Each test that asks for `folder` gets its own, written from `nights`.
 const test = base.extend<{ folder: CpapFile[] }>({
   folder: async ({}, use) => {
-    await use(cpapData(nights, offsets)._unsafeUnwrap());
+    await use(cpapData(nights, zone)._unsafeUnwrap());
   },
 });
 
@@ -125,17 +124,11 @@ describe("cpapData", () => {
     expect(byPath.get("Identification.crc")).toEqual(littleEndian(crc32(tgt)));
   });
 
-  test("returns the writer's error for a night before the first clock offset", () => {
-    const early = ClockOffsets.parse([{ from: "2031-01-01", utcOffset: "-05:00" }]);
-
-    expect(cpapData(nights, early)._unsafeUnwrapErr().kind).toBe("before_first_offset");
-  });
-
   test("leaves out the folder of a night with no segments", () => {
     const [first, ...rest] = nights;
     const empty: CpapFile[] = cpapData(
       [...(first === undefined ? [] : [{ ...first, segments: [], eventFiles: [] }]), ...rest],
-      offsets,
+      zone,
     )._unsafeUnwrap();
 
     expect(

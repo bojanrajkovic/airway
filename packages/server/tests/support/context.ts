@@ -12,7 +12,6 @@ const CONFIG: Config = {
     birthDate: Temporal.PlainDate.from("2012-06-15"),
     adultRulesFrom13: false,
   },
-  clockOffsets: [{ from: Temporal.PlainDate.from("2025-01-01"), utcOffset: "-05:07" }],
   timeZone: "America/Chicago",
   cpapDataPath: "/cpap-data",
   dataMissingCutoff: Temporal.PlainTime.from("15:00"),

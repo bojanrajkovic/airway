@@ -92,14 +92,14 @@ if (model.isErr()) {
   );
 }
 
-const { nights, offsets } = model.value;
+const { nights, zone } = model.value;
 const dir = resolve(out);
 
 if (!(await isEmpty(dir))) {
   fail(`${dir} isn't empty. Pick a new folder, so synthetic files never mix with real ones.`);
 }
 
-const files = cpapData(nights, offsets);
+const files = cpapData(nights, zone);
 
 if (files.isErr()) {
   fail(`Couldn't write the folder: ${files.error.kind}.`);
@@ -112,8 +112,7 @@ for (const { path, bytes } of files.value) {
   await writeFile(target, bytes);
 }
 
-// The server needs these offsets to place the clock-change nights at the right times.
+// The server reads the device clock with this zone's winter offset.
 process.stdout.write(
-  `Wrote ${nights.length.toString()} ${patient} nights to ${dir}\n` +
-    `AIRWAY_CLOCK_OFFSETS=${JSON.stringify(offsets)}\n`,
+  `Wrote ${nights.length.toString()} ${patient} nights to ${dir}\n` + `AIRWAY_TIME_ZONE=${zone}\n`,
 );

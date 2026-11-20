@@ -15,7 +15,7 @@ import { testContext } from "./context.ts";
 export function syntheticFolder(nights: number, cases: readonly EdgeCaseName[] = []): CpapFile[] {
   const model = syntheticNights({ seed: 3, nights, cases })._unsafeUnwrap();
 
-  return cpapData(model.nights, model.offsets)._unsafeUnwrap();
+  return cpapData(model.nights, model.zone)._unsafeUnwrap();
 }
 
 /** Writes `files` under a new temporary folder, removed when the test finishes, and returns it. */

@@ -1,39 +1,23 @@
-import { err, ok, type Result } from "neverthrow";
-import { z } from "zod";
-import { PlainDateString } from "./dates.ts";
+/**
+ * The zone's UTC offset in `year` without daylight saving time, as `±HH:MM`. DST always adds time,
+ * so it's the smaller of the January and July offsets, in either hemisphere.
+ */
+export function winterOffset(zone: string, year: number): string {
+  const firstOf = (month: number): Temporal.ZonedDateTime =>
+    Temporal.ZonedDateTime.from({ timeZone: zone, year, month, day: 1, hour: 12 });
+  const january = firstOf(1);
+  const july = firstOf(7);
+
+  return january.offsetNanoseconds <= july.offsetNanoseconds ? january.offset : july.offset;
+}
 
 /**
- * The CPAP's clock doesn't follow daylight saving time and drifts, so its timestamps convert to
- * UTC with a fixed offset. Each entry applies from the night `from` until the next entry's night.
- * `utcOffset` is `±HH:MM`, the precision Temporal accepts for an offset time zone.
+ * A device-clock time as an instant. The CPAP's clock doesn't follow daylight saving time, so it
+ * keeps the home zone's winter offset all year.
  */
-export const ClockOffset = z.strictObject({
-  from: PlainDateString,
-  utcOffset: z.string().regex(/^[+\-](?:[01]\d|2[0-3]):[0-5]\d$/v, "must be ±HH:MM"),
-});
-export type ClockOffset = z.infer<typeof ClockOffset>;
+export const toInstant = (time: Temporal.PlainDateTime, zone: string): Temporal.Instant =>
+  time.toZonedDateTime(winterOffset(zone, time.year)).toInstant();
 
-const ascending = (offsets: ClockOffset[]): boolean =>
-  offsets.every((offset, i) => {
-    const previous = offsets[i - 1];
-
-    return previous === undefined || Temporal.PlainDate.compare(previous.from, offset.from) < 0;
-  });
-
-/** The device's clock offsets, oldest first, with at most one entry per night. */
-export const ClockOffsets = z
-  .array(ClockOffset)
-  .min(1)
-  .refine(ascending, "must be sorted by `from`, with no night listed twice");
-
-export type NoOffsetForNight = { kind: "before_first_offset"; night: Temporal.PlainDate };
-
-/** The offset a night uses: the latest entry whose `from` is on or before the night. */
-export function offsetForNight(
-  offsets: readonly ClockOffset[],
-  night: Temporal.PlainDate,
-): Result<ClockOffset, NoOffsetForNight> {
-  const offset = offsets.findLast((entry) => Temporal.PlainDate.compare(entry.from, night) <= 0);
-
-  return offset === undefined ? err({ kind: "before_first_offset", night }) : ok(offset);
-}
+/** An instant as the CPAP's clock shows it. */
+export const toDeviceTime = (at: Temporal.Instant, zone: string): Temporal.PlainDateTime =>
+  at.toZonedDateTimeISO(winterOffset(zone, at.toZonedDateTimeISO(zone).year)).toPlainDateTime();

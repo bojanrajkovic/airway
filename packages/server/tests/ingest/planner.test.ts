@@ -9,7 +9,7 @@ import type { FileStates, FileVersion, ReadyFile } from "../../src/ingest/versio
 // Three synthetic nights; STR.edf has a record for each and none after.
 const model = syntheticNights({ seed: 3, nights: 3 })._unsafeUnwrap();
 const [first, second, third] = model.nights.map(({ night }) => night);
-const strEdf = readHeader(strFile(model.nights, model.offsets)._unsafeUnwrap())._unsafeUnwrap();
+const strEdf = readHeader(strFile(model.nights, model.zone)._unsafeUnwrap())._unsafeUnwrap();
 const afterStr = model.nights.at(-1)?.night.add({ days: 1 });
 
 const scanned = (path: string, night: Temporal.PlainDate | null): ScannedFile => ({
