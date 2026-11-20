@@ -28,8 +28,8 @@ type HashError = { kind: "hash_failed"; path: string; message: string };
  * Updates `seen`, the poller's memory of each path, from this poll's scan, and sorts the files by
  * readiness. A file's header is read only when its size or ctime changed, and a ready file is
  * hashed only once per version, so an unchanged folder costs only the scan. Paths missing from the
- * scan are forgotten. A rejected file is logged once per version. A file that can't be hashed,
- * such as one removed mid-poll, is forgotten and waits.
+ * scan are forgotten. A rejected file is logged once per version. A file that can't be hashed is
+ * logged and forgotten, so it waits and the next poll starts it over.
  */
 export function checkVersions(
   ctx: AppContext,
@@ -82,7 +82,7 @@ async function sort(
         current.rejectionLogged = true;
       }
     } else {
-      // A file removed mid-poll can't be hashed; forget it and let the next poll see.
+      // A file that can't be hashed is forgotten, so the next poll starts it over.
       const hashed =
         current.sha256 ??
         (await hash(ctx, file.path).match(

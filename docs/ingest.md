@@ -23,7 +23,7 @@ Everything else is counted by reason and skipped: SAD and CSL files, `.crc` file
 
 ## Readiness
 
-The card uploads files while airway polls, so a file can be mid-upload. `checkVersions(ctx, seen, scan, now)` in `ingest/versions.ts` sorts each scanned file into ready, waiting, or rejected. `seen` is the poller's memory between polls, one `SeenFile` per path. It holds the size, ctime, when that size and ctime were first seen, the parsed header, and the hash.
+CPAP-AutoSync copies files into the CPAP data folder while airway polls, so a file can be mid-copy. `checkVersions(ctx, seen, scan, now)` in `ingest/versions.ts` sorts each scanned file into ready, waiting, or rejected. `seen` is the poller's memory between polls, one `SeenFile` per path. It holds the size, ctime, when that size and ctime were first seen, the parsed header, and the hash.
 
 ```mermaid
 stateDiagram-v2
@@ -41,7 +41,7 @@ stateDiagram-v2
 - A rejected file is logged once per version at `warn`, with its path, reason, size, declared records, and records on disk.
 - A ready file is hashed once per version, with SHA-256 streamed from disk in an `ingest.hash` span. Its version is its path, size, and hash.
 - An unchanged folder costs only the scan: no header reads and no hashes. After a restart, `seen` starts empty, so the first poll reads every header and the second hashes every file.
-- A path missing from the scan is forgotten. A file that can't be hashed, such as one removed mid-poll, is forgotten and waits.
+- A path missing from the scan is forgotten. A file that can't be hashed is logged and forgotten, so it waits and the next poll starts it over.
 
 The `ingest.readiness` span records how many files are ready, waiting, and rejected.
 
