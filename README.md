@@ -16,7 +16,7 @@ airway is under construction and doesn't run yet. The [issues](https://github.co
 flowchart LR
   card[CPAP SD card] -->|copied to a folder| data[(CPAP data folder, read-only)]
   data --> ingest[Ingest: reads new nights' EDF files]
-  ingest --> pg[(Postgres 18: derived tables and notes)]
+  ingest --> pg[(Postgres 19: derived tables and notes)]
   pg --> server[airway server]
   server --> web[Web app: trends and explorer]
   server --> mcp[MCP server]

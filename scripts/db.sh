@@ -1,5 +1,5 @@
 #!/bin/sh
-# Starts or stops Postgres 18 for the database tests, with Podman or Docker. `up` returns once
+# Starts or stops Postgres 19 for the database tests, with Podman or Docker. `up` returns once
 # Postgres accepts connections. CI's service container in .github/workflows/ci.yml uses the same
 # image digest.
 set -eu

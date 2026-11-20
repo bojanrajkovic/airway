@@ -10,7 +10,7 @@ Vitest runs four projects, all defined in `vitest.config.ts`:
 |---|---|---|
 | `unit` | `pnpm test` (also part of `pnpm check`) | Every `*.test.ts` and `*.test.tsx` except telemetry, database, and browser tests |
 | `telemetry` | `pnpm test` (also part of `pnpm check`) | Every `*.telemetry.test.ts`, each file isolated |
-| `db` | `pnpm test:db` | Every `*.db.test.ts` and `*.db.test.tsx`, against a real Postgres 18 |
+| `db` | `pnpm test:db` | Every `*.db.test.ts` and `*.db.test.tsx`, against a real Postgres 19 |
 | `browser` | `pnpm test:browser` | Every `*.browser.test.ts` and `*.browser.test.tsx`, in Chromium |
 | `image` | `pnpm test:image` | Every `*.image.test.ts`, against a built image |
 
@@ -78,7 +78,7 @@ The database is dropped with `force`, so a connection a test forgot to close doe
 
 ### Postgres locally
 
-`pnpm db:up` runs Postgres 18 in Podman or Docker, published on `127.0.0.1:54318` with the password `airway`, and returns once it accepts connections. `pnpm db:down` stops and removes it. Nothing is kept between runs. To use another server, set `AIRWAY_TEST_POSTGRES_URL` to a URL for an existing database, as a role that can create databases.
+`pnpm db:up` runs Postgres 19 in Podman or Docker, published on `127.0.0.1:54318` with the password `airway`, and returns once it accepts connections. `pnpm db:down` stops and removes it. Nothing is kept between runs. To use another server, set `AIRWAY_TEST_POSTGRES_URL` to a URL for an existing database, as a role that can create databases.
 
 If the fixture can't connect within 3 seconds, the first database test fails with a message naming the host, and the underlying error as its cause.
 
