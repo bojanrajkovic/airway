@@ -15,6 +15,7 @@ const CONFIG: Config = {
   clockOffsets: [{ from: Temporal.PlainDate.from("2025-01-01"), utcOffset: "-05:07" }],
   timeZone: "America/Chicago",
   cpapDataPath: "/cpap-data",
+  dataMissingCutoff: Temporal.PlainTime.from("15:00"),
   port: 3000,
   logLevel: "info",
   auth: { mode: "none", author: { name: "Sam Rivera", email: "sam@example.test" } },

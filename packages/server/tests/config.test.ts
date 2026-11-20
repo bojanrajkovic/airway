@@ -42,11 +42,18 @@ describe("parseConfig", () => {
       expect(result.value.patient.adultRulesFrom13).toBe(false);
       expect(result.value.patient.birthDate.equals("2012-06-15")).toBe(true);
       expect(result.value.clockOffsets[0]?.utcOffset).toBe("-05:07");
+      expect(result.value.dataMissingCutoff.toString()).toBe("15:00:00");
       expect(result.value.auth).toEqual({
         mode: "none",
         author: { name: AIRWAY_LOCAL_AUTHOR_NAME, email: AIRWAY_LOCAL_AUTHOR_EMAIL },
       });
     }
+  });
+
+  it("parses a data-missing cutoff", () => {
+    const config = parseConfig({ ...VALID, AIRWAY_DATA_MISSING_CUTOFF: "09:30" })._unsafeUnwrap();
+
+    expect(config.dataMissingCutoff.toString()).toBe("09:30:00");
   });
 
   it("parses pomerium mode without the local author's settings", () => {
@@ -93,6 +100,8 @@ describe("parseConfig", () => {
     ["AIRWAY_TIME_ZONE", "-06:00"],
     ["AIRWAY_TIME_ZONE", "Etc/UTC"],
     ["AIRWAY_CPAP_DATA_PATH", "relative/cpap-data"],
+    ["AIRWAY_DATA_MISSING_CUTOFF", "3pm"],
+    ["AIRWAY_DATA_MISSING_CUTOFF", "25:00"],
     ["PORT", "70000"],
     ["LOG_LEVEL", "verbose"],
     ["AIRWAY_LOCAL_AUTHOR_NAME", " "],

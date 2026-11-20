@@ -37,18 +37,18 @@ Week and month buckets also carry the leak and mask-pressure percentiles recompu
 
 ## Last night
 
-`@airway/contract/api/last-night` decides whether last night's data is here. Ingest's data-missing metric, `summary.lastNight`, and the Last night card all call it, so the 15:00 cutoff is defined in one place.
+`@airway/contract/api/last-night` decides whether last night's data is here. Ingest's data-missing metric, `summary.lastNight`, and the Last night card all call it, so the cutoff rule lives in one place.
 
-`lastNightKey(now, zone)` is today's date in the home time zone, minus one day. `dataMissing(strDay, folderImported, now, zone)` returns one of four statuses:
+`lastNightKey(now, zone)` is today's date in the home time zone, minus one day. `dataMissing(strDay, folderImported, now, { zone, cutoff })` returns one of four statuses. `cutoff` is `AIRWAY_DATA_MISSING_CUTOFF`, a home time that defaults to 15:00 ([Configuration](configuration.md)):
 
 ```mermaid
 flowchart TD
   A{Folder imported?} -->|yes| arrived
   A -->|no| B{STR.edf usage is zero?}
   B -->|yes| unused
-  B -->|"no, or no record"| C{Before 15:00 home time?}
+  B -->|"no, or no record"| C{Before the cutoff, home time?}
   C -->|yes| pending
   C -->|no| missing
 ```
 
-A night with no STR.edf record counts as used. STR.edf arrives with each upload, so a missed upload also leaves it without last night's record, and that night should show as missing, not unused. The latest uploads finish around 13:30, so 15:00 leaves an hour and a half of margin.
+A night with no STR.edf record counts as used. STR.edf arrives with the night's files, so when they don't arrive it has no record for last night either, and that night should show as missing, not unused. Set the cutoff late enough that a normal night's files have arrived by then.
