@@ -36,8 +36,8 @@ function strCovers(str: ReadyFile | undefined): (night: Temporal.PlainDate) => b
  * Plans a poll's imports from its files' readiness and the versions already imported. A night is
  * imported when one of its ready files is new or changed. It waits whole while any of its files
  * waits, or while STR.edf isn't ready or has no record for it. Rejected files are left out, so a
- * hung upload can't hold its night, and because they're never imported, a later complete upload
- * is new and re-plans the night. A file missing from the folder changes nothing.
+ * file that never finishes can't hold its night, and because they're never imported, a later
+ * complete version is new and re-plans the night. A file missing from the folder changes nothing.
  */
 export function planNights(states: FileStates, imported: readonly FileVersion[]): NightPlan {
   const versions = new Map(imported.map((version) => [version.path, version]));
