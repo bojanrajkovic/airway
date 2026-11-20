@@ -118,7 +118,7 @@ EVE and CSL are EDF+D files. Their records last 0 s and hold an `EDF Annotations
 
 ## Segments
 
-A segment is the stretch one BRP file recorded. The machine starts a new BRP file now and then inside a mask-on period, so a session can hold several segments. `planSegments` in `packages/server/src/ingest/segments.ts` builds a night's segments from its ready BRP and PLD files, then its sessions:
+A segment is the stretch one BRP file recorded. The machine sometimes starts a new BRP file in the middle of a mask-on period, so a session can hold several segments. `planSegments` in `packages/server/src/ingest/segments.ts` builds a night's segments from its ready BRP and PLD files, then its sessions:
 
 ```mermaid
 flowchart TD
@@ -130,11 +130,11 @@ flowchart TD
   segment --> sessions["buildSessions: the segment's session"]
 ```
 
-- A file's span starts at its header's start time on the device clock and lasts every whole record on disk times the record length. The record count comes from the file's size, so a header that undercounts still gives the full segment.
-- Each BRP file with at least one record is its own segment. BRP files are never joined, because the gaps between them hold no signal.
-- Each PLD file with records attaches to the segment it overlaps most. Both halves of a split PLD overlap the same BRP file, so they land on the same segment. A PLD file starts about 1 s after its BRP file, which makes no difference to the overlap.
-- A header-only file, BRP or PLD, gets no segment and a `header_only` warning. A PLD file that overlaps no segment, such as one whose BRP file was rejected, gets an `unattached_pld` warning with its span. The caller logs each warning.
-- The attached BRP and PLD files name their segment in their `files` rows. EVE files and `.crc` files take no part in segments.
+- A file's span starts at its header's start time on the device clock and lasts the record length times the number of whole records on disk. The record count comes from the file's size, so a header that undercounts still gives the full segment.
+- Each BRP file with at least one record is its own segment, even when the next one starts seconds later, because the gap between them holds no signal.
+- Each PLD file with records attaches to the segment it overlaps most. Both halves of a split PLD overlap the same BRP file and land on its segment. A PLD file starts about 1 s after its BRP file and still overlaps it almost entirely.
+- A header-only BRP or PLD file gets a `header_only` warning instead of a segment. A PLD file that overlaps no segment, such as one whose BRP file was rejected, gets an `unattached_pld` warning with its span. The caller logs each warning.
+- The attached BRP and PLD files name their segment in their `files` rows. Only BRP and PLD files build segments.
 
 ## Sessions
 

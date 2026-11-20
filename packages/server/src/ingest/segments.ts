@@ -5,7 +5,7 @@ import type { EdfFile } from "@airway/edf/header";
 import type { FileSizeCheck } from "@airway/edf/size";
 import type { ReadyFile } from "./versions.ts";
 
-/** A ready BRP or PLD file, with the header readiness read and a size it didn't reject. */
+/** A ready BRP or PLD file, with the header and size check that readiness accepted. */
 export type SegmentFile = ReadyFile & {
   kind: "brp" | "pld";
   edf: EdfFile & { size: Exclude<FileSizeCheck, { verdict: "reject" }> };
@@ -40,7 +40,7 @@ export type NightSegments = Pick<Sessions, "sessions" | "approximate"> & {
 
 type Placed = Span & { file: SegmentFile };
 
-// A file's span: its header start on the device clock, plus every whole record on disk.
+// A file's span starts at its header's device-clock start and covers every whole record on disk.
 function place(file: SegmentFile, zone: string): Placed {
   const start = toInstant(file.edf.header.start, zone);
   const milliseconds = Math.round(file.edf.size.records * file.edf.header.recordSeconds * 1000);
@@ -59,8 +59,8 @@ const overlap = (a: Span, b: Span): number =>
  * A night's segments and sessions. Each BRP file with records is a segment. Each PLD file with
  * records attaches to the segment it overlaps most, the earlier one on a tie, so both halves of a
  * split PLD land on one segment. `buildSessions` then builds the sessions from the night's STR.edf
- * slots and the segments. A header-only file, or a PLD file that overlaps no segment, is left out
- * with a warning.
+ * slots and the segments. planSegments leaves out a header-only file, or a PLD file that overlaps
+ * no segment, and warns about it.
  */
 export function planSegments({ night, zone, day, files }: NightFiles): NightSegments {
   const warnings = files.flatMap((file): SegmentWarning[] =>
@@ -98,7 +98,7 @@ export function planSegments({ night, zone, day, files }: NightFiles): NightSegm
     maskOn: day.maskOn,
     maskOff: day.maskOff,
     maskEvents: day.maskEvents,
-    // Bare spans: a derived session copies its first segment, which would carry the file along.
+    // Pass bare spans, because buildSessions copies a segment into each derived session.
     segments: brps.map(({ start, end }) => ({ start, end })),
   });
 

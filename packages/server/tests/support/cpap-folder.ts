@@ -23,8 +23,8 @@ export function syntheticFolder(nights: number, cases: readonly EdgeCaseName[] =
 const CTIME = Temporal.Instant.from("2030-03-01T12:00:00Z");
 
 /**
- * The BRP and PLD files of `night`'s folder in `files`, as the readiness check passes them on: with
- * their headers read, and without the files it rejects.
+ * The BRP and PLD files of `night`'s folder in `files`, as the readiness check passes them on, each
+ * with its header read. It drops the files the check rejects.
  */
 export function segmentFiles(files: readonly CpapFile[], night: Temporal.PlainDate): SegmentFile[] {
   const folder = `DATALOG/${night.toString().replaceAll("-", "")}/`;

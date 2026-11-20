@@ -27,7 +27,7 @@ function usedDays(files: readonly CpapFile[]): UsedStrDay[] {
     .days.flatMap((day) => (day.used ? [day] : []));
 }
 
-// One edge case: each imported night's planSegments input, and the rows synthetic expects.
+// An edge case's planSegments input for each imported night, and the rows synthetic expects.
 type Case = { inputs: NightFiles[]; files: CpapFile[]; rows: DerivedRows };
 
 function edgeCase(name: EdgeCaseName): Case {
