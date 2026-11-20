@@ -15,7 +15,7 @@ DATALOG/YYYYMMDD/*_PLD.edf
 DATALOG/YYYYMMDD/*_EVE.edf
 ```
 
-Each `ScannedFile` has its path relative to the folder, its kind, its night, and the size and ctime from one `stat` call. ctime only tells ingest that a file changed. Ingest never compares it with its own clock, because the file server's clock isn't airway's.
+Each `ScannedFile` has its path relative to the folder, its kind, its night, and the size and ctime from one `stat` call. ctime only tells ingest that a file changed. Ingest never compares it with its own clock, because nothing guarantees the folder's clock matches airway's.
 
 Everything else is counted by reason and skipped: SAD and CSL files, `.crc` files, other entries, and folders whose names aren't real dates. The `ingest.scan` span records the file count and each skip count. A folder with no `DATALOG` yet has no nights. Any read error fails the scan with `read_failed`, and the next poll tries again.
 
