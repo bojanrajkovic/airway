@@ -44,8 +44,8 @@ catalog:
   libpg-query: 18.2.4
   neverthrow: 8.2.0
   oxfmt: 0.78.0
-  oxlint: 1.93.0
-  oxlint-plugin-eslint: 1.93.0
+  oxlint: 1.94.0
+  oxlint-plugin-eslint: 1.94.0
   oxlint-tsgolint: 7.0.2007
   pg: 8.23.1
   pg-copy-streams: 7.0.0
