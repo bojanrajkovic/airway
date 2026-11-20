@@ -31,7 +31,7 @@ export type Readiness =
 
 /**
  * Whether a file can be imported. It waits until its size and ctime have held for STABLE_FOR, so a
- * file mid-upload isn't judged by a partial header. Then its header decides: a file the size check
+ * half-written file isn't judged by a partial header. Then its header decides: a file the size check
  * rejects, or whose header can't be parsed, is rejected; anything else is ready. `previous` is the
  * file's state before this poll, used only to say why it waits.
  */

@@ -23,7 +23,7 @@ Everything else is counted by reason and skipped: SAD and CSL files, `.crc` file
 
 ## Readiness
 
-CPAP-AutoSync copies files into the CPAP data folder while airway polls, so a file can be mid-copy. `checkVersions(ctx, seen, scan, now)` in `ingest/versions.ts` sorts each scanned file into ready, waiting, or rejected. `seen` is the poller's memory between polls, one `SeenFile` per path. It holds the size, ctime, when that size and ctime were first seen, the parsed header, and the hash.
+Files in the CPAP data folder can change while airway polls, so a file can be half-written. `checkVersions(ctx, seen, scan, now)` in `ingest/versions.ts` sorts each scanned file into ready, waiting, or rejected. `seen` is the poller's memory between polls, one `SeenFile` per path. It holds the size, ctime, when that size and ctime were first seen, the parsed header, and the hash.
 
 ```mermaid
 stateDiagram-v2
