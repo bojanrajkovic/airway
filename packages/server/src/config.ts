@@ -31,6 +31,8 @@ export type Config = {
   /** The IANA zone night boundaries, alert times, and every displayed time use. */
   timeZone: string;
   cpapDataPath: string;
+  /** The home time by which a used night's folder should have arrived before it counts as missing. */
+  dataMissingCutoff: Temporal.PlainTime;
   port: number;
   logLevel: LogLevel;
   auth: AuthConfig;
@@ -73,6 +75,10 @@ const Env = z.object({
   AIRWAY_CLOCK_OFFSETS: json.pipe(ClockOffsets),
   AIRWAY_TIME_ZONE: z.string().refine(isTimeZone, "must be an IANA time zone"),
   AIRWAY_CPAP_DATA_PATH: z.string().startsWith("/", "must be an absolute path"),
+  AIRWAY_DATA_MISSING_CUTOFF: z.iso
+    .time({ precision: -1, error: "must be a time like 15:00" })
+    .default("15:00")
+    .transform((time) => Temporal.PlainTime.from(time)),
   PORT: z.coerce.number().int().min(1).max(65_535).default(3000),
   LOG_LEVEL: z.enum(LOG_LEVELS).default("info"),
 });
@@ -123,6 +129,7 @@ export function parseConfig(env: Record<string, string | undefined>): Result<Con
     clockOffsets: data.AIRWAY_CLOCK_OFFSETS,
     timeZone: data.AIRWAY_TIME_ZONE,
     cpapDataPath: data.AIRWAY_CPAP_DATA_PATH,
+    dataMissingCutoff: data.AIRWAY_DATA_MISSING_CUTOFF,
     port: data.PORT,
     logLevel: data.LOG_LEVEL,
     auth:
