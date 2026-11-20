@@ -39,9 +39,11 @@
       }
     },
     {
-      "description": "One Postgres image in scripts/db.sh and the CI service, so local and CI tests run the same server",
+      "description": "One Postgres image in scripts/db.sh and the CI service, so local and CI tests run the same server. The digest in the title keeps each PR's title unique, because Renovate disables automerge when a PR with the same title already merged",
       "matchPackageNames": ["postgres", "docker.io/library/postgres"],
-      "groupName": "Postgres image"
+      "groupName": "Postgres image",
+      "group": { "commitMessageExtra": "to {{{newDigestShort}}}" },
+      "automerge": true
     },
     {
       "description": "The post-upgrade task renames gcr.io/distroless/nodejs<major> in the Dockerfile to the new Node.js major and pins its digest",
