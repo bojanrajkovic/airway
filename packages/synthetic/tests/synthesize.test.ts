@@ -87,7 +87,7 @@ describe("synthesize", () => {
     const byPath = new Map(files.map((file) => [file.path, file.bytes]));
     const kinds = new Set(rows.files.map((row) => row.kind));
 
-    expect(kinds).toEqual(new Set(["identification", "str", "brp", "pld", "eve"]));
+    expect(kinds).toEqual(new Set(["identification", "str", "brp", "pld", "eve", "crc"]));
 
     for (const row of rows.files) {
       const bytes = byPath.get(row.path);

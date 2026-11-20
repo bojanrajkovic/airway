@@ -80,6 +80,14 @@ describe("planNights", () => {
     expect(plan).toMatchObject({ nights: [first], waiting: [], rejected: [truncated] });
   });
 
+  it("re-plans an imported night when a .crc arrives after it, without touching the STR.edf tables", () => {
+    const crc: ReadyFile = { ...brp(first, 1), path: "DATALOG/x/1_BRP.crc", kind: "crc" };
+    const imported = [str, brp(first, 1)].map(version);
+    const plan = planNights(states({ ready: [str, brp(first, 1), crc] }), imported);
+
+    expect(plan).toMatchObject({ nights: [first], rewriteStrTables: false });
+  });
+
   it("re-plans an imported night when its rejected file later turns ready", () => {
     // The first import left the rejected BRP out, so it has no imported version.
     const imported = [str, brp(first, 1)].map(version);

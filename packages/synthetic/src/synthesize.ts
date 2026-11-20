@@ -107,6 +107,11 @@ export function synthesize(
       ),
       fileRow(
         files,
+        { path: "Identification.crc", kind: "crc", night: null, segment: null },
+        options.uploadedAt,
+      ),
+      fileRow(
+        files,
         { path: "STR.edf", kind: "str", night: null, segment: null },
         options.uploadedAt,
       ),
@@ -251,7 +256,14 @@ function addNight(
     segment: segmentOf(file),
   }));
 
-  rows.files.push(...specs.map((spec) => fileRow(folder, spec, options.uploadedAt)));
+  // Each BRP, PLD, and EVE file's .crc imports by size alone, even when its EDF is rejected.
+  const crcs = files.flatMap((file): FileSpec[] =>
+    file.kind === "brp" || file.kind === "pld" || file.kind === "eve"
+      ? [{ path: `${file.path}.crc`, kind: "crc", night: date, segment: null }]
+      : [],
+  );
+
+  rows.files.push(...[...specs, ...crcs].map((spec) => fileRow(folder, spec, options.uploadedAt)));
 
   rows.sessions.push(
     ...built.sessions.map(({ session, start, end, source }): SessionRow => ({

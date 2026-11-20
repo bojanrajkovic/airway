@@ -9,15 +9,17 @@ The importer isn't finished. This page describes the parts that are built, and t
 Each poll starts with `scanCpapData(ctx)` in `packages/server/src/ingest/scan.ts`. It lists the files ingest reads from the CPAP data folder (`AIRWAY_CPAP_DATA_PATH`) without opening any of them:
 
 ```
-STR.edf, Identification.tgt          night = null
+STR.edf, Identification.tgt,         night = null
+Identification.crc
 DATALOG/YYYYMMDD/*_BRP.edf           night = the folder's date
 DATALOG/YYYYMMDD/*_PLD.edf
 DATALOG/YYYYMMDD/*_EVE.edf
+DATALOG/YYYYMMDD/*_{BRP,PLD,EVE}.crc
 ```
 
 Each `ScannedFile` has its path relative to the folder, its kind, its night, and the size and ctime from one `stat` call. ctime only tells ingest that a file changed. Ingest never compares it with its own clock, because nothing guarantees the folder's clock matches airway's.
 
-Everything else is counted by reason and skipped: SAD and CSL files, `.crc` files, other entries, and folders whose names aren't real dates. The `ingest.scan` span records the file count and each skip count. A folder with no `DATALOG` yet has no nights. Any read error fails the scan with `read_failed`, and the next poll tries again.
+A `.crc` file holds the checksums of the file it's named after. The scan keeps the `.crc` of each file it lists, so the checksums can be checked at import, and a `.crc` that arrives late re-plans its night. Everything else is counted by reason and skipped: SAD and CSL files and their `.crc` files, other entries, and folders whose names aren't real dates. The `ingest.scan` span records the file count and each skip count. A folder with no `DATALOG` yet has no nights. Any read error fails the scan with `read_failed`, and the next poll tries again.
 
 `readEdfFile(ctx, path)` in `ingest/edf.ts` reads one file's header with `readFileHeader` inside an `edf.read_file` span. The span records the path, the format, the size verdict, the whole records on disk, and the warning count. Each warning, such as a `startdate_mismatch`, becomes an `edf.warning` span event with its kind and details, and is logged at `warn` with the file's path.
 
@@ -36,7 +38,7 @@ stateDiagram-v2
 ```
 
 - A file waits until its size and ctime have held for 2 minutes, measured on airway's clock. The pure `checkReadiness` in `ingest/readiness.ts` makes that call.
-- Its header is read through `readEdfFile` only when its size or ctime changed, and then the size check decides. Identification.tgt isn't EDF, so its size alone decides.
+- Its header is read through `readEdfFile` only when its size or ctime changed, and then the size check decides. Identification.tgt and `.crc` files aren't EDF, so their size alone decides.
 - A header that can't be read for an I/O reason (`read_failed`) is logged and read again on every poll, without restarting the clock. A header that won't parse is rejected as `unreadable` until the file changes, because the same bytes give the same answer.
 - A rejected file is logged once per version at `warn`, with its path, reason, size, declared records, and records on disk.
 - A ready file is hashed once per version, with SHA-256 streamed from disk in an `ingest.hash` span. Its version is its path, size, and hash.

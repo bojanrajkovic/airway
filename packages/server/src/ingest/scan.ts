@@ -25,19 +25,26 @@ export type Scan = {
 
 export type ScanError = { kind: "read_failed"; path: string; message: string };
 
-// A night file's kind or skip reason, by the last 8 characters of its name.
+// A night file's kind or skip reason, by the last 8 characters of its name. A file ingest reads
+// keeps its .crc companion, so the checksum can be checked at import.
 const NIGHT_FILES: Readonly<Record<string, ScannedFile["kind"]>> = {
   "_BRP.edf": "brp",
   "_PLD.edf": "pld",
   "_EVE.edf": "eve",
+  "_BRP.crc": "crc",
+  "_PLD.crc": "crc",
+  "_EVE.crc": "crc",
 };
-const SKIPPED_NIGHT_FILES: Readonly<Record<string, "sad" | "csl">> = {
+const SKIPPED_NIGHT_FILES: Readonly<Record<string, (typeof SKIP_REASONS)[number]>> = {
   "_SAD.edf": "sad",
   "_CSL.edf": "csl",
+  "_SAD.crc": "crc",
+  "_CSL.crc": "crc",
 };
 const ROOT_FILES: Readonly<Record<string, ScannedFile["kind"]>> = {
   "STR.edf": "str",
   "Identification.tgt": "identification",
+  "Identification.crc": "crc",
 };
 
 /** A DATALOG folder name as a night, or null when it isn't a real YYYYMMDD date. */
@@ -55,9 +62,10 @@ function nightOf(name: string): Temporal.PlainDate | null {
 
 /**
  * Lists the CPAP data folder's STR.edf, Identification.tgt, and each DATALOG/YYYYMMDD folder's
- * BRP, PLD, and EVE files, without opening any of them. SAD, CSL, .crc, other entries, and
- * folders that aren't dates are counted and skipped. A missing DATALOG folder means no nights yet.
- * Any read error fails the scan, and the next poll tries again.
+ * BRP, PLD, and EVE files, with the .crc companion of each, without opening any of them. SAD and
+ * CSL files and their .crc files, other entries, and folders that aren't dates are counted and
+ * skipped. A missing DATALOG folder means no nights yet. Any read error fails the scan, and the
+ * next poll tries again.
  */
 export function scanCpapData(ctx: AppContext): ResultAsync<Scan, ScanError> {
   const root = ctx.config.cpapDataPath;
@@ -106,7 +114,7 @@ async function walk(root: string): Promise<Scan> {
     } else if (entry.name === "DATALOG" && entry.isDirectory()) {
       hasDatalog = true;
     } else {
-      scan.skipped[entry.name.endsWith(".crc") ? "crc" : "other"]++;
+      scan.skipped.other++;
     }
   }
 
@@ -132,8 +140,6 @@ async function walk(root: string): Promise<Scan> {
         await add(`DATALOG/${folder.name}/${entry.name}`, kind, night);
       } else if (skip !== undefined) {
         scan.skipped[skip]++;
-      } else if (entry.name.endsWith(".crc")) {
-        scan.skipped.crc++;
       } else {
         scan.skipped.other++;
       }

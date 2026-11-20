@@ -14,7 +14,7 @@ export const EVENT_TYPES = [
   "other",
 ] as const;
 export const EVENT_SOURCES = ["resmed", "airway_candidate"] as const;
-export const FILE_KINDS = ["brp", "pld", "eve", "str", "identification"] as const;
+export const FILE_KINDS = ["brp", "pld", "eve", "str", "identification", "crc"] as const;
 export const PERIODS = ["week", "month"] as const;
 /** The sample signals whose weekly and monthly percentiles are stored. */
 export const PERCENTILE_SIGNALS = ["leak", "mask_pressure"] as const;

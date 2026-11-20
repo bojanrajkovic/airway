@@ -57,6 +57,8 @@ export function planNights(states: FileStates, imported: readonly FileVersion[])
     nights: nights.filter((night) => changed.has(night.toString()) && !waits(night)),
     waiting: nights.filter(waits),
     rejected: states.rejected,
-    rewriteStrTables: states.ready.some((file) => file.night === null && isNew(file, versions)),
+    rewriteStrTables: states.ready.some(
+      (file) => (file.kind === "str" || file.kind === "identification") && isNew(file, versions),
+    ),
   };
 }
