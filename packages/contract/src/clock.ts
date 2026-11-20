@@ -1,6 +1,6 @@
 /**
- * The zone's UTC offset in `year` without daylight saving time, as `±HH:MM`. DST always adds time,
- * so it's the smaller of the January and July offsets, in either hemisphere.
+ * The zone's UTC offset in `year` without daylight saving time, as `±HH:MM`. Because DST always
+ * adds time, it's the smaller of the January and July offsets, in either hemisphere.
  */
 export function winterOffset(zone: string, year: number): string {
   const firstOf = (month: number): Temporal.ZonedDateTime =>
@@ -11,10 +11,7 @@ export function winterOffset(zone: string, year: number): string {
   return january.offsetNanoseconds <= july.offsetNanoseconds ? january.offset : july.offset;
 }
 
-/**
- * A device-clock time as an instant. The CPAP's clock doesn't follow daylight saving time, so it
- * keeps the home zone's winter offset all year.
- */
+/** A device-clock time as an instant. The CPAP's clock keeps the zone's winter offset all year. */
 export const toInstant = (time: Temporal.PlainDateTime, zone: string): Temporal.Instant =>
   time.toZonedDateTime(winterOffset(zone, time.year)).toInstant();
 

@@ -38,7 +38,7 @@ export type SyntheticOptions = {
   cases?: "all" | readonly EdgeCaseName[];
 };
 
-/** A model's nights and the home time zone, whose winter offset their files' device clock keeps. */
+/** A model's nights and its home zone. The files' device clock keeps that zone's winter offset. */
 export type Synthetic = { nights: SyntheticNight[]; zone: string };
 
 /** A stretch with the mask on: one session. */

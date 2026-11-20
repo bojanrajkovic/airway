@@ -24,7 +24,6 @@ export type EdgeCaseContext = {
   zone: string;
 };
 
-/** An edge case's nights. */
 export type EdgeCaseNights = { nights: SyntheticNight[] };
 
 /** A DST case asked for in a zone that has no such transition. */

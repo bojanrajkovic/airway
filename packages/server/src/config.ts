@@ -28,7 +28,7 @@ export type Config = {
   patient: PatientProfile;
   /**
    * The IANA zone night boundaries, alert times, and every displayed time use. Its winter offset
-   * converts the CPAP's clock, which doesn't follow daylight saving time.
+   * converts the CPAP's clock, which stays on winter time all year.
    */
   timeZone: string;
   cpapDataPath: string;

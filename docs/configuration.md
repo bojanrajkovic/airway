@@ -25,6 +25,6 @@ In development, `pnpm dev` loads `.env.example`, then `.env` if it exists, so yo
 
 ## The CPAP's clock
 
-The CPAP's clock has no time zone and doesn't follow daylight saving time. airway reads its timestamps with the home time zone's winter offset all year: `-05:00` for `America/New_York`, even in July. `winterOffset` in `@airway/contract/clock` takes the smaller of the zone's January and July offsets, which is the offset without DST in either hemisphere.
+The CPAP's clock has no time zone and stays on one offset all year. airway reads its timestamps with the home time zone's winter offset. For `America/New_York`, that's `-05:00`, even in July. `winterOffset` in `@airway/contract/clock` takes the smaller of the zone's January and July offsets, which is the offset without DST in either hemisphere.
 
 Set the machine's clock to the home zone's winter time, and leave it there across DST changes. A clock moved to summer time puts every later session an hour early until it's set back. airway ignores the clock's drift of a few minutes a year; setting the clock fixes it from that night on.
