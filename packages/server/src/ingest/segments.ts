@@ -1,8 +1,11 @@
+import type { Attributes } from "@opentelemetry/api";
 import { toInstant } from "@airway/contract/clock";
 import { buildSessions, type Sessions, type Span } from "@airway/contract/derived/sessions";
 import type { UsedStrDay } from "@airway/contract/derived/str";
 import type { EdfFile } from "@airway/edf/header";
 import type { FileSizeCheck } from "@airway/edf/size";
+import type { AppContext } from "../runtime/context.ts";
+import { inSpan } from "../telemetry.ts";
 import type { ReadyFile } from "./versions.ts";
 
 /** A ready BRP or PLD file, with the header and size check that readiness accepted. */
@@ -118,4 +121,48 @@ export function planSegments({ night, zone, day, files }: NightFiles): NightSegm
       plds: plds[i] ?? [],
     })),
   };
+}
+
+function warningAttributes(warning: SegmentWarning): Attributes {
+  const attributes = {
+    "airway.segment_warning.kind": warning.kind,
+    "airway.file.path": warning.path,
+  };
+
+  return warning.kind === "header_only"
+    ? { ...attributes, "airway.file.kind": warning.fileKind }
+    : {
+        ...attributes,
+        "airway.segment_warning.start": warning.start.toString(),
+        "airway.segment_warning.end": warning.end.toString(),
+      };
+}
+
+/**
+ * Runs `planSegments` inside an `ingest.segments` span, which records the night and its segment,
+ * session, and warning counts. Each warning becomes an `ingest.segment_warning` span event and a
+ * `warn` log.
+ */
+export function buildNight(ctx: AppContext, input: NightFiles): NightSegments {
+  const night = input.night.toString();
+  const logger = ctx.logger.child({ module: "ingest.segments", night });
+
+  return inSpan("ingest.segments", (span) => {
+    const planned = planSegments(input);
+
+    span.setAttributes({
+      "airway.night": night,
+      "airway.segments": planned.segments.length,
+      "airway.sessions": planned.sessions.length,
+      "airway.sessions.approximate": planned.approximate,
+      "airway.segment_warnings": planned.warnings.length,
+    });
+
+    for (const warning of planned.warnings) {
+      span.addEvent("ingest.segment_warning", warningAttributes(warning));
+      logger.warn({ warning }, "Segment warning");
+    }
+
+    return planned;
+  });
 }

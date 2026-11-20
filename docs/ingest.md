@@ -133,8 +133,10 @@ flowchart TD
 - A file's span starts at its header's start time on the device clock and lasts the record length times the number of whole records on disk. The record count comes from the file's size, so a header that undercounts still gives the full segment.
 - Each BRP file with at least one record is its own segment, even when the next one starts seconds later, because the gap between them holds no signal.
 - Each PLD file with records attaches to the segment it overlaps most. Both halves of a split PLD overlap the same BRP file and land on its segment. A PLD file starts about 1 s after its BRP file and still overlaps it almost entirely.
-- A header-only BRP or PLD file gets a `header_only` warning instead of a segment. A PLD file that doesn't match any segment, such as one whose BRP file was rejected, gets an `unattached_pld` warning with its span. The caller logs each warning.
+- A header-only BRP or PLD file gets a `header_only` warning instead of a segment. A PLD file that doesn't match any segment, such as one whose BRP file was rejected, gets an `unattached_pld` warning with its span.
 - The attached BRP and PLD files name their segment in their `files` rows. Only BRP and PLD files build segments.
+
+`buildNight(ctx, input)` runs `planSegments` inside an `ingest.segments` span. The span records the night, its segment, session, and warning counts, and whether its sessions are approximate. Each warning becomes an `ingest.segment_warning` span event with its kind and the file's path, and an unattached PLD file's event also carries its start and end. `buildNight` logs each warning at `warn` with the night.
 
 ## Sessions
 
