@@ -67,6 +67,12 @@ The helpers never log; see [Errors](#errors). `untraced(fn)` turns tracing off i
 
 Span attributes follow the same rule as logs: IDs, counts, and outcomes, never values from the data.
 
+### Sampling ingest traces
+
+Ingest polls the CPAP data folder every 5 minutes, and every poll sends a trace, idle ones included. An idle poll's trace holds the scan and readiness spans. The first poll after a restart reads every header and hashes every file, so its trace holds a span per file, thousands for a long history.
+
+You'll probably want to sample those traces in your collector, with tail sampling so each trace is kept or dropped whole. Keep every poll that planned nights or failed, and a share of idle ones.
+
 ## Metrics
 
 The SDK exports metrics every 60 seconds. Histograms are exponential, so their buckets adapt to what's recorded and no instrument picks bucket boundaries. Built-in metrics come from the instrumentations:

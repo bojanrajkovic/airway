@@ -45,6 +45,18 @@ stateDiagram-v2
 
 The `ingest.readiness` span records how many files are ready, waiting, and rejected.
 
+## Planning
+
+`planNights(states, imported)` in `ingest/planner.ts` turns the files' readiness into a `NightPlan`. `imported` holds the versions in `derived.files`: path, size, and SHA-256.
+
+- **A night is imported** when one of its ready files is new or has a different size or hash, and nothing holds it.
+- **A night waits whole** while any of its files waits, so it's never imported from half its files. It also waits while STR.edf isn't ready or has no record for it. STR.edf's header gives its first day, and each whole record is one more day.
+- **A rejected file is left out**, and its night imports without it, so a file that never finishes can't hold the night forever. Rejected files never get a `files` row. When the complete file arrives later, it has no imported version, so it re-plans the night and the night's rows are rebuilt with it.
+- **A file that leaves the CPAP data folder changes nothing.** The night keeps its rows until the next rebuild, which reads only what's in the folder.
+- **`rewriteStrTables`** is true when STR.edf or Identification.tgt has a new ready version. Both feed the STR.edf tables.
+
+Import starts at the first DATALOG folder, because only folders give nights. STR.edf's older days feed only the STR.edf tables.
+
 ## Reading EDF files
 
 `@airway/edf` reads the card's EDF files. BRP, PLD, SAD, and `STR.edf` are plain EDF. EVE and CSL are EDF+D, and hold annotations.
