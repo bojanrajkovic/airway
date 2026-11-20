@@ -17,7 +17,7 @@ export type HeaderCount = "matches" | "unknown_length" | "undercounted";
  *   says how the header's count compares, so a scan can report files by it.
  * - `skip`: a header with no records.
  * - `reject`: the file is `truncated` (fewer records than declared) or ends in a
- *   `partial_record`, so it was cut off or is still uploading. Its night imports without it.
+ *   `partial_record`, so it was cut off or is still being written. Its night imports without it.
  */
 export type FileSizeCheck =
   | { verdict: "read"; header: HeaderCount; records: number }

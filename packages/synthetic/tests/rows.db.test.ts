@@ -29,7 +29,7 @@ test("gives every derived table's rows exactly the table's columns", async ({ da
   const raised = { ...second, str: new Map(second.str).set("S.AS.MaxPress", 14) };
   const { rows } = synthesize([first, raised], offsets, {
     patient: "child",
-    uploadedAt: Temporal.Instant.from("2030-03-01T12:00:00Z"),
+    arrivedAt: Temporal.Instant.from("2030-03-01T12:00:00Z"),
   })._unsafeUnwrap();
 
   const client = new pg.Client(databaseUrl);

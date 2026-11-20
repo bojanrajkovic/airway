@@ -30,7 +30,7 @@ Week and month buckets also carry the leak and mask-pressure percentiles recompu
 | Procedure | Takes | Returns |
 |---|---|---|
 | `summary.range` | `SummaryRange`: `{from, to, step}` | `RangeSummary`: a bucket for every step in the range, empty ones included, and the trends link |
-| `summary.lastNight` | nothing | `LastNightSummary`: last night's status, and its numbers and upload time once it has arrived |
+| `summary.lastNight` | nothing | `LastNightSummary`: last night's status, and its numbers and arrival time once it has arrived |
 | `summary.settingsChanges` | `NightRange`: `{from, to}` | each `SettingChange` in the range, in the device's units |
 
 `step` is `night`, `week` (ISO weeks starting Monday), or `month`. The trends page's toggle, its URLs, and `summarize_nights` all use these values; the toggle labels `night` as "Day".

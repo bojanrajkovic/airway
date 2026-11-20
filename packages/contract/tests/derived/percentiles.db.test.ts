@@ -19,7 +19,7 @@ const Rows = z.array(
 const night = (date: string, leaks: readonly number[]): string => `
 insert into derived.nights (night, sessions, expected_sessions, session_count_approximate,
   longest_stretch, obstructive_apneas, central_apneas, unclassified_apneas, hypopneas, arousals,
-  events_outside_mask_on, ahi_check, rule_set, uploaded_at)
+  events_outside_mask_on, ahi_check, rule_set, arrived_at)
 values ('${date}', 1, 1, false, 480, 0, 0, 0, 0, 0, 0, 'match', 'pediatric', '${date}T14:00Z');
 insert into derived.sessions (night, session, ts, ended_at, source)
 values ('${date}', 1, '${date}T02:00Z', '${date}T10:00Z', 'str');

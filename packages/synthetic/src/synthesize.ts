@@ -43,8 +43,8 @@ import { breaths } from "./signals.ts";
 export type SynthesizeOptions = {
   /** Sets each night's rule set: `pediatric` for a child, `adult` for an adult. */
   patient: Patient;
-  /** Stands in for every time ingest takes from the import: file ctimes and `uploaded_at`. */
-  uploadedAt: Temporal.Instant;
+  /** Stands in for every time ingest takes from the import: file ctimes and `arrived_at`. */
+  arrivedAt: Temporal.Instant;
 };
 
 /** A CPAP data folder and the rows ingest should derive from it. */
@@ -103,17 +103,17 @@ export function synthesize(
       fileRow(
         files,
         { path: "Identification.tgt", kind: "identification", night: null, segment: null },
-        options.uploadedAt,
+        options.arrivedAt,
       ),
       fileRow(
         files,
         { path: "Identification.crc", kind: "crc", night: null, segment: null },
-        options.uploadedAt,
+        options.arrivedAt,
       ),
       fileRow(
         files,
         { path: "STR.edf", kind: "str", night: null, segment: null },
-        options.uploadedAt,
+        options.arrivedAt,
       ),
     );
 
@@ -263,7 +263,7 @@ function addNight(
       : [],
   );
 
-  rows.files.push(...[...specs, ...crcs].map((spec) => fileRow(folder, spec, options.uploadedAt)));
+  rows.files.push(...[...specs, ...crcs].map((spec) => fileRow(folder, spec, options.arrivedAt)));
 
   rows.sessions.push(
     ...built.sessions.map(({ session, start, end, source }): SessionRow => ({
@@ -365,7 +365,7 @@ function nightRow(
   night: SyntheticNight,
   built: ReturnType<typeof buildSessions>,
   events: readonly EventRow[],
-  { patient, uploadedAt }: SynthesizeOptions,
+  { patient, arrivedAt }: SynthesizeOptions,
 ): NightRow {
   const count = (type: EventRow["type"]): number => events.filter((e) => e.type === type).length;
   const usage = night.str.get("OnDuration") ?? 0;
@@ -398,6 +398,6 @@ function nightRow(
     events_outside_mask_on: events.filter((e) => e.outside_mask_on).length,
     ahi_check: ahiCheck,
     rule_set: RULE_SETS[patient],
-    uploaded_at: uploadedAt,
+    arrived_at: arrivedAt,
   };
 }

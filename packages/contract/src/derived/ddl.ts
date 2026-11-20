@@ -103,7 +103,7 @@ create unlogged table ${schema}.nights (
   events_outside_mask_on integer not null,
   ahi_check text not null ${oneOf("ahi_check", AHI_CHECKS)},
   rule_set text not null ${oneOf("rule_set", RULE_SETS)},
-  uploaded_at timestamptz not null
+  arrived_at timestamptz not null
 );
 
 -- STR.edf and Identification.tgt belong to no night.

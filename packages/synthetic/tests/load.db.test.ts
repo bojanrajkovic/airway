@@ -8,7 +8,7 @@ import { syntheticNights, type SyntheticNight } from "../src/model.ts";
 import { synthesize } from "../src/synthesize.ts";
 
 const offsets = ClockOffsets.parse([{ from: "2030-01-01", utcOffset: "-05:00" }]);
-const uploadedAt = Temporal.Instant.from("2030-03-01T12:00:00Z");
+const arrivedAt = Temporal.Instant.from("2030-03-01T12:00:00Z");
 
 async function withClient<T>(url: string, run: (client: pg.Client) => Promise<T>): Promise<T> {
   const client = new pg.Client(url);
@@ -26,10 +26,10 @@ async function load(
   nights: readonly SyntheticNight[],
   schema: "derived" | "derived_next",
 ): Promise<void> {
-  const { rows } = synthesize(nights, offsets, { patient: "child", uploadedAt })._unsafeUnwrap();
+  const { rows } = synthesize(nights, offsets, { patient: "child", arrivedAt })._unsafeUnwrap();
 
   await withClient(url, async (client) => {
-    await loadDerived(client, rows, { schema, builtAt: uploadedAt });
+    await loadDerived(client, rows, { schema, builtAt: arrivedAt });
   });
 }
 

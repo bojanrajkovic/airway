@@ -46,7 +46,7 @@ export type NightRow = {
   events_outside_mask_on: number;
   ahi_check: (typeof AHI_CHECKS)[number];
   rule_set: RuleSet;
-  uploaded_at: Temporal.Instant;
+  arrived_at: Temporal.Instant;
 };
 
 export type FileRow = {

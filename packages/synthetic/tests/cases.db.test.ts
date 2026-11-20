@@ -6,7 +6,7 @@ import { loadDerived } from "../src/load.ts";
 import { syntheticNights } from "../src/model.ts";
 import { synthesize } from "../src/synthesize.ts";
 
-const uploadedAt = Temporal.Instant.from("2030-03-01T12:00:00Z");
+const arrivedAt = Temporal.Instant.from("2030-03-01T12:00:00Z");
 const Count = z.array(z.object({ count: z.coerce.number() }));
 
 test(
@@ -17,13 +17,13 @@ test(
     const model = syntheticNights({ seed: 7, nights: 0, cases: "all" })._unsafeUnwrap();
     const { rows } = synthesize(model.nights, model.offsets, {
       patient: "child",
-      uploadedAt,
+      arrivedAt,
     })._unsafeUnwrap();
     const client = new pg.Client(databaseUrl);
     await client.connect();
 
     try {
-      await loadDerived(client, rows, { schema: "derived", builtAt: uploadedAt });
+      await loadDerived(client, rows, { schema: "derived", builtAt: arrivedAt });
 
       const loaded = Count.parse((await client.query("select count(*) from derived.nights")).rows);
 

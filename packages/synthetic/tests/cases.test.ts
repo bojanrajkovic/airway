@@ -7,7 +7,7 @@ import { maskSlots, nightFiles, sizeCheck, type MaskSlots, type NightFile } from
 import { syntheticNights, type Synthetic, type SyntheticNight } from "../src/model.ts";
 import { synthesize, type Synthesized } from "../src/synthesize.ts";
 
-const uploadedAt = Temporal.Instant.from("2030-03-01T12:00:00Z");
+const arrivedAt = Temporal.Instant.from("2030-03-01T12:00:00Z");
 
 // One case on its own: its nights, their offsets and files, and the rows ingest should derive.
 type Built = Synthetic & Synthesized & { night: SyntheticNight };
@@ -22,7 +22,7 @@ function edgeCase(name: EdgeCaseName, zone = "America/Chicago"): Built {
 
   const synthesized = synthesize(model.nights, model.offsets, {
     patient: "child",
-    uploadedAt,
+    arrivedAt,
   })._unsafeUnwrap();
 
   return { ...model, ...synthesized, night };
