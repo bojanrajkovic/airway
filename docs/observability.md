@@ -59,7 +59,7 @@ function loadNight(ctx: AppContext, night: Temporal.PlainDate): ResultAsync<Nigh
 }
 ```
 
-- An `Ok`, or from `inSpan` any value that isn't a `Result`, ends the span with no status. Pure work that can't fail, such as planning a night's segments, returns its value directly.
+- An `Ok` ends the span with no status. So does a plain value from `inSpan`, which lets pure work, such as planning a night's segments, return its value directly.
 - An `Err` sets the span's status to error and records its `kind` as `error.type`.
 - A throw sets the status to error, records the exception (its message and stack) with its class as `error.type`, and rethrows.
 

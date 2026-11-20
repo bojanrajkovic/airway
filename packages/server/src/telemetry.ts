@@ -10,10 +10,11 @@ const tracer = trace.getTracer("airway");
 export type Tagged = { kind: string };
 
 /**
- * Runs `fn` in an active span named `name` and ends the span when `fn` returns, passing its value
- * through. A neverthrow `Err` marks the span failed with its `kind` as `error.type`. A throw marks it failed, records the exception
- * with its class as `error.type`, and rethrows. Neither is logged here: the code that returns an `Err` logs it, and the HTTP app's
- * error handler logs throws. `fn` sets its own attributes on `span`.
+ * Runs `fn` in an active span named `name`, ends the span when `fn` returns, and returns its value.
+ * A neverthrow `Err` marks the span failed with its `kind` as `error.type`. A throw marks it failed,
+ * records the exception with its class as `error.type`, and rethrows. The code that returns an
+ * `Err` logs it, and the HTTP app's error handler logs throws. `fn` sets its own attributes on
+ * `span`.
  */
 export function inSpan<T, E extends Tagged>(
   name: string,
