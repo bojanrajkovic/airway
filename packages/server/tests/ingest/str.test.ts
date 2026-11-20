@@ -9,7 +9,7 @@ import { syntheticNights, type Synthetic } from "@airway/synthetic/model";
 import { synthesize } from "@airway/synthetic/synthesize";
 import { readStr } from "../../src/ingest/str.ts";
 
-const uploadedAt = Temporal.Instant.from("2030-03-01T12:00:00Z");
+const arrivedAt = Temporal.Instant.from("2030-03-01T12:00:00Z");
 
 function readable(bytes: Uint8Array): ReadableEdfFile {
   const file = readHeader(bytes)._unsafeUnwrap();
@@ -33,7 +33,7 @@ function edgeCase(name: EdgeCaseName): Case {
   const bytes = strFile(model.nights, model.offsets)._unsafeUnwrap();
   const { rows } = synthesize(model.nights, model.offsets, {
     patient: "child",
-    uploadedAt,
+    arrivedAt,
   })._unsafeUnwrap();
 
   return { ...model, bytes, rows };

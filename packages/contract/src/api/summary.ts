@@ -68,7 +68,7 @@ export type LastNightSummary =
       night: Temporal.PlainDate;
       status: "arrived";
       /** When the night's files finished arriving. */
-      uploadedAt: Temporal.Instant;
+      arrivedAt: Temporal.Instant;
       values: MetricValues;
     }
   | { night: Temporal.PlainDate; status: Exclude<LastNightStatus, "arrived"> };

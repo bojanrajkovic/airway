@@ -117,6 +117,6 @@ export const nights: Omit<Dataset, "columns"> & {
       "Whether the AHI airway recomputes from the events equals the machine's.",
     ),
     enumeration("rule_set", RULE_SETS, "The scoring rules for the patient's age on this night."),
-    time("uploaded_at", "timestamp", "When the night's files finished arriving."),
+    time("arrived_at", "timestamp", "When the night's files finished arriving."),
   ],
 };

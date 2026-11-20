@@ -148,11 +148,11 @@ DATALOG/
 
 ## Derived rows
 
-`synthesize(nights, offsets, { patient, uploadedAt })` in `@airway/synthetic/synthesize` returns the CPAP data folder together with the rows ingest should derive from it, one list per derived table. Both come from the same nights, so a test that edits a night gets files and rows that agree. The row types live in `@airway/contract/derived/rows`, and ingest writes the same shapes.
+`synthesize(nights, offsets, { patient, arrivedAt })` in `@airway/synthetic/synthesize` returns the CPAP data folder together with the rows ingest should derive from it, one list per derived table. Both come from the same nights, so a test that edits a night gets files and rows that agree. The row types live in `@airway/contract/derived/rows`, and ingest writes the same shapes.
 
 ```ts
 const { nights, offsets } = syntheticNights({ seed: 7, nights: 10 })._unsafeUnwrap();
-const result = synthesize(nights, offsets, { patient: "child", uploadedAt });
+const result = synthesize(nights, offsets, { patient: "child", arrivedAt });
 
 if (result.isErr()) {
   throw new Error(`can't synthesize: ${result.error.kind}`);
@@ -174,11 +174,11 @@ The rows follow ingest's rules:
 - `daily_usage` covers every day from the first night to the last, with 0 on a day with no night.
 - `settings_changes` comes from the contract's `settingsChanges`, called with every STR.edf day and the first night that has a folder. A change made on a night with no folder gets its row on that night.
 - A night with no segments has no folder, so ingest never sees it. It gets only its `daily_usage` row.
-- `uploadedAt` fills every `ctime` and `uploaded_at`.
+- `arrivedAt` fills every `ctime` and `arrived_at`.
 
 ### Ingest's acceptance target
 
-Ingesting `synthesize`'s files must produce its rows. The comparison skips `ctime`, `uploaded_at`, and `built_at`, which depend on when the import ran. Ingest finds breaths with its own detector, so breaths are compared within these tolerances, measured with a prototype detector on synthetic nights:
+Ingesting `synthesize`'s files must produce its rows. The comparison skips `ctime`, `arrived_at`, and `built_at`, which depend on when the import ran. Ingest finds breaths with its own detector, so breaths are compared within these tolerances, measured with a prototype detector on synthetic nights:
 
 | Measure | Tolerance |
 |---|---|
@@ -196,12 +196,12 @@ Ingesting `synthesize`'s files must produce its rows. The comparison skips `ctim
 test("counts a night with 12 mask-on periods", async ({ databaseUrl }) => {
   const { nights, offsets } = syntheticNights({ seed: 3, nights: 60 })._unsafeUnwrap();
   const busy = nights.filter((night) => night.periods.length > 10);
-  const { rows } = synthesize(busy, offsets, { patient: "child", uploadedAt })._unsafeUnwrap();
+  const { rows } = synthesize(busy, offsets, { patient: "child", arrivedAt })._unsafeUnwrap();
   const client = new pg.Client(databaseUrl);
   await client.connect();
 
   try {
-    await loadDerived(client, rows, { builtAt: uploadedAt });
+    await loadDerived(client, rows, { builtAt: arrivedAt });
     // ...query derived.nights
   } finally {
     await client.end();

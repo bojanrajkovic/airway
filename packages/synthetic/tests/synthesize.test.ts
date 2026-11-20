@@ -5,11 +5,11 @@ import { syntheticNights, type SyntheticNight } from "../src/model.ts";
 import { synthesize, type Synthesized } from "../src/synthesize.ts";
 
 const offsets = ClockOffsets.parse([{ from: "2030-01-01", utcOffset: "-05:00" }]);
-const uploadedAt = Temporal.Instant.from("2030-03-01T12:00:00Z");
+const arrivedAt = Temporal.Instant.from("2030-03-01T12:00:00Z");
 const { nights } = syntheticNights({ seed: 7, nights: 4 })._unsafeUnwrap();
 
 const run = (list: readonly SyntheticNight[]): Synthesized =>
-  synthesize(list, offsets, { patient: "child", uploadedAt })._unsafeUnwrap();
+  synthesize(list, offsets, { patient: "child", arrivedAt })._unsafeUnwrap();
 // Each test that asks for `synthesized` gets its own folder and rows, built from `nights`.
 const test = base.extend<{ synthesized: Synthesized }>({
   synthesized: async ({}, use) => {
@@ -47,9 +47,9 @@ describe("synthesize", () => {
       const samples = ofNight(rows.samples, night);
 
       expect(samples).toHaveLength(seconds / 2);
-      expect(
-        samples[0]?.ts.equals(night.segments[0]?.start.add({ seconds: 1 }) ?? uploadedAt),
-      ).toBe(true);
+      expect(samples[0]?.ts.equals(night.segments[0]?.start.add({ seconds: 1 }) ?? arrivedAt)).toBe(
+        true,
+      );
     }
   });
 
@@ -98,7 +98,7 @@ describe("synthesize", () => {
           .update(bytes ?? new Uint8Array())
           .digest("hex"),
       );
-      expect(row.ctime).toBe(uploadedAt);
+      expect(row.ctime).toBe(arrivedAt);
     }
 
     // Each segment has exactly one BRP file naming it.

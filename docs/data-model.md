@@ -8,7 +8,7 @@ A dataset is something to query: a derived table of the same name, with each col
 
 | Dataset | One row per | Columns |
 |---|---|---|
-| `nights` | Night | The machine's `STR.edf` statistics, then airway's: session counts, the longest stretch, event counts, the AHI check, the rule set, and the upload time |
+| `nights` | Night | The machine's `STR.edf` statistics, then airway's: session counts, the longest stretch, event counts, the AHI check, the rule set, and the arrival time |
 | `sessions` | Mask-on period | Start, end, duration, and whether it comes from the machine's mask-on times or from the recording files |
 | `events` | Event the machine flagged | Type, source, duration, and whether it fell outside every mask-on period |
 | `samples` | 2 seconds of therapy | The nine low-rate signals: pressures, leak, respiratory rate, tidal volume, minute ventilation, snore, and flow limitation |
