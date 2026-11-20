@@ -25,7 +25,6 @@ describe("scanCpapData", () => {
       crc: files.filter(({ path }) => path.endsWith(".crc")).length,
       other: 0,
       folder: 0,
-      vanished: 0,
     });
   });
 

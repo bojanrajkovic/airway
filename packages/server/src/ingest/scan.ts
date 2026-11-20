@@ -1,4 +1,3 @@
-import type { Dirent } from "node:fs";
 import { readdir, stat } from "node:fs/promises";
 import { join } from "node:path";
 import { ResultAsync } from "neverthrow";
@@ -16,7 +15,7 @@ export type ScannedFile = {
   ctime: Temporal.Instant;
 };
 
-export const SKIP_REASONS = ["sad", "csl", "crc", "other", "folder", "vanished"] as const;
+export const SKIP_REASONS = ["sad", "csl", "crc", "other", "folder"] as const;
 
 /** What a scan found, and how many entries it passed over, by reason. */
 export type Scan = {
@@ -41,9 +40,6 @@ const ROOT_FILES: Readonly<Record<string, ScannedFile["kind"]>> = {
   "Identification.tgt": "identification",
 };
 
-const isMissing = (error: unknown): boolean =>
-  error instanceof Error && "code" in error && error.code === "ENOENT";
-
 /** A DATALOG folder name as a night, or null when it isn't a real YYYYMMDD date. */
 function nightOf(name: string): Temporal.PlainDate | null {
   if (!/^\d{8}$/v.test(name)) {
@@ -59,9 +55,9 @@ function nightOf(name: string): Temporal.PlainDate | null {
 
 /**
  * Lists the CPAP data folder's STR.edf, Identification.tgt, and each DATALOG/YYYYMMDD folder's
- * BRP, PLD, and EVE files, without opening any of them. SAD, CSL, .crc, other entries, folders
- * that aren't dates, and files that vanish between listing and stat are counted and skipped. A
- * missing DATALOG folder means no nights yet.
+ * BRP, PLD, and EVE files, without opening any of them. SAD, CSL, .crc, other entries, and
+ * folders that aren't dates are counted and skipped. A missing DATALOG folder means no nights yet.
+ * Any read error fails the scan, and the next poll tries again.
  */
 export function scanCpapData(ctx: AppContext): ResultAsync<Scan, ScanError> {
   const root = ctx.config.cpapDataPath;
@@ -83,34 +79,23 @@ export function scanCpapData(ctx: AppContext): ResultAsync<Scan, ScanError> {
 }
 
 async function walk(root: string): Promise<Scan> {
-  const scan: Scan = {
-    files: [],
-    skipped: { sad: 0, csl: 0, crc: 0, other: 0, folder: 0, vanished: 0 },
-  };
+  const scan: Scan = { files: [], skipped: { sad: 0, csl: 0, crc: 0, other: 0, folder: 0 } };
+  let hasDatalog = false;
 
-  // Stats one entry and adds it, or counts it as vanished when the card removed it mid-scan.
   async function add(
     path: string,
     kind: ScannedFile["kind"],
     night: Temporal.PlainDate | null,
   ): Promise<void> {
-    try {
-      const stats = await stat(join(root, path), { bigint: true });
+    const stats = await stat(join(root, path), { bigint: true });
 
-      scan.files.push({
-        path,
-        kind,
-        night,
-        size: Number(stats.size),
-        ctime: Temporal.Instant.fromEpochNanoseconds(stats.ctimeNs),
-      });
-    } catch (error) {
-      if (!isMissing(error)) {
-        throw error;
-      }
-
-      scan.skipped.vanished++;
-    }
+    scan.files.push({
+      path,
+      kind,
+      night,
+      size: Number(stats.size),
+      ctime: Temporal.Instant.fromEpochNanoseconds(stats.ctimeNs),
+    });
   }
 
   for (const entry of await readdir(root, { withFileTypes: true })) {
@@ -118,12 +103,17 @@ async function walk(root: string): Promise<Scan> {
 
     if (kind !== undefined) {
       await add(entry.name, kind, null);
-    } else if (entry.name !== "DATALOG") {
+    } else if (entry.name === "DATALOG" && entry.isDirectory()) {
+      hasDatalog = true;
+    } else {
       scan.skipped[entry.name.endsWith(".crc") ? "crc" : "other"]++;
     }
   }
 
-  for (const folder of await entries(join(root, "DATALOG"))) {
+  // No DATALOG folder yet means no nights yet.
+  const folders = hasDatalog ? await readdir(join(root, "DATALOG"), { withFileTypes: true }) : [];
+
+  for (const folder of folders) {
     const night = folder.isDirectory() ? nightOf(folder.name) : null;
 
     if (night === null) {
@@ -131,7 +121,9 @@ async function walk(root: string): Promise<Scan> {
       continue;
     }
 
-    for (const entry of await entries(join(root, "DATALOG", folder.name))) {
+    for (const entry of await readdir(join(root, "DATALOG", folder.name), {
+      withFileTypes: true,
+    })) {
       const suffix = entry.isFile() ? entry.name.slice(-8) : "";
       const kind = NIGHT_FILES[suffix];
       const skip = SKIPPED_NIGHT_FILES[suffix];
@@ -149,18 +141,4 @@ async function walk(root: string): Promise<Scan> {
   }
 
   return scan;
-}
-
-// A folder's entries, or none when it's gone: DATALOG before the first night, or a night folder
-// removed mid-scan.
-async function entries(path: string): Promise<Dirent[]> {
-  try {
-    return await readdir(path, { withFileTypes: true });
-  } catch (error) {
-    if (isMissing(error)) {
-      return [];
-    }
-
-    throw error;
-  }
 }
