@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { nightFiles, strFile, type NightFile } from "../src/files.ts";
+import { nightFiles, strFile, writtenDuration, type NightFile } from "../src/files.ts";
 import { syntheticNights } from "../src/model.ts";
 import { readBackAnnotations, readBackEdf } from "@airway/testing/edf-readback";
 
@@ -47,7 +47,7 @@ describe("nightFiles", () => {
     const start = first?.eventFiles[0]?.start;
     const expected = (first?.events ?? []).map((event) => ({
       onset: Math.round((start?.until(event.at).total("seconds") ?? 0) + event.duration),
-      duration: event.duration,
+      duration: writtenDuration(event),
     }));
     const annotations = readBackAnnotations(eve?.bytes ?? new Uint8Array(256));
 
@@ -55,6 +55,20 @@ describe("nightFiles", () => {
     expect(annotations.slice(1).map(({ onset, duration }) => ({ onset, duration }))).toEqual(
       expected,
     );
+  });
+
+  it("writes a 0 duration for hypopneas and arousals, and the modeled duration for apneas", () => {
+    const eve = written.find((file) => file.kind === "eve");
+    const annotations = readBackAnnotations(eve?.bytes ?? new Uint8Array(256)).slice(1);
+    const byLabel = (labels: readonly string[]): number[] =>
+      annotations.filter(({ label }) => labels.includes(label)).map(({ duration }) => duration);
+
+    expect(byLabel(["Hypopnea", "Arousal"])).not.toHaveLength(0);
+    expect(byLabel(["Hypopnea", "Arousal"]).every((duration) => duration === 0)).toBe(true);
+    expect(byLabel(["Obstructive Apnea", "Central Apnea", "Apnea"])).not.toHaveLength(0);
+    expect(
+      byLabel(["Obstructive Apnea", "Central Apnea", "Apnea"]).every((duration) => duration >= 10),
+    ).toBe(true);
   });
 
   it("puts each event in the last EVE file starting before it, measured from that file", () => {

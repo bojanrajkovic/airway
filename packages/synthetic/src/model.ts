@@ -86,7 +86,10 @@ export type PldFiles =
   | { files: "one"; damage: FileDamage }
   | { files: "split"; atRecord: number };
 
-/** An event the machine scores and writes to EVE. `at` is its start; `duration` is in seconds. */
+/**
+ * An event the machine scores and writes to EVE. `at` is its start, and `duration` is how long it
+ * lasted in seconds, which shapes the flow and pressure. EVE records the duration only for apneas.
+ */
 export type MachineEvent = { at: Temporal.Instant; duration: number; type: MachineEventType };
 
 /**
