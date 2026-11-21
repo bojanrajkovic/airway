@@ -13,7 +13,7 @@ A 29 February birthday counts from 28 February in other years.
 
 ## Night rows
 
-`nightRow({ day, sessions, events, ruleSet })` in `@airway/contract/derived/nights` builds a night's `nights` row from four inputs. `@airway/synthetic` calls it to build the rows it expects.
+`nightRow({ day, sessions, events, ruleSet })` in `@airway/contract/derived/nights` builds a night's `nights` row from four inputs. Ingest's `scoreNight` and `@airway/synthetic` both call it, so the rows synthetic expects come from the code ingest runs.
 
 ```mermaid
 flowchart LR
