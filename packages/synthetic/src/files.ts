@@ -35,7 +35,10 @@ export const EVENT_LABELS: Readonly<Record<MachineEventType, string>> = {
   arousal: "Arousal",
 };
 
-/** An event's duration as EVE writes it. The machine times only apneas, so others get 0. */
+/**
+ * Returns the duration that the machine writes to EVE for `event`. The machine times only apneas,
+ * so it writes 0 for a hypopnea or arousal.
+ */
 export const writtenDuration = (event: MachineEvent): number =>
   APNEAS.has(event.type) ? event.duration : 0;
 

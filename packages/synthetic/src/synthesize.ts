@@ -323,8 +323,9 @@ function addNight(
   });
 }
 
-// Events as ingest reads them from EVE. The onset is written in whole seconds at the event's end,
-// so an event starts at its EVE file's start, plus the rounded onset, minus its written duration.
+// Builds the event rows that ingest builds from the EVE files that `nightFiles` writes. `nightFiles`
+// writes each onset in whole seconds at the event's end, so an event starts at its EVE file's start
+// plus the rounded onset minus its written duration.
 function eventRows(
   night: SyntheticNight,
   sessions: Parameters<typeof assignEvents>[1],

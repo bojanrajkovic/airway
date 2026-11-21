@@ -66,7 +66,7 @@ describe("synthesize", () => {
     expect(orphans).toEqual([]);
   });
 
-  test("starts each apnea at its modeled start and each hypopnea or arousal at its modeled end, to the second EVE keeps", ({
+  test("starts each apnea at its modeled start and each hypopnea or arousal at its modeled end, within half a second, because EVE stores whole seconds", ({
     synthesized: { rows },
   }) => {
     const [night] = nights;
@@ -76,14 +76,14 @@ describe("synthesize", () => {
     events.forEach((row, i) => {
       const event = night?.events[i];
       const at = event?.at ?? row.ts;
-      // EVE writes 0 for a hypopnea or arousal's duration, so its row starts at its onset, the event's end.
+      // The machine writes a 0 duration for hypopneas and arousals, so the row starts at the onset, which marks the event's end.
       const start = row.duration === null ? at.add({ seconds: event?.duration ?? 0 }) : at;
 
       expect(Math.abs(start.until(row.ts).total("seconds"))).toBeLessThanOrEqual(0.5);
     });
   });
 
-  test("gives hypopneas and arousals a null duration, and apneas their modeled one", ({
+  test("gives hypopneas and arousals a null duration, and apneas a duration of at least 10 s", ({
     synthesized: { rows },
   }) => {
     const untimed = rows.events.filter(({ type }) => type === "hypopnea" || type === "arousal");

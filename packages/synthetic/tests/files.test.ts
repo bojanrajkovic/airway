@@ -57,7 +57,7 @@ describe("nightFiles", () => {
     );
   });
 
-  it("writes a 0 duration for hypopneas and arousals, and the modeled duration for apneas", () => {
+  it("writes a 0 duration for hypopneas and arousals, and a duration of at least 10 s for apneas", () => {
     const eve = written.find((file) => file.kind === "eve");
     const annotations = readBackAnnotations(eve?.bytes ?? new Uint8Array(256)).slice(1);
     const byLabel = (labels: readonly string[]): number[] =>
