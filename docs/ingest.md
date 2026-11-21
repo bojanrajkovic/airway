@@ -126,14 +126,14 @@ flowchart TD
   night --> skip["Header-only BRP or PLD file:<br/>header_only warning"]
   brp --> segment["Segment, numbered from 1 in time order"]
   pld["PLD file with records"] -->|"overlaps most,<br/>earlier on a tie"| segment
-  pld -->|"overlaps no segment"| loose["unattached_pld warning"]
+  pld -->|"doesn't match any segment"| loose["unattached_pld warning"]
   segment --> sessions["buildSessions: the segment's session"]
 ```
 
 - A file's span starts at its header's start time on the device clock and lasts the record length times the number of whole records on disk. The record count comes from the file's size, so a header that undercounts still gives the full segment.
 - Each BRP file with at least one record is its own segment, even when the next one starts seconds later, because the gap between them holds no signal.
 - Each PLD file with records attaches to the segment it overlaps most. Both halves of a split PLD overlap the same BRP file and land on its segment. A PLD file starts about 1 s after its BRP file and still overlaps it almost entirely.
-- A header-only BRP or PLD file gets a `header_only` warning instead of a segment. A PLD file that overlaps no segment, such as one whose BRP file was rejected, gets an `unattached_pld` warning with its span. The caller logs each warning.
+- A header-only BRP or PLD file gets a `header_only` warning instead of a segment. A PLD file that doesn't match any segment, such as one whose BRP file was rejected, gets an `unattached_pld` warning with its span. The caller logs each warning.
 - The attached BRP and PLD files name their segment in their `files` rows. Only BRP and PLD files build segments.
 
 ## Sessions

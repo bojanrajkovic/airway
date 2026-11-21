@@ -127,7 +127,7 @@ describe("planSegments", () => {
     const [input] = inputs;
     const plan = input === undefined ? undefined : planSegments(input);
 
-    it("warns about each header-only BRP and PLD file and gives it no segment", () => {
+    it("leaves out each header-only BRP and PLD file with a warning", () => {
       const headerOnly = input?.files.filter(({ edf }) => edf.size.verdict === "skip") ?? [];
 
       expect(new Set(headerOnly.map(({ kind }) => kind))).toEqual(new Set(["brp", "pld"]));

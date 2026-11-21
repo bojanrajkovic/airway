@@ -28,7 +28,10 @@ export type NightSegment = Span & {
   plds: SegmentFile[];
 };
 
-/** A file planSegments leaves out of every segment. */
+/**
+ * A warning about a file planSegments left out. A header-only file gets `header_only`, and a PLD
+ * file that doesn't match any segment gets `unattached_pld`.
+ */
 export type SegmentWarning =
   | { kind: "header_only"; path: string; fileKind: SegmentFile["kind"] }
   | { kind: "unattached_pld"; path: string; start: Temporal.Instant; end: Temporal.Instant };
@@ -59,8 +62,8 @@ const overlap = (a: Span, b: Span): number =>
  * A night's segments and sessions. Each BRP file with records is a segment. Each PLD file with
  * records attaches to the segment it overlaps most, the earlier one on a tie, so both halves of a
  * split PLD land on one segment. `buildSessions` then builds the sessions from the night's STR.edf
- * slots and the segments. planSegments leaves out a header-only file, or a PLD file that overlaps
- * no segment, and warns about it.
+ * slots and the segments. planSegments leaves out a header-only file or a PLD file that doesn't
+ * match any segment, and emits a warning.
  */
 export function planSegments({ night, zone, day, files }: NightFiles): NightSegments {
   const warnings = files.flatMap((file): SegmentWarning[] =>
@@ -92,7 +95,7 @@ export function planSegments({ night, zone, day, files }: NightFiles): NightSegm
     }
   }
 
-  const { sessions, segmentSessions, approximate } = buildSessions({
+  const built = buildSessions({
     night,
     zone,
     maskOn: day.maskOn,
@@ -103,12 +106,12 @@ export function planSegments({ night, zone, day, files }: NightFiles): NightSegm
   });
 
   return {
-    sessions,
-    approximate,
+    sessions: built.sessions,
+    approximate: built.approximate,
     warnings,
     segments: brps.map(({ file, start, end }, i) => ({
       segment: i + 1,
-      session: segmentSessions[i] ?? 0,
+      session: built.sessionOfSegment[i] ?? 0,
       start,
       end,
       brp: file,

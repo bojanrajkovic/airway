@@ -37,7 +37,7 @@ describe("buildSessions", () => {
     );
 
     expect(built.sessions.map(({ source }) => source)).toEqual(["str", "str"]);
-    expect(built.segmentSessions).toEqual([1, 2]);
+    expect(built.sessionOfSegment).toEqual([1, 2]);
     expect(built.approximate).toBe(true);
   });
 
@@ -56,7 +56,7 @@ describe("buildSessions", () => {
       { session: 1, start: at(540), end: at(640), source: "str" },
       { session: 2, start: at(700), end: at(760), source: "str" },
     ]);
-    expect(built.segmentSessions).toEqual([1, 1, 2]);
+    expect(built.sessionOfSegment).toEqual([1, 1, 2]);
     expect(built.approximate).toBe(false);
   });
 
@@ -76,7 +76,7 @@ describe("buildSessions", () => {
       }),
     );
 
-    expect(built.segmentSessions).toEqual([1, 2]);
+    expect(built.sessionOfSegment).toEqual([1, 2]);
     expect(built.sessions[1]?.source).toBe("derived");
   });
 
@@ -90,7 +90,7 @@ describe("buildSessions", () => {
       }),
     );
 
-    expect(built.segmentSessions).toEqual([2]);
+    expect(built.sessionOfSegment).toEqual([2]);
   });
 
   it("joins leftover segments 90 s or less apart into derived sessions after the 10 slots", () => {
@@ -114,7 +114,7 @@ describe("buildSessions", () => {
       { session: 11, start: at(600), end: at(640), source: "derived" },
       { session: 12, start: at(641, 31), end: at(660), source: "derived" },
     ]);
-    expect(built.segmentSessions).toEqual([11, 11, 12]);
+    expect(built.sessionOfSegment).toEqual([11, 11, 12]);
     expect(built.approximate).toBe(false);
   });
 

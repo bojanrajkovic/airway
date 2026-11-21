@@ -268,7 +268,7 @@ function addNight(
   );
 
   segments.forEach(({ segment, plds }, i) => {
-    const session = built.segmentSessions[i] ?? 0;
+    const session = built.sessionOfSegment[i] ?? 0;
     const index = i + 1;
     const { pldSeries } = segment;
     const pldStart = segment.start.add({ seconds: PLD_LAG_SECONDS });
