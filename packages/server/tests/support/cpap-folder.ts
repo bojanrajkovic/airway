@@ -4,9 +4,11 @@ import { dirname, join } from "node:path";
 import { Writable } from "node:stream";
 import { onTestFinished } from "vitest";
 import { z } from "zod";
+import { readHeader } from "@airway/edf/header";
 import type { EdgeCaseName } from "@airway/synthetic/cases";
 import { cpapData, type CpapFile } from "@airway/synthetic/cpap-data";
 import { syntheticNights } from "@airway/synthetic/model";
+import type { SegmentFile } from "../../src/ingest/segments.ts";
 import { createLogger, type Logger } from "../../src/logger.ts";
 import type { AppContext } from "../../src/runtime/context.ts";
 import { testContext } from "./context.ts";
@@ -16,6 +18,41 @@ export function syntheticFolder(nights: number, cases: readonly EdgeCaseName[] =
   const model = syntheticNights({ seed: 3, nights, cases })._unsafeUnwrap();
 
   return cpapData(model.nights, model.zone)._unsafeUnwrap();
+}
+
+const CTIME = Temporal.Instant.from("2030-03-01T12:00:00Z");
+
+/**
+ * The BRP and PLD files of `night`'s folder in `files`, as the readiness check passes them on, each
+ * with its header read. It drops the files the check rejects.
+ */
+export function segmentFiles(files: readonly CpapFile[], night: Temporal.PlainDate): SegmentFile[] {
+  const folder = `DATALOG/${night.toString().replaceAll("-", "")}/`;
+
+  return files.flatMap(({ path, bytes }): SegmentFile[] => {
+    const kind = path.endsWith("_BRP.edf") ? "brp" : path.endsWith("_PLD.edf") ? "pld" : undefined;
+
+    if (kind === undefined || !path.startsWith(folder)) {
+      return [];
+    }
+
+    const edf = readHeader(bytes)._unsafeUnwrap();
+    const { size } = edf;
+
+    return size.verdict === "reject"
+      ? []
+      : [
+          {
+            path,
+            kind,
+            night,
+            size: bytes.length,
+            ctime: CTIME,
+            sha256: "",
+            edf: { ...edf, size },
+          },
+        ];
+  });
 }
 
 /** Writes `files` under a new temporary folder, removed when the test finishes, and returns it. */

@@ -20,7 +20,7 @@ export type SessionInputs = Pick<UsedStrDay, "maskOn" | "maskOff" | "maskEvents"
 export type Sessions = {
   sessions: Session[];
   /** The session each segment belongs to, in the order of `segments`. */
-  segmentSessions: number[];
+  sessionOfSegment: number[];
   /** True when the sessions can't add up to MaskEvents / 2. */
   approximate: boolean;
 };
@@ -96,17 +96,17 @@ export function buildSessions(inputs: SessionInputs): Sessions {
   const ordered = candidates.toSorted((a, b) =>
     Temporal.Instant.compare(a.span.start, b.span.start),
   );
-  const segmentSessions = inputs.segments.map(() => 0);
+  const sessionOfSegment = inputs.segments.map(() => 0);
 
   ordered.forEach(({ members }, i) => {
     for (const member of members) {
-      segmentSessions[member] = i + 1;
+      sessionOfSegment[member] = i + 1;
     }
   });
 
   return {
     sessions: ordered.map(({ span, source }, i) => ({ session: i + 1, ...span, source })),
-    segmentSessions,
+    sessionOfSegment,
     approximate: ordered.length !== inputs.maskEvents / 2,
   };
 }
