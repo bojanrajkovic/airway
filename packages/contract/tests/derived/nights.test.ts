@@ -19,7 +19,7 @@ const events = (count: number, event: Partial<NightEvent> = {}): NightEvent[] =>
   }));
 
 describe("ahiCheck", () => {
-  it("matches 18 events in 400 minutes to an AHI of 2.7, which floating point puts at 2.69999…", () => {
+  it("matches 18 events in 400 minutes to an AHI of 2.7, where 18 / 400 × 60 in floating point gives 2.69999…", () => {
     expect(ahiCheck(day({ usage: 400, ahi: 2.7 }), events(18))).toEqual({
       outcome: "match",
       tenths: 27,
@@ -34,7 +34,7 @@ describe("ahiCheck", () => {
     });
   });
 
-  it("counts a machine AHI the day lacks as a mismatch", () => {
+  it("returns mismatch when the day has no machine AHI", () => {
     expect(ahiCheck(day({ usage: 400, ahi: null }), events(18))).toEqual({
       outcome: "mismatch",
       computed: 27,
@@ -42,12 +42,12 @@ describe("ahiCheck", () => {
     });
   });
 
-  it("gives no_usage when the mask was never on", () => {
+  it("returns no_usage when usage is 0 or missing", () => {
     expect(ahiCheck(day({ usage: 0, ahi: 0 }), [])).toEqual({ outcome: "no_usage" });
     expect(ahiCheck(day({ usage: null, ahi: null }), [])).toEqual({ outcome: "no_usage" });
   });
 
-  it("counts apneas and hypopneas outside mask-on time, but not arousals or other events", () => {
+  it("counts apneas and hypopneas, including those outside mask-on time, and skips arousals and other events", () => {
     const counted = [
       ...events(1, { type: "obstructive_apnea" }),
       ...events(1, { type: "central_apnea" }),

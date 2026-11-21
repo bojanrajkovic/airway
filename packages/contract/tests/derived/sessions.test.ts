@@ -145,7 +145,7 @@ describe("assignEvents", () => {
     ]);
   });
 
-  it("keeps an event 59 s past a session in that session, and gives one 61 s past to the nearest session as outside mask-on", () => {
+  it("keeps an event 59 s after session 1 in session 1, and puts an event 61 s before session 2 in session 2, outside mask-on", () => {
     expect(
       assignEvents([span(at(600, 59), at(600, 59)), span(at(698, 59), at(698, 59))], sessions),
     ).toEqual([
