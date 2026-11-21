@@ -1,31 +1,14 @@
 import { describe, expect, it } from "vitest";
 import type { DerivedRows, SessionRow } from "@airway/contract/derived/rows";
 import type { Session } from "@airway/contract/derived/sessions";
-import type { UsedStrDay } from "@airway/contract/derived/str";
-import { isReadable, readHeader } from "@airway/edf/header";
 import type { EdgeCaseName } from "@airway/synthetic/cases";
 import type { CpapFile } from "@airway/synthetic/cpap-data";
 import { syntheticNights } from "@airway/synthetic/model";
 import { synthesize } from "@airway/synthetic/synthesize";
 import { planSegments, type NightFiles, type NightSegments } from "../../src/ingest/segments.ts";
-import { readStr } from "../../src/ingest/str.ts";
-import { segmentFiles } from "../support/cpap-folder.ts";
+import { segmentFiles, usedDays } from "../support/cpap-folder.ts";
 
 const arrivedAt = Temporal.Instant.from("2030-03-01T12:00:00Z");
-
-// Each used day in a folder's STR.edf, as ingest reads it.
-function usedDays(files: readonly CpapFile[]): UsedStrDay[] {
-  const bytes = files.find(({ path }) => path === "STR.edf")?.bytes ?? new Uint8Array();
-  const file = readHeader(bytes)._unsafeUnwrap();
-
-  if (!isReadable(file)) {
-    throw new Error("expected a readable STR.edf");
-  }
-
-  return readStr(bytes, file)
-    ._unsafeUnwrap()
-    .days.flatMap((day) => (day.used ? [day] : []));
-}
 
 // An edge case's planSegments input for each imported night, and the rows synthetic expects.
 type Case = { inputs: NightFiles[]; files: CpapFile[]; rows: DerivedRows };
