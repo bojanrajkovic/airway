@@ -42,6 +42,11 @@ describe("inSpan", () => {
     expect(span.attributes["error.type"]).toBeUndefined();
   });
 
+  it("passes a plain value through and leaves the span's status unset", () => {
+    expect(inSpan("work", () => 42)).toBe(42);
+    expect(onlySpan().status.code).toBe(SpanStatusCode.UNSET);
+  });
+
   it("passes an Err through and records its kind as error.type", () => {
     const result = inSpan("work", () => err({ kind: "not_found" as const }));
 
