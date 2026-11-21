@@ -14,7 +14,7 @@ const file = (
 ): FileAnnotations => ({ path, start: start.add({ seconds: offsetSeconds }), annotations });
 
 describe("toEvents", () => {
-  it("types labels whatever their case, drops Recording starts, and keeps an unknown label as other with its text", () => {
+  it("maps labels to event types ignoring case, drops Recording starts, and turns an unknown label into an other event with the label's text", () => {
     const placed = toEvents(
       night,
       [
@@ -88,7 +88,7 @@ describe("toEvents", () => {
 });
 
 describe("scoreNight", () => {
-  it("reads every EVE file into the events and night row synthetic expects", async () => {
+  it("builds the same event rows and night row as synthetic from all three EVE files", async () => {
     const { input, files, rows } = caseNight("split-files");
     const ctx = folderContext(await writeFolder(files));
 
@@ -102,7 +102,7 @@ describe("scoreNight", () => {
     expect(scored.ahi.outcome).toBe("match");
   });
 
-  it("reads a header-only EVE file as no events", async () => {
+  it("scores a night with a header-only EVE file the same as the night without that file", async () => {
     const { input, files } = caseNight("split-files");
     const wholeCtx = folderContext(await writeFolder(files));
     const whole = (await scoreNight(wholeCtx, input))._unsafeUnwrap();
@@ -141,7 +141,7 @@ describe("scoreNight", () => {
 
   it("fails the night when an EVE file's annotations don't parse", async () => {
     const { input, files } = caseNight("split-files");
-    // Turns the first time-stamped annotation list's leading "+" into "x", which no onset can start with.
+    // Replaces the leading "+" of the first time-stamped annotation list with "x". An onset must start with "+" or "-".
     const corrupt = (bytes: Uint8Array): Uint8Array => {
       const copy = bytes.slice();
       const { headerBytes } = readHeader(bytes)._unsafeUnwrap().header;

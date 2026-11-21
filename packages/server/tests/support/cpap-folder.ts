@@ -60,7 +60,7 @@ export function segmentFiles(files: readonly CpapFile[], night: Temporal.PlainDa
   });
 }
 
-/** The EVE files of `night`'s folder in `files`, as the readiness check passes them on. */
+/** Returns the EVE files in `night`'s DATALOG folder with their headers read, as the readiness check passes them on. */
 export function eveFiles(files: readonly CpapFile[], night: Temporal.PlainDate): EveFile[] {
   const folder = `DATALOG/${night.toString().replaceAll("-", "")}/`;
 
@@ -81,7 +81,7 @@ export function eveFiles(files: readonly CpapFile[], night: Temporal.PlainDate):
   );
 }
 
-/** Each used day in a folder's STR.edf, as ingest reads it. */
+/** Reads the folder's STR.edf the way ingest does, and returns the days the machine was used. */
 export function usedDays(files: readonly CpapFile[]): UsedStrDay[] {
   const bytes = files.find(({ path }) => path === "STR.edf")?.bytes ?? new Uint8Array();
   const file = readHeader(bytes)._unsafeUnwrap();
@@ -95,10 +95,13 @@ export function usedDays(files: readonly CpapFile[]): UsedStrDay[] {
     .days.flatMap((day) => (day.used ? [day] : []));
 }
 
-/** An edge case's first imported night as `scoreNight` takes it, its folder, and synthetic's rows. */
+/**
+ * A synthetic edge case set up for `scoreNight`. `input` is its first imported night, `files` is its
+ * CPAP data folder, and `rows` holds the rows synthetic expects.
+ */
 export type CaseNight = { input: NightEvents; files: CpapFile[]; rows: DerivedRows };
 
-/** Builds `name`'s nights, synthesizes them, and returns the first imported one's `CaseNight`. */
+/** Builds the `name` edge case and returns its first imported night as a `CaseNight`. */
 export function caseNight(name: EdgeCaseName): CaseNight {
   const { nights, zone } = syntheticNights({ seed: 7, nights: 0, cases: [name] })._unsafeUnwrap();
   const { files, rows } = synthesize(nights, zone, {
@@ -125,7 +128,7 @@ export function caseNight(name: EdgeCaseName): CaseNight {
   return { input, files, rows };
 }
 
-/** `files` with each EVE file's bytes passed through `edit`. */
+/** Returns `files` with `edit` applied to the bytes of every EVE file. */
 export const editEve = (
   files: readonly CpapFile[],
   edit: (bytes: Uint8Array) => Uint8Array,

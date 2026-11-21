@@ -16,10 +16,10 @@ import type { AppContext } from "../runtime/context.ts";
 import { inSpanAsync } from "../telemetry.ts";
 import type { ReadyFile } from "./versions.ts";
 
-/** A ready EVE file, with the header the readiness check read. */
+/** An EVE file that passed the readiness check. `edf` is the header that check read. */
 export type EveFile = ReadyFile & { kind: "eve"; edf: EdfFile };
 
-/** One night's inputs: its STR.edf day, its ready EVE files, and the sessions `buildNight` built. */
+/** Everything `scoreNight` reads for one night. `sessions` comes from `buildNight`. */
 export type NightEvents = {
   night: Temporal.PlainDate;
   /** The home time zone, whose winter offset converts the device clock. */
@@ -29,27 +29,33 @@ export type NightEvents = {
   sessions: Pick<Sessions, "sessions" | "approximate">;
 };
 
-/** An EVE file that failed to read or parse, with its path. */
+/** Why an EVE file failed to read or parse, and the file's path. */
 export type EventFileError = EdfReadError & { path: string };
 
-/** A night's event rows, its row without `arrived_at`, and the AHI check behind its `ahi_check`. */
+/** `nightRow`'s result, plus the night's event rows. */
 export type ScoredEvents = ScoredNight & { events: EventRow[] };
 
-/** One EVE file's annotations, with the file's start. Onsets are seconds from that start. */
+/**
+ * The annotations that `readEve` read from one EVE file. Each onset is the number of seconds after
+ * `start`, which is the file's start time.
+ */
 export type FileAnnotations = {
   path: string;
   start: Temporal.Instant;
   annotations: readonly Annotation[];
 };
 
-/** A label no event type matches, the file it came from, and how often that file has it. */
+/**
+ * An EVE label that airway doesn't recognize, with the file's path and the number of times the
+ * label appears in that file.
+ */
 export type UnknownLabel = { label: string; path: string; count: number };
 
 export type PlacedEvents = { events: EventRow[]; unknownLabels: UnknownLabel[] };
 
 type EventType = (typeof EVENT_TYPES)[number];
 
-/** How EVE labels each event type, keyed in lowercase. */
+/** Maps each EVE label, in lowercase, to its event type. */
 const EVENT_TYPE_OF: ReadonlyMap<string, EventType> = new Map([
   ["obstructive apnea", "obstructive_apnea"],
   ["central apnea", "central_apnea"],
@@ -61,11 +67,13 @@ const EVENT_TYPE_OF: ReadonlyMap<string, EventType> = new Map([
 const RECORDING_STARTS = "recording starts";
 
 /**
- * Turns a night's EVE annotations into event rows, in time order, each placed in a session by
- * `assignEvents`. Labels match whatever their case. "Recording starts" is dropped, and any other
- * label becomes `other` with its text, listed once per file in `unknownLabels` with its count. An
- * onset marks the event's end, so an event starts at its onset minus its duration. A duration of 0
- * becomes null, because the machine doesn't time hypopneas or arousals.
+ * Converts a night's EVE annotations into event rows sorted by time, and places each row in a
+ * session with `assignEvents`. Label matching ignores case. `toEvents` drops "Recording starts"
+ * and turns any label it doesn't recognize into an `other` event, with the original text in its
+ * `label`. `unknownLabels` lists each of those labels once per file, with the number of times it
+ * appears in that file. An onset marks the end of an event, so a row's `ts` is the annotation's
+ * onset minus its duration. The machine writes a duration of 0 for the events it doesn't time,
+ * such as hypopneas and arousals, and `toEvents` stores that 0 as null.
  */
 export function toEvents(
   night: Temporal.PlainDate,
@@ -115,7 +123,7 @@ export function toEvents(
   };
 }
 
-// One EVE file's annotations. A header-only file has none.
+// Reads one EVE file's annotations, and returns an empty list for a header-only file.
 function readEve(
   root: string,
   zone: string,
@@ -139,7 +147,7 @@ function readEve(
   );
 }
 
-// Span events and warn logs for what scoring found: unknown labels and an AHI mismatch.
+// Adds a span event and a warn log for each unknown label and for an AHI mismatch.
 function report(span: OtelSpan, logger: Logger, placed: PlacedEvents, scored: ScoredNight): void {
   for (const { label, path, count } of placed.unknownLabels) {
     span.addEvent("ingest.unknown_event_label", {
@@ -162,11 +170,11 @@ function report(span: OtelSpan, logger: Logger, placed: PlacedEvents, scored: Sc
 }
 
 /**
- * Reads a night's EVE files, places their events in its sessions, and builds its row, inside an
- * `ingest.events` span. The span records the night, the file and event counts, and the AHI check.
- * Each unknown label and an AHI mismatch add a span event and a `warn` log. An EVE file that fails
- * to read or parse fails the night, with an `ingest.event_file_failed` span event and an `error`
- * log, so a night never imports with only some of its events.
+ * Reads a night's EVE files, places the events in the night's sessions, and builds the night's
+ * row, all inside an `ingest.events` span. The span records the night, the number of EVE files, the
+ * number of events, and the result of the AHI check. Each unknown label and any AHI mismatch add a
+ * span event and a `warn` log. If an EVE file fails to read or parse, `scoreNight` returns an
+ * `EventFileError` and adds an `ingest.event_file_failed` span event and an `error` log.
  */
 export function scoreNight(
   ctx: AppContext,

@@ -169,7 +169,7 @@ The comparison uses every used day in `STR.edf`, including days before `from` an
 
 ## Events
 
-EVE files hold the events the machine scored. `scoreNight(ctx, input)` in `ingest/events.ts` reads a night's EVE files, turns their annotations into `events` rows, and builds the night's row:
+EVE files hold the events the machine scored, such as apneas and hypopneas. `scoreNight(ctx, input)` in `ingest/events.ts` reads a night's EVE files, turns their annotations into `events` rows, builds the night's `nights` row, and runs the AHI (apnea-hypopnea index) check:
 
 ```mermaid
 flowchart LR
@@ -184,12 +184,12 @@ flowchart LR
 
 `toEvents(night, files, sessions)` does the conversion:
 
-- Labels match whatever their case. "Obstructive Apnea", "Central Apnea", "Apnea", "Hypopnea", and "Arousal" map to their event types. "Recording starts" is dropped. Any other label becomes `other`, with its text in `label`.
-- An onset marks the event's end, so an event starts at its onset minus its duration. A duration of 0 becomes null. The machine writes 0 for hypopneas and arousals because it doesn't time them, so they start at their onset.
+- Label matching ignores case. "Obstructive Apnea", "Central Apnea", "Apnea", "Hypopnea", and "Arousal" map to their event types. `toEvents` drops "Recording starts" and turns any other label into an `other` event, with the original text in its `label`.
+- An onset marks the event's end, so an event starts at its onset minus its duration. The machine doesn't time hypopneas and arousals, so it writes a duration of 0 for them. `toEvents` stores that 0 as a null `duration`, and those events start at their onset.
 - Events from all of a night's EVE files merge in time order, and `assignEvents` places each one in a session.
 
-`scoreNight` then calls `nightRow` ([Scoring](scoring.md#night-rows)) with the rule set `ruleSetFor` picks from the patient's birth date. `scoreNight` runs inside an `ingest.events` span, which records the night, the EVE file and event counts, and `ahi_check`. Each unknown label adds one `ingest.unknown_event_label` span event and one `warn` log per file, with the label, the file's path, and how many times the file has it. An AHI mismatch adds an `ingest.ahi_mismatch` span event and a `warn` log with airway's AHI and, when STR.edf has one, the machine's, in tenths.
+`scoreNight` then calls `nightRow` ([Scoring](scoring.md#night-rows)) with the rule set that `ruleSetFor` picks from the patient's birth date. `scoreNight` runs inside an `ingest.events` span, which records the night, the number of EVE files, the number of events, and `ahi_check`. Each unknown label adds one `ingest.unknown_event_label` span event and one `warn` log per file, with the label, the file's path, and how many times the label appears in that file. An AHI mismatch adds an `ingest.ahi_mismatch` span event and a `warn` log. Both carry airway's AHI in tenths, and the machine's when STR.edf has one.
 
 An EVE file that fails to read or parse fails the night, because a night with only some of its events would get a wrong AHI check. The failure adds an `ingest.event_file_failed` span event and an `error` log with the file's path and the error's kind.
 
-Ingest skips CSL files, which hold the machine's Cheyne-Stokes respiration periods. airway has no sample CSL file with a period in it, so it can't yet read one correctly, and `EVENT_TYPES` has no type for one.
+Ingest skips CSL files, which hold the machine's Cheyne-Stokes respiration periods. Before ingest can read CSL files, airway needs a sample CSL file that contains a period, and `EVENT_TYPES` needs a type for those periods.

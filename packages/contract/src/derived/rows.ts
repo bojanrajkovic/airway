@@ -81,7 +81,10 @@ export type EventRow = {
   night: Temporal.PlainDate;
   /** Null on a night with no sessions. */
   session: number | null;
-  /** The event's start, which is its onset minus its duration, or its onset when it has none. */
+  /**
+   * The event's start, which is the EVE onset minus the duration. When `duration` is null, `ts` is
+   * the onset, which marks the event's end.
+   */
   ts: Temporal.Instant;
   duration: number | null;
   type: (typeof EVENT_TYPES)[number];
