@@ -52,8 +52,8 @@ catalogs:
       specifier: 6.0.1
       version: 6.0.1
     '@trpc/server':
-      specifier: 11.29.0
-      version: 11.29.0
+      specifier: 11.29.4
+      version: 11.29.4
     '@tsconfig/node':
       specifier: npm:@tsconfig/node26@26.0.2
       version: 26.0.2
@@ -314,7 +314,7 @@ importers:
         version: 2.1.9(hono@4.13.19)
       '@hono/trpc-server':
         specifier: 'catalog:'
-        version: 0.4.2(@trpc/server@11.29.0(typescript@7.0.2))(hono@4.13.19)
+        version: 0.4.2(@trpc/server@11.29.4(typescript@7.0.2))(hono@4.13.19)
       '@opentelemetry/api':
         specifier: 'catalog:'
         version: 1.10.0
@@ -347,7 +347,7 @@ importers:
         version: 3.1.1(@opentelemetry/api@1.10.0)
       '@trpc/server':
         specifier: 'catalog:'
-        version: 11.29.0(typescript@7.0.2)
+        version: 11.29.4(typescript@7.0.2)
       drizzle-orm:
         specifier: 'catalog:'
         version: 0.45.4(@opentelemetry/api@1.10.0)(@types/pg@8.23.1)(pg@8.23.1)
@@ -1950,8 +1950,8 @@ packages:
       oxlint:
         optional: true
 
-  '@trpc/server@11.29.0':
-    resolution: {integrity: sha512-emmzlpU2CBOrp543Zc/f30kaAhbxPP6AbLViiNRzFDJ1JfHaSUbN6riMl2RgD3Tke+eqGU2DFQ8Ks1FqbXb13Q==}
+  '@trpc/server@11.29.4':
+    resolution: {integrity: sha512-UPBsGC3kBAT9jrTHG0ozvxxwDAm7fcixEPhJf4unxnZ86JwZ/8RjaYwICizvFrgrA2ajr5gSxFaHtTA1ICtTfg==}
     peerDependencies:
       '@types/aws-lambda': '*'
       '@types/express': '*'
@@ -4121,9 +4121,9 @@ snapshots:
     dependencies:
       hono: 4.13.19
 
-  '@hono/trpc-server@0.4.2(@trpc/server@11.29.0(typescript@7.0.2))(hono@4.13.19)':
+  '@hono/trpc-server@0.4.2(@trpc/server@11.29.4(typescript@7.0.2))(hono@4.13.19)':
     dependencies:
-      '@trpc/server': 11.29.0(typescript@7.0.2)
+      '@trpc/server': 11.29.4(typescript@7.0.2)
       hono: 4.13.19
 
   '@humanfs/core@0.19.2':
@@ -4719,7 +4719,7 @@ snapshots:
       eslint: 10.15.0
       oxlint: 1.94.0(oxlint-tsgolint@7.0.2007)
 
-  '@trpc/server@11.29.0(typescript@7.0.2)':
+  '@trpc/server@11.29.4(typescript@7.0.2)':
     optionalDependencies:
       typescript: 7.0.2
 
