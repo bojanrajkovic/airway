@@ -103,7 +103,7 @@ erDiagram
 | `nights` | Night with a folder on the card: the machine's `STR.edf` statistics, then airway's own columns | `night` |
 | `sessions` | Mask-on period | `night, session` |
 | `segments` | BRP file with data | `night, segment` |
-| `events` | Machine event, at its start. `session` is null when the night has no sessions, and `duration` when the machine gives none | none |
+| `events` | Machine event. `ts` is its start, or its end when the machine gives no duration, and then `duration` is null. `session` is null when the night has no sessions | none |
 | `samples` | 2 seconds of therapy: the nine PLD signals | none |
 | `breaths` | Breath detected in the flow signal. `amplitude` is the in-breath's peak flow, and `duration` ends when the out-breath does, so a pause is a gap between breaths | none |
 | `files` | Imported file, with its size, SHA-256, and ctime. `night` is null for `STR.edf` and `Identification.tgt`. `segment` names the segment a BRP or PLD file's data belongs to, so a segment's files are one join away, including both halves of a split PLD. It's null for other files and for a file no segment reads | `path` |

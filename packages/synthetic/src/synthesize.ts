@@ -29,6 +29,7 @@ import {
   EVENT_LABELS,
   eventFileFor,
   eventOnset,
+  writtenDuration,
   maskSlots,
   PLD_LAG_SECONDS,
   sizeCheck,
@@ -322,8 +323,8 @@ function addNight(
   });
 }
 
-// Events as ingest reads them from EVE: the onset is written in whole seconds at the event's end,
-// so an event starts at its EVE file's start, plus the rounded onset, minus its duration.
+// Events as ingest reads them from EVE. The onset is written in whole seconds at the event's end,
+// so an event starts at its EVE file's start, plus the rounded onset, minus its written duration.
 function eventRows(
   night: SyntheticNight,
   sessions: Parameters<typeof assignEvents>[1],
@@ -333,13 +334,13 @@ function eventRows(
 
     return file === undefined
       ? event.at
-      : file.start.add({ seconds: eventOnset(file, event) - event.duration });
+      : file.start.add({ seconds: eventOnset(file, event) - writtenDuration(event) });
   });
   const places = assignEvents(
     night.events.map((event, i) => {
       const start = starts[i] ?? event.at;
 
-      return { start, end: start.add({ seconds: event.duration }) };
+      return { start, end: start.add({ seconds: writtenDuration(event) }) };
     }),
     sessions,
   );
@@ -348,7 +349,7 @@ function eventRows(
     night: night.night,
     session: places[i]?.session ?? null,
     ts: starts[i] ?? event.at,
-    duration: event.duration,
+    duration: writtenDuration(event) === 0 ? null : writtenDuration(event),
     type: event.type,
     label: EVENT_LABELS[event.type],
     source: "resmed",
