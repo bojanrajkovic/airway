@@ -15,7 +15,7 @@ test(
   { timeout: 30_000 },
   async ({ databaseUrl }) => {
     const model = syntheticNights({ seed: 7, nights: 0, cases: "all" })._unsafeUnwrap();
-    const { rows } = synthesize(model.nights, model.offsets, {
+    const { rows } = synthesize(model.nights, model.zone, {
       patient: "child",
       arrivedAt,
     })._unsafeUnwrap();

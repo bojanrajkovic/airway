@@ -1,13 +1,12 @@
 import pg from "pg";
 import { expect } from "vitest";
 import { z } from "zod";
-import { ClockOffsets } from "@airway/contract/clock";
 import { derivedTables } from "@airway/contract/derived/ddl";
 import { test } from "@airway/testing/postgres";
 import { syntheticNights } from "../src/model.ts";
 import { synthesize } from "../src/synthesize.ts";
 
-const offsets = ClockOffsets.parse([{ from: "2030-01-01", utcOffset: "-05:00" }]);
+const zone = "America/New_York";
 const Columns = z.array(z.object({ table: z.string(), column: z.string() }));
 
 // A row's column names, with the machine-signal columns under `signals` spread out.
@@ -27,7 +26,7 @@ test("gives every derived table's rows exactly the table's columns", async ({ da
 
   // A changed setting, so settings_changes has a row too.
   const raised = { ...second, str: new Map(second.str).set("S.AS.MaxPress", 14) };
-  const { rows } = synthesize([first, raised], offsets, {
+  const { rows } = synthesize([first, raised], zone, {
     patient: "child",
     arrivedAt: Temporal.Instant.from("2030-03-01T12:00:00Z"),
   })._unsafeUnwrap();

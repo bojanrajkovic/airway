@@ -1,13 +1,12 @@
 import pg from "pg";
 import { expect } from "vitest";
 import { z } from "zod";
-import { ClockOffsets } from "@airway/contract/clock";
 import { test } from "@airway/testing/postgres";
 import { loadDerived } from "../src/load.ts";
 import { syntheticNights, type SyntheticNight } from "../src/model.ts";
 import { synthesize } from "../src/synthesize.ts";
 
-const offsets = ClockOffsets.parse([{ from: "2030-01-01", utcOffset: "-05:00" }]);
+const zone = "America/New_York";
 const arrivedAt = Temporal.Instant.from("2030-03-01T12:00:00Z");
 
 async function withClient<T>(url: string, run: (client: pg.Client) => Promise<T>): Promise<T> {
@@ -26,7 +25,7 @@ async function load(
   nights: readonly SyntheticNight[],
   schema: "derived" | "derived_next",
 ): Promise<void> {
-  const { rows } = synthesize(nights, offsets, { patient: "child", arrivedAt })._unsafeUnwrap();
+  const { rows } = synthesize(nights, zone, { patient: "child", arrivedAt })._unsafeUnwrap();
 
   await withClient(url, async (client) => {
     await loadDerived(client, rows, { schema, builtAt: arrivedAt });

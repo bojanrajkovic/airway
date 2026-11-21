@@ -1,7 +1,6 @@
 import { err, ok, type Result } from "neverthrow";
-import type { ClockOffset } from "@airway/contract/clock";
+import { winterOffset } from "@airway/contract/clock";
 import {
-  DEFAULT_UTC_OFFSET,
   randomNight,
   UNDAMAGED_FILES,
   evening,
@@ -25,8 +24,7 @@ export type EdgeCaseContext = {
   zone: string;
 };
 
-/** An edge case's nights, plus any clock offsets they need beyond the default one. */
-export type EdgeCaseNights = { nights: SyntheticNight[]; offsets: ClockOffset[] };
+export type EdgeCaseNights = { nights: SyntheticNight[] };
 
 /** A DST case asked for in a zone that has no such transition. */
 export type EdgeCaseError = { kind: "no_dst_transition"; name: EdgeCaseName; zone: string };
@@ -64,7 +62,7 @@ function layPeriods(
 }
 
 const hypopnea = (at: Temporal.Instant): MachineEvent => ({ at, duration: 15, type: "hypopnea" });
-const only = (night: SyntheticNight): Built => ok({ nights: [night], offsets: [] });
+const only = (night: SyntheticNight): Built => ok({ nights: [night] });
 // An hour after the night's evening, in the home time zone.
 const nineOClock = (night: Temporal.PlainDate, zone: string): Temporal.Instant =>
   evening(night, zone).toInstant().add({ hours: 1 });
@@ -92,7 +90,10 @@ function manyPeriods({ random, breathing, first, zone }: EdgeCaseContext): Built
 // The first period starts at 11:55 on the device clock, before the night's noon, so STR.edf's
 // slot 0 has a mask-off but no mask-on. Ingest starts that session at noon.
 function noonEdge({ random, breathing, first, zone }: EdgeCaseContext): Built {
-  const early = first.toZonedDateTime({ timeZone: DEFAULT_UTC_OFFSET, plainTime: "11:55" });
+  const early = first.toZonedDateTime({
+    timeZone: winterOffset(zone, first.year),
+    plainTime: "11:55",
+  });
   const morning = layPeriods(early.toInstant(), [[45]], [], 90);
   const night = layPeriods(nineOClock(first, zone), [[240]], [], 90);
 
@@ -148,7 +149,6 @@ function unusedDays({ random, breathing, first, zone }: EdgeCaseContext): Built 
     nights: [0, 3].map((days) =>
       randomNight(random, breathing, evening(first.add({ days }), zone)),
     ),
-    offsets: [],
   });
 }
 
@@ -158,7 +158,7 @@ function settingsChange({ random, breathing, first, zone }: EdgeCaseContext): Bu
   const after = randomNight(random, breathing, evening(first.add({ days: 1 }), zone));
   const raised = new Map(after.str).set("S.AS.MaxPress", breathing.pressure.max + 1);
 
-  return ok({ nights: [before, { ...after, str: raised }], offsets: [] });
+  return ok({ nights: [before, { ...after, str: raised }] });
 }
 
 // 18 hypopneas in 400 minutes: an AHI of exactly 2.7, which floating point computes as 2.69999…
@@ -172,25 +172,6 @@ function ahiRounding({ random, breathing, first, zone }: EdgeCaseContext): Built
   return only(
     nightFromLayout(random, breathing, first, { ...layout, randomEvents: false, extraEvents }),
   );
-}
-
-// A second clock offset from the case's second night, which runs from 22:30 to 03:30 so it
-// crosses midnight. Each night's files use its own offset only.
-function clockChange({ random, breathing, first, zone }: EdgeCaseContext): Built {
-  const second = first.add({ days: 1 });
-  const lateStart = evening(second, zone).toInstant().add({ minutes: 150 });
-
-  return ok({
-    nights: [
-      randomNight(random, breathing, evening(first, zone)),
-      nightFromLayout(random, breathing, second, {
-        ...layPeriods(lateStart, [[150, 150]], [], 60),
-        randomEvents: true,
-        extraEvents: [],
-      }),
-    ],
-    offsets: [{ from: second, utcOffset: "-04:55" }],
-  });
 }
 
 // One period of BRP files 30 s apart, each written as `files` says.
@@ -320,7 +301,6 @@ export const EDGE_CASE_NAMES = [
   "unused-days",
   "settings-change",
   "ahi-rounding",
-  "clock-change",
   "damaged-files",
   "split-files",
   "fall-back",
@@ -339,7 +319,6 @@ export const EDGE_CASES: Readonly<Record<EdgeCaseName, EdgeCase>> = {
   "unused-days": unusedDays,
   "settings-change": settingsChange,
   "ahi-rounding": ahiRounding,
-  "clock-change": clockChange,
   "damaged-files": damagedFiles,
   "split-files": splitFiles,
   "fall-back": dstCase("fall-back"),

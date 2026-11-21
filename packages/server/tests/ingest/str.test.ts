@@ -1,5 +1,4 @@
 import { describe, expect, it } from "vitest";
-import { offsetForNight, type ClockOffset } from "@airway/contract/clock";
 import type { DerivedRows } from "@airway/contract/derived/rows";
 import { settingsChanges } from "@airway/contract/derived/settings";
 import { isReadable, readHeader, recordBytes, type ReadableEdfFile } from "@airway/edf/header";
@@ -30,8 +29,8 @@ type Case = Synthetic & { bytes: Uint8Array; rows: DerivedRows };
 
 function edgeCase(name: EdgeCaseName): Case {
   const model = syntheticNights({ seed: 7, nights: 0, cases: [name] })._unsafeUnwrap();
-  const bytes = strFile(model.nights, model.offsets)._unsafeUnwrap();
-  const { rows } = synthesize(model.nights, model.offsets, {
+  const bytes = strFile(model.nights, model.zone)._unsafeUnwrap();
+  const { rows } = synthesize(model.nights, model.zone, {
     patient: "child",
     arrivedAt,
   })._unsafeUnwrap();
@@ -41,7 +40,7 @@ function edgeCase(name: EdgeCaseName): Case {
 
 describe("readStr", () => {
   it("reads each used day's values and mask slots, and marks the days between as unused", () => {
-    const { nights, offsets, bytes, rows } = edgeCase("unused-days");
+    const { nights, zone, bytes, rows } = edgeCase("unused-days");
     const { days, warnings } = readStr(bytes, readable(bytes))._unsafeUnwrap();
 
     expect(warnings).toEqual([]);
@@ -49,13 +48,10 @@ describe("readStr", () => {
       rows.daily_usage.map(({ day, usage }) => [day.toString(), usage > 0]),
     );
 
-    const offset = (night: Temporal.PlainDate): ClockOffset =>
-      offsetForNight(offsets, night)._unsafeUnwrap();
-
     for (const night of nights) {
       const day = days.find((record) => record.day.equals(night.night));
       const row = rows.nights.find((record) => record.night.equals(night.night));
-      const { maskOn, maskOff } = maskSlots(night, offset(night.night));
+      const { maskOn, maskOff } = maskSlots(night, zone);
 
       expect(day).toMatchObject({
         used: true,

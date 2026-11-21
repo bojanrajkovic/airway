@@ -1,6 +1,5 @@
 import { crc32 } from "node:zlib";
 import { Result } from "neverthrow";
-import type { ClockOffset } from "@airway/contract/clock";
 import { DEVICE, nightFiles, strFile, type NightFile, type SyntheticFileError } from "./files.ts";
 import type { SyntheticNight } from "./model.ts";
 
@@ -53,9 +52,9 @@ export type DatalogFile = NightFile & { path: string };
 /** A night's EDF files with their DATALOG paths, in `nightFiles`'s order. */
 export function datalogFiles(
   night: SyntheticNight,
-  offsets: readonly ClockOffset[],
+  zone: string,
 ): Result<DatalogFile[], SyntheticFileError> {
-  return nightFiles(night, offsets).map((files) =>
+  return nightFiles(night, zone).map((files) =>
     files.map((file) => ({ ...file, path: `DATALOG/${compact(night.night)}/${fileName(file)}` })),
   );
 }
@@ -90,10 +89,10 @@ export function folderFiles(str: Uint8Array, datalog: readonly DatalogFile[]): C
  */
 export function cpapData(
   nights: readonly SyntheticNight[],
-  offsets: readonly ClockOffset[],
+  zone: string,
 ): Result<CpapFile[], SyntheticFileError> {
   return Result.combine([
-    strFile(nights, offsets),
-    Result.combine(nights.map((night) => datalogFiles(night, offsets))),
+    strFile(nights, zone),
+    Result.combine(nights.map((night) => datalogFiles(night, zone))),
   ]).map(([str, datalog]) => folderFiles(str, datalog.flat()));
 }

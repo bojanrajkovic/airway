@@ -1,6 +1,6 @@
 import { randomLcg, randomNormal, randomPoisson, randomUniform } from "d3-random";
 import { err, ok, type Result } from "neverthrow";
-import type { ClockOffset } from "@airway/contract/clock";
+import { winterOffset } from "@airway/contract/clock";
 import {
   AIRSENSE,
   dataSignals,
@@ -38,8 +38,8 @@ export type SyntheticOptions = {
   cases?: "all" | readonly EdgeCaseName[];
 };
 
-/** A model's nights and the clock offsets their files use. */
-export type Synthetic = { nights: SyntheticNight[]; offsets: ClockOffset[] };
+/** A model's nights and its home zone. The files' device clock keeps that zone's winter offset. */
+export type Synthetic = { nights: SyntheticNight[]; zone: string };
 
 /** A stretch with the mask on: one session. */
 export type MaskPeriod = { on: Temporal.Instant; off: Temporal.Instant };
@@ -125,8 +125,6 @@ export type SyntheticNight = {
 
 const DEFAULT_START = Temporal.PlainDate.from("2030-01-07");
 const DEFAULT_ZONE = "America/Chicago";
-// A device clock on fixed EST, like the real one, without its few minutes of drift.
-export const DEFAULT_UTC_OFFSET = "-05:00";
 const MACHINE_APNEA_SECONDS = 10;
 // Breaks between mask-on periods: at least 60 s, plus a log-normal draw with a median of 140 s and
 // a p95 near 25 minutes, so the whole break has a median near 200 s. Capped at 3 hours.
@@ -208,7 +206,6 @@ export function syntheticNights(options: SyntheticOptions): Result<Synthetic, Ed
   const nights = Array.from({ length: options.nights }, (_, i) =>
     randomNight(r, breathing, evening(start.add({ days: i }), zone)),
   );
-  const offsets: ClockOffset[] = [{ from: start, utcOffset: DEFAULT_UTC_OFFSET }];
   let next = start.add({ days: options.nights });
 
   for (const name of edgeCaseNames(options.cases ?? [])) {
@@ -226,7 +223,6 @@ export function syntheticNights(options: SyntheticOptions): Result<Synthetic, Ed
     const built = result.value;
 
     nights.push(...built.nights);
-    offsets.push(...built.offsets);
     next = (built.nights.at(-1)?.night ?? next).add({ days: 1 });
   }
 
@@ -239,7 +235,7 @@ export function syntheticNights(options: SyntheticOptions): Result<Synthetic, Ed
 
       return { ...night, str: new Map(night.str).set("PatientHours", Math.floor(patientHours)) };
     }),
-    offsets: offsets.toSorted((a, b) => Temporal.PlainDate.compare(a.from, b.from)),
+    zone,
   });
 }
 
@@ -260,7 +256,10 @@ export function randomNight(
   const latest = evening
     .toPlainDate()
     .add({ days: 1 })
-    .toZonedDateTime({ timeZone: DEFAULT_UTC_OFFSET, plainTime: LAST_OFF })
+    .toZonedDateTime({
+      timeZone: winterOffset(evening.timeZoneId, evening.year),
+      plainTime: LAST_OFF,
+    })
     .toInstant();
   const placed = placePeriods(r, { breathing, bedtime, latest, usageTarget });
 

@@ -1,6 +1,4 @@
 import { describe, expect, it } from "vitest";
-import { offsetForNight } from "@airway/contract/clock";
-
 import { edgeCaseNames, type EdgeCaseName } from "../src/cases.ts";
 import { readBackAnnotations } from "@airway/testing/edf-readback";
 import { maskSlots, nightFiles, sizeCheck, type MaskSlots, type NightFile } from "../src/files.ts";
@@ -9,7 +7,7 @@ import { synthesize, type Synthesized } from "../src/synthesize.ts";
 
 const arrivedAt = Temporal.Instant.from("2030-03-01T12:00:00Z");
 
-// One case on its own: its nights, their offsets and files, and the rows ingest should derive.
+// One case on its own: its nights, their files, and the rows ingest should derive.
 type Built = Synthetic & Synthesized & { night: SyntheticNight };
 
 function edgeCase(name: EdgeCaseName, zone = "America/Chicago"): Built {
@@ -20,7 +18,7 @@ function edgeCase(name: EdgeCaseName, zone = "America/Chicago"): Built {
     throw new Error(`${name} built no nights`);
   }
 
-  const synthesized = synthesize(model.nights, model.offsets, {
+  const synthesized = synthesize(model.nights, model.zone, {
     patient: "child",
     arrivedAt,
   })._unsafeUnwrap();
@@ -28,14 +26,7 @@ function edgeCase(name: EdgeCaseName, zone = "America/Chicago"): Built {
   return { ...model, ...synthesized, night };
 }
 
-const deviceTime = (at: Temporal.Instant, utcOffset: string): Temporal.PlainDateTime =>
-  at.toZonedDateTimeISO(utcOffset).toPlainDateTime();
-
-const slots = (night: SyntheticNight): MaskSlots =>
-  maskSlots(
-    night,
-    offsetForNight([{ from: night.night, utcOffset: "-05:00" }], night.night)._unsafeUnwrap(),
-  );
+const slots = (night: SyntheticNight): MaskSlots => maskSlots(night, "America/Chicago");
 
 describe("edge cases", () => {
   it("leave the base nights unchanged", () => {
@@ -99,7 +90,7 @@ describe("edge cases", () => {
 
     it("starts the first session at noon on the device clock", () => {
       expect(rows.sessions[0]?.ts).toEqual(
-        Temporal.Instant.from(`${night.night.toString()}T12:00:00-05:00`),
+        Temporal.Instant.from(`${night.night.toString()}T12:00:00-06:00`),
       );
       expect(rows.segments[0]?.session).toBe(1);
     });
@@ -170,40 +161,9 @@ describe("edge cases", () => {
     });
   });
 
-  describe("clock-change", () => {
-    const { nights, offsets, files } = edgeCase("clock-change");
-    const [first, second] = nights;
-
-    it("adds a second offset from its second night", () => {
-      expect(offsets).toContainEqual({ from: second?.night, utcOffset: "-04:55" });
-    });
-
-    it("names each night's files on its own offset, across midnight", () => {
-      const name = (at: Temporal.Instant | undefined, utcOffset: string): string =>
-        at === undefined
-          ? ""
-          : deviceTime(at, utcOffset)
-              .toString()
-              .replaceAll("-", "")
-              .replace("T", "_")
-              .replaceAll(":", "")
-              .slice(0, 15);
-      const brps = files.filter((file) => file.path.endsWith("_BRP.edf")).map((file) => file.path);
-      const lastSegment = second?.segments.at(-1);
-
-      expect(brps.some((path) => path.includes(name(first?.segments[0]?.start, "-05:00")))).toBe(
-        true,
-      );
-      expect(brps.some((path) => path.includes(name(lastSegment?.start, "-04:55")))).toBe(true);
-      expect(
-        lastSegment === undefined ? undefined : deviceTime(lastSegment.end, "-04:55").toPlainDate(),
-      ).toEqual(second?.night.add({ days: 1 }));
-    });
-  });
-
   describe("damaged-files", () => {
-    const { night, offsets, rows } = edgeCase("damaged-files");
-    const written = nightFiles(night, offsets)._unsafeUnwrap();
+    const { night, zone, rows } = edgeCase("damaged-files");
+    const written = nightFiles(night, zone)._unsafeUnwrap();
     const verdicts = (kind: NightFile["kind"]): string[] =>
       written
         .filter((file) => file.kind === kind)
@@ -243,8 +203,8 @@ describe("edge cases", () => {
   });
 
   describe("split-files", () => {
-    const { night, offsets, rows } = edgeCase("split-files");
-    const written = nightFiles(night, offsets)._unsafeUnwrap();
+    const { night, zone, rows } = edgeCase("split-files");
+    const written = nightFiles(night, zone)._unsafeUnwrap();
 
     const pldsOf = (segment: number): string[] =>
       rows.files

@@ -1,5 +1,4 @@
 import { describe, expect, it } from "vitest";
-import { ClockOffset } from "../../src/clock.ts";
 import {
   assignEvents,
   buildSessions,
@@ -8,7 +7,7 @@ import {
 } from "../../src/derived/sessions.ts";
 
 const night = Temporal.PlainDate.from("2030-01-07");
-const offset = ClockOffset.parse({ from: "2030-01-01", utcOffset: "-05:00" });
+const zone = "America/New_York";
 // Noon on the device clock, -05:00, is 17:00 UTC.
 const at = (minutesSinceNoon: number, seconds = 0): Temporal.Instant =>
   Temporal.Instant.from("2030-01-07T17:00:00Z").add({ seconds: minutesSinceNoon * 60 + seconds });
@@ -17,7 +16,7 @@ const span = (start: Temporal.Instant, end: Temporal.Instant): Span => ({ start,
 function inputs(overrides: Partial<SessionInputs>): SessionInputs {
   return {
     night,
-    offset,
+    zone,
     maskOn: [],
     maskOff: [],
     maskEvents: 0,

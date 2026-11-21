@@ -11,8 +11,7 @@ In development, `pnpm dev` loads `.env.example`, then `.env` if it exists, so yo
 | `AIRWAY_PATIENT_NAME` | yes | 1 to 80 characters | Shown in the app's header and the MCP instructions |
 | `AIRWAY_PATIENT_BIRTH_DATE` | yes | `YYYY-MM-DD` | Picks the scoring rules ([Scoring](scoring.md)) |
 | `AIRWAY_ADULT_RULES_FROM_13` | no, `false` | `true` or `false` | Scores ages 13 to 17 with adult rules |
-| `AIRWAY_CLOCK_OFFSETS` | yes | JSON array | The CPAP clock's UTC offsets, described below |
-| `AIRWAY_TIME_ZONE` | yes | a place's zone name, such as `America/Chicago`; not a fixed offset such as `-05:00` or `UTC` | The home time zone: night boundaries, alert times, and every time the app shows |
+| `AIRWAY_TIME_ZONE` | yes | a place's zone name, such as `America/Chicago`; not a fixed offset such as `-05:00` or `UTC` | The home time zone: night boundaries, alert times, every time the app shows, and the CPAP's clock, described below |
 | `AIRWAY_CPAP_DATA_PATH` | yes | absolute path | The folder holding a read-only copy of the CPAP's SD card |
 | `AIRWAY_DATA_MISSING_CUTOFF` | no, `15:00` | `HH:MM`, home time | When a used night's folder counts as missing if it hasn't arrived ([Trends](trends.md)) |
 | `AIRWAY_AUTH` | yes | `pomerium` or `none` | How requests are authenticated ([Auth](auth.md)). `none` is for local dev and running with no proxy |
@@ -24,15 +23,8 @@ In development, `pnpm dev` loads `.env.example`, then `.env` if it exists, so yo
 | `PORT` | no, `3000` | 1 to 65535 | The HTTP port |
 | `LOG_LEVEL` | no, `info` | `fatal`, `error`, `warn`, `info`, `debug`, or `trace` | The lowest level logged |
 
-## Clock offsets
+## The CPAP's clock
 
-The CPAP's clock doesn't follow daylight saving time, and it drifts. `AIRWAY_CLOCK_OFFSETS` lists the offset that converts its timestamps to UTC, and the night each offset starts on:
+The CPAP's clock has no time zone and stays on one offset all year. airway reads its timestamps with the home time zone's winter offset. For `America/New_York`, that's `-05:00`, even in July. `winterOffset` in `@airway/contract/clock` takes the smaller of the zone's January and July offsets, which is the offset without DST in either hemisphere.
 
-```json
-[
-  { "from": "2025-01-01", "utcOffset": "-05:07" },
-  { "from": "2026-03-01", "utcOffset": "-05:00" }
-]
-```
-
-Each entry applies from its night until the next entry's night. Entries are sorted by `from`, with no night listed twice. `utcOffset` is `±HH:MM`. `offsetForNight` in `@airway/contract/clock` picks a night's entry; a night before the first entry has none and is an error.
+Set the machine's clock to the home zone's winter time, and leave it there across DST changes. A clock moved to summer time puts every later session an hour early until it's set back. airway ignores the clock's drift of a few minutes a year; setting the clock fixes it from that night on.
