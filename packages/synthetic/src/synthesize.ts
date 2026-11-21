@@ -6,12 +6,12 @@ import type {
   DerivedRows,
   EventRow,
   FileRow,
-  NightRow,
   SampleRow,
   SegmentRow,
   SessionRow,
   SignalValues,
 } from "@airway/contract/derived/rows";
+import { nightRow } from "@airway/contract/derived/nights";
 import { assignEvents, buildSessions } from "@airway/contract/derived/sessions";
 import { settingsChanges } from "@airway/contract/derived/settings";
 import type { StrDay, UsedStrDay } from "@airway/contract/derived/str";
@@ -36,7 +36,7 @@ import {
   type SyntheticFileError,
 } from "./files.ts";
 import type { SyntheticNight } from "./model.ts";
-import { APNEAS, type Patient } from "./patients.ts";
+import type { Patient } from "./patients.ts";
 import { breaths } from "./signals.ts";
 
 export type SynthesizeOptions = {
@@ -316,7 +316,10 @@ function addNight(
   const events = eventRows(night, built.sessions);
 
   rows.events.push(...events);
-  rows.nights.push(nightRow(night, built, events, options));
+  rows.nights.push({
+    ...nightRow({ day, sessions: built, events, ruleSet: RULE_SETS[options.patient] }).row,
+    arrived_at: options.arrivedAt,
+  });
 }
 
 // Events as ingest reads them from EVE: the onset is written in whole seconds at the event's end,
@@ -351,45 +354,4 @@ function eventRows(
     source: "resmed",
     outside_mask_on: places[i]?.outsideMaskOn ?? true,
   }));
-}
-
-function nightRow(
-  night: SyntheticNight,
-  built: ReturnType<typeof buildSessions>,
-  events: readonly EventRow[],
-  { patient, arrivedAt }: SynthesizeOptions,
-): NightRow {
-  const count = (type: EventRow["type"]): number => events.filter((e) => e.type === type).length;
-  const usage = night.str.get("OnDuration") ?? 0;
-  const ahi = night.str.get("AHI") ?? Number.NaN;
-  const scored = events.filter((e) => APNEAS.has(e.type) || e.type === "hypopnea").length;
-  const ahiCheck: NightRow["ahi_check"] =
-    usage > 0
-      ? Math.floor((600 * scored) / usage) === Math.round(ahi * 10)
-        ? "match"
-        : "mismatch"
-      : "no_usage";
-
-  return {
-    night: night.night,
-    signals: Object.fromEntries(
-      NIGHT_COLUMNS.map(([label, column]) => [column, value(night.str.get(label))]),
-    ),
-    sessions: built.sessions.length,
-    expected_sessions: Math.floor((night.str.get("MaskEvents") ?? 0) / 2),
-    session_count_approximate: built.approximate,
-    longest_stretch: Math.max(
-      0,
-      ...built.sessions.map(({ start, end }) => start.until(end).total("minutes")),
-    ),
-    obstructive_apneas: count("obstructive_apnea"),
-    central_apneas: count("central_apnea"),
-    unclassified_apneas: count("unclassified_apnea"),
-    hypopneas: count("hypopnea"),
-    arousals: count("arousal"),
-    events_outside_mask_on: events.filter((e) => e.outside_mask_on).length,
-    ahi_check: ahiCheck,
-    rule_set: RULE_SETS[patient],
-    arrived_at: arrivedAt,
-  };
 }
