@@ -24,7 +24,7 @@ jobs:
           persist-credentials: false
       # Caches are written only by pushes to main. A PR restores main's caches and saves none, so
       # PRs can't fill the cache quota or leave anything for a later run to restore.
-      - uses: jdx/mise-action@236a21c3b91f5db6d4e174b348674a0f0caac06d # v5.2.9
+      - uses: jdx/mise-action@90f833d396d0cc3674b631d2d225e306476c303a # v5.2.10
         with:
           cache_save: ${{ github.ref == 'refs/heads/main' }}
       - id: pnpm-store
@@ -72,7 +72,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: jdx/mise-action@236a21c3b91f5db6d4e174b348674a0f0caac06d # v5.2.9
+      - uses: jdx/mise-action@90f833d396d0cc3674b631d2d225e306476c303a # v5.2.10
         with:
           cache_save: ${{ github.ref == 'refs/heads/main' }}
       - id: pnpm-store
@@ -97,7 +97,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: jdx/mise-action@236a21c3b91f5db6d4e174b348674a0f0caac06d # v5.2.9
+      - uses: jdx/mise-action@90f833d396d0cc3674b631d2d225e306476c303a # v5.2.10
         with:
           cache_save: ${{ github.ref == 'refs/heads/main' }}
       - id: pnpm-store
@@ -134,7 +134,7 @@ jobs:
           cache-from: type=gha
           cache-to: ${{ github.ref == 'refs/heads/main' && 'type=gha,mode=max' || '' }}
       # This job never pushes the image, so caching is safe.
-      - uses: jdx/mise-action@236a21c3b91f5db6d4e174b348674a0f0caac06d # v5.2.9
+      - uses: jdx/mise-action@90f833d396d0cc3674b631d2d225e306476c303a # v5.2.10
         with: # zizmor: ignore[cache-poisoning]
           cache_save: ${{ github.ref == 'refs/heads/main' }}
       - id: pnpm-store
