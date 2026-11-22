@@ -14,8 +14,6 @@ The server logs JSON lines to stdout with pino, through the root logger from `pa
 
 Each module logs through a child logger with its name bound, `ctx.logger.child({ module: "http" })`, and adds the IDs of the work it's doing.
 
-Logs carry IDs, counts, and outcomes, never values from the data.
-
 `pnpm dev` prints the server's logs through pino-pretty; production logs stay JSON.
 
 ## Errors
@@ -65,8 +63,6 @@ function loadNight(ctx: AppContext, night: Temporal.PlainDate): ResultAsync<Nigh
 
 The helpers never log; see [Errors](#errors). `untraced(fn)` turns tracing off inside `fn`, for idle polls that would otherwise send empty traces.
 
-Span attributes follow the same rule as logs: IDs, counts, and outcomes, never values from the data.
-
 ### Sampling ingest traces
 
 Ingest polls the CPAP data folder every 5 minutes, and every poll sends a trace, idle ones included. An idle poll's trace holds the scan and readiness spans. The first poll after a restart reads every header and hashes every file, so its trace holds a span per file, thousands for a long history.
@@ -82,7 +78,7 @@ The SDK exports metrics every 60 seconds. Histograms are exponential, so their b
 - `rpc.server.call.duration` for each tRPC procedure, by procedure and error type ([Server](server.md#trpc))
 - the Node runtime's event loop delay and utilization, heap, and GC
 
-airway's own metrics are named `airway.<area>.<name>`, such as `airway.ingest.last_success`, with [semconv units](https://opentelemetry.io/docs/specs/semconv/general/metrics/#instrument-units) (`s`, `By`, `{night}`). Their attributes never carry values from the data.
+airway's own metrics are named `airway.<area>.<name>`, such as `airway.ingest.last_success`, with [semconv units](https://opentelemetry.io/docs/specs/semconv/general/metrics/#instrument-units) (`s`, `By`, `{night}`). Their attributes never carry values from the data, because each distinct value starts a new time series.
 
 A module creates its instruments when its service is built, not when the module loads:
 
