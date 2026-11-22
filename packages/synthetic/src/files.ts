@@ -10,7 +10,7 @@ import {
   type PerFileHeader,
 } from "@airway/edf/write";
 import type { EventFile, FileDamage, MachineEvent, Segment, SyntheticNight } from "./model.ts";
-import type { MachineEventType } from "./patients.ts";
+import { APNEAS, type MachineEventType } from "./patients.ts";
 import { renderBrp } from "./signals.ts";
 
 /**
@@ -34,6 +34,13 @@ export const EVENT_LABELS: Readonly<Record<MachineEventType, string>> = {
   hypopnea: "Hypopnea",
   arousal: "Arousal",
 };
+
+/**
+ * Returns the duration that the machine writes to EVE for `event`. The machine times only apneas,
+ * so it writes 0 for a hypopnea or arousal.
+ */
+export const writtenDuration = (event: MachineEvent): number =>
+  APNEAS.has(event.type) ? event.duration : 0;
 
 const RECORDING_STARTS = { onset: 0, duration: 0, label: "Recording starts" };
 /** PLD and SAD files start this long after their BRP file, as on the real machine. */
@@ -105,7 +112,7 @@ export function nightFiles(
       .filter((event) => eventFileFor(night, event.at) === file)
       .map((event) => ({
         onset: eventOnset(file, event),
-        duration: event.duration,
+        duration: writtenDuration(event),
         label: EVENT_LABELS[event.type],
       }));
 
