@@ -4,11 +4,16 @@ import { dirname, join } from "node:path";
 import { Writable } from "node:stream";
 import { onTestFinished } from "vitest";
 import { z } from "zod";
-import { readHeader } from "@airway/edf/header";
+import type { DerivedRows } from "@airway/contract/derived/rows";
+import type { UsedStrDay } from "@airway/contract/derived/str";
+import { isReadable, readHeader } from "@airway/edf/header";
 import type { EdgeCaseName } from "@airway/synthetic/cases";
 import { cpapData, type CpapFile } from "@airway/synthetic/cpap-data";
 import { syntheticNights } from "@airway/synthetic/model";
-import type { SegmentFile } from "../../src/ingest/segments.ts";
+import { synthesize } from "@airway/synthetic/synthesize";
+import type { EveFile, NightEvents } from "../../src/ingest/events.ts";
+import { planSegments, type SegmentFile } from "../../src/ingest/segments.ts";
+import { readStr } from "../../src/ingest/str.ts";
 import { createLogger, type Logger } from "../../src/logger.ts";
 import type { AppContext } from "../../src/runtime/context.ts";
 import { testContext } from "./context.ts";
@@ -54,6 +59,81 @@ export function segmentFiles(files: readonly CpapFile[], night: Temporal.PlainDa
         ];
   });
 }
+
+/** Returns the EVE files in `night`'s DATALOG folder with their headers read, as the readiness check passes them on. */
+export function eveFiles(files: readonly CpapFile[], night: Temporal.PlainDate): EveFile[] {
+  const folder = `DATALOG/${night.toString().replaceAll("-", "")}/`;
+
+  return files.flatMap(({ path, bytes }): EveFile[] =>
+    path.startsWith(folder) && path.endsWith("_EVE.edf")
+      ? [
+          {
+            path,
+            kind: "eve",
+            night,
+            size: bytes.length,
+            ctime: CTIME,
+            sha256: "",
+            edf: readHeader(bytes)._unsafeUnwrap(),
+          },
+        ]
+      : [],
+  );
+}
+
+/** Reads the folder's STR.edf the way ingest does, and returns the days the machine was used. */
+export function usedDays(files: readonly CpapFile[]): UsedStrDay[] {
+  const bytes = files.find(({ path }) => path === "STR.edf")?.bytes ?? new Uint8Array();
+  const file = readHeader(bytes)._unsafeUnwrap();
+
+  if (!isReadable(file)) {
+    throw new Error("expected a readable STR.edf");
+  }
+
+  return readStr(bytes, file)
+    ._unsafeUnwrap()
+    .days.flatMap((day) => (day.used ? [day] : []));
+}
+
+/**
+ * A synthetic edge case set up for `scoreNight`. `input` is its first imported night, `files` is its
+ * CPAP data folder, and `rows` holds the rows synthetic expects.
+ */
+export type CaseNight = { input: NightEvents; files: CpapFile[]; rows: DerivedRows };
+
+/** Builds the `name` edge case and returns its first imported night as a `CaseNight`. */
+export function caseNight(name: EdgeCaseName): CaseNight {
+  const { nights, zone } = syntheticNights({ seed: 7, nights: 0, cases: [name] })._unsafeUnwrap();
+  const { files, rows } = synthesize(nights, zone, {
+    patient: "child",
+    arrivedAt: CTIME,
+  })._unsafeUnwrap();
+  const day = usedDays(files).find((used) =>
+    rows.nights.some(({ night: n }) => n.equals(used.day)),
+  );
+
+  if (day === undefined) {
+    throw new Error("expected an imported night");
+  }
+
+  const planned = planSegments({ night: day.day, zone, day, files: segmentFiles(files, day.day) });
+  const input: NightEvents = {
+    night: day.day,
+    zone,
+    day,
+    files: eveFiles(files, day.day),
+    sessions: planned,
+  };
+
+  return { input, files, rows };
+}
+
+/** Returns `files` with `edit` applied to the bytes of every EVE file. */
+export const editEve = (
+  files: readonly CpapFile[],
+  edit: (bytes: Uint8Array) => Uint8Array,
+): CpapFile[] =>
+  files.map((f) => (f.path.endsWith("_EVE.edf") ? { ...f, bytes: edit(f.bytes) } : f));
 
 /** Writes `files` under a new temporary folder, removed when the test finishes, and returns it. */
 export async function writeFolder(files: readonly CpapFile[]): Promise<string> {
