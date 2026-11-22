@@ -145,6 +145,15 @@ describe("assignEvents", () => {
     ]);
   });
 
+  it("keeps an event 59 s after session 1 in session 1, and puts an event 61 s before session 2 in session 2, outside mask-on", () => {
+    expect(
+      assignEvents([span(at(600, 59), at(600, 59)), span(at(698, 59), at(698, 59))], sessions),
+    ).toEqual([
+      { session: 1, outsideMaskOn: false },
+      { session: 2, outsideMaskOn: true },
+    ]);
+  });
+
   it("leaves the session empty on a night with no sessions", () => {
     expect(assignEvents([span(at(550), at(551))], [])).toEqual([
       { session: null, outsideMaskOn: true },
