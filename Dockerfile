@@ -15,7 +15,7 @@ RUN pnpm --filter @airway/server deploy --prod --offline /out
 
 # Runs as UID 65532.
 # The name holds the Node major. On a Node major update, scripts/renovate/distroless-node.sh renames it.
-FROM gcr.io/distroless/nodejs26-debian13:nonroot@sha256:1d736cf8b5716c07a245301f92717143215d248fd55771ee1936ef4b3302e531
+FROM gcr.io/distroless/nodejs26-debian13:nonroot@sha256:ffa8a7545403036c94ec76674b5dbac2d425af2d679147cdf3e30180071487b7
 ENV NODE_ENV=production PORT=3000
 WORKDIR /app
 COPY --from=build /out/package.json ./
