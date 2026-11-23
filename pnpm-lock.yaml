@@ -10,8 +10,8 @@ catalogs:
       specifier: 8.1.2
       version: 8.1.2
     '@hono/node-server':
-      specifier: 2.1.9
-      version: 2.1.9
+      specifier: 2.1.11
+      version: 2.1.11
     '@hono/trpc-server':
       specifier: 0.4.2
       version: 0.4.2
@@ -311,7 +311,7 @@ importers:
         version: link:../edf
       '@hono/node-server':
         specifier: 'catalog:'
-        version: 2.1.9(hono@4.13.19)
+        version: 2.1.11(hono@4.13.19)
       '@hono/trpc-server':
         specifier: 'catalog:'
         version: 0.4.2(@trpc/server@11.29.5(typescript@7.0.2))(hono@4.13.19)
@@ -1133,8 +1133,8 @@ packages:
     engines: {node: '>=6'}
     hasBin: true
 
-  '@hono/node-server@2.1.9':
-    resolution: {integrity: sha512-Sk4NQd3GFY0WZWCzndwFMPwJhtD0y9qjsQ+pjID0/03nK9pxyBCUoUHCho8QYBLBVhi0ssL8UkNPHqbgSOFPIQ==}
+  '@hono/node-server@2.1.11':
+    resolution: {integrity: sha512-KzKz9vl4vvr1vgLHamj+g5uonbrj5NwAdO3yzOS6cd2HjALVeOgTgeZOyAzNxejbkfOOPIcvuf/Tg8l1pEFLog==}
     engines: {node: '>=20'}
     peerDependencies:
       hono: ^4 || ^5.0.0-0
@@ -4108,7 +4108,7 @@ snapshots:
       protobufjs: 7.6.6
       yargs: 17.7.3
 
-  '@hono/node-server@2.1.9(hono@4.13.19)':
+  '@hono/node-server@2.1.11(hono@4.13.19)':
     dependencies:
       hono: 4.13.19
 
