@@ -1,5 +1,5 @@
 # syntax=docker/dockerfile:1@sha256:572cebbc2b15e6f84c077742952674889cb63cd5e9b80abdffcbe587b6f19183
-FROM node:26.13.1-slim@sha256:e6bedef217677b276c591795e169840edd9096dbf13f29df8ef8d1856b8820bc AS build
+FROM node:26.13.1-slim@sha256:abe7e5a82b61a8ef67b315b85497c9e65173387ccf2f4a029248184b8e020be5 AS build
 # Node 25+ has no corepack. Renovate keeps this in step with mise.toml.
 # renovate: datasource=npm depName=pnpm
 ARG PNPM_VERSION=12.22.0
