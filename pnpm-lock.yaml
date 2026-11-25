@@ -154,8 +154,8 @@ catalogs:
       specifier: 1.3.3
       version: 1.3.3
     superjson:
-      specifier: 2.2.6
-      version: 2.2.6
+      specifier: 2.2.7
+      version: 2.2.7
     temporal-polyfill:
       specifier: 1.0.8
       version: 1.0.8
@@ -243,7 +243,7 @@ importers:
         version: 8.2.0
       superjson:
         specifier: 'catalog:'
-        version: 2.2.6
+        version: 2.2.7
       zod:
         specifier: 'catalog:'
         version: 4.6.7
@@ -3423,8 +3423,8 @@ packages:
     resolution: {integrity: sha512-ErcwpJBYr8EfX/Br7JauOIGXoRE92w0hVtuS9j92UFgbATxA+WRSIZksSUDzEeItfWB/0QCEprTZT55RSINUHQ==}
     engines: {node: '>=22'}
 
-  superjson@2.2.6:
-    resolution: {integrity: sha512-H+ue8Zo4vJmV2nRjpx86P35lzwDT3nItnIsocgumgr0hHMQ+ZGq5vrERg9kJBo5AWGmxZDhzDo+WVIJqkB0cGA==}
+  superjson@2.2.7:
+    resolution: {integrity: sha512-QK/H+tosbovdRvIuGqcWn8g3IxPZY7B8ZPowCAmWsV8bPvCk+bGMlZt90C4AxZjnzMO2WBRDacr1+0i1AOy/5g==}
     engines: {node: '>=16'}
 
   tar-fs@2.1.5:
@@ -6107,7 +6107,7 @@ snapshots:
 
   strip-json-comments@5.1.0: {}
 
-  superjson@2.2.6:
+  superjson@2.2.7:
     dependencies:
       copy-anything: 4.1.5
 
