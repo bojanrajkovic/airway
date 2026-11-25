@@ -2,7 +2,7 @@
 FROM node:26.13.1-slim@sha256:abe7e5a82b61a8ef67b315b85497c9e65173387ccf2f4a029248184b8e020be5 AS build
 # Node 25+ has no corepack. Renovate keeps this in step with mise.toml.
 # renovate: datasource=npm depName=pnpm
-ARG PNPM_VERSION=12.22.0
+ARG PNPM_VERSION=12.23.0
 RUN npm install --global pnpm@${PNPM_VERSION}
 WORKDIR /app
 # Reads only the lockfile, so source changes keep this layer cached.
