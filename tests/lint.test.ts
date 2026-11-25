@@ -4,7 +4,8 @@ import { expect, it } from "vitest";
 import { z } from "zod";
 
 const OXLINT = path.resolve("node_modules/oxlint/bin/oxlint");
-// One fixture per rule set: the TypeScript house rules, and the React rules for packages/web.
+// The first fixture breaks the TypeScript house rules, and the second breaks the React rules for
+// packages/web.
 const FIXTURES = [
   "tests/fixtures/lint/violations.ts",
   "packages/web/tests/fixtures/lint/violations.tsx",
@@ -13,8 +14,8 @@ const FIXTURES = [
 const Report = z.object({ diagnostics: z.array(z.object({ code: z.string() })) });
 
 // Oxlint runs the return-type and brand rules, and @stylistic, as JS plugins, which it marks alpha.
-// A release that stopped one of them reporting would still pass `pnpm lint`, so this pins what the
-// fixture's deliberate violations produce.
+// `pnpm lint` still passes when an Oxlint release stops one of those rules from reporting, so this
+// test counts the diagnostics that the fixtures' deliberate violations produce.
 it("reports each violation in the lint fixtures", () => {
   const run = spawnSync(process.execPath, [OXLINT, "--format", "json", ...FIXTURES], {
     encoding: "utf8",

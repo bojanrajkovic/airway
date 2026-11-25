@@ -1,6 +1,6 @@
-// Checks the built image, not the source: that it starts with only its production dependencies,
-// runs the way the pod does, and serves the web build. Everything else is covered by the unit and
-// browser tests against the source.
+// Starts the built image the way the pod runs it. Checks that the image starts with only its
+// production dependencies and serves the web build. The unit and browser tests check everything
+// else against the source.
 import { GenericContainer, Wait } from "testcontainers";
 import { afterAll, describe, expect, it } from "vitest";
 
@@ -10,7 +10,10 @@ if (image === undefined || image === "") {
   throw new Error("AIRWAY_IMAGE must name the image to test, such as localhost/airway:dev");
 }
 
-/** testcontainers has no setting for a read-only root filesystem, which the pod uses. */
+/**
+ * Makes the root filesystem read-only, like the pod's. testcontainers accepts this setting only
+ * through `hostConfig`.
+ */
 class ReadOnlyContainer extends GenericContainer {
   constructor(name: string) {
     super(name);
@@ -19,11 +22,11 @@ class ReadOnlyContainer extends GenericContainer {
 }
 
 const container = await new ReadOnlyContainer(image)
-  // The image's own user, which the pod runs as.
+  // Runs as the image's own user, like the pod.
   .withUser("65532:65532")
   .withTmpFs({ "/tmp": "rw" })
   .withEnvironment({
-    // The pools connect lazily, so nothing here reaches a database.
+    // The pools connect on their first query, so the server starts without a database.
     DATABASE_URL: "postgres://airway:airway@127.0.0.1:5432/airway",
     AIRWAY_READER_DATABASE_URL: "postgres://airway_reader:airway@127.0.0.1:5432/airway",
     AIRWAY_PATIENT_NAME: "Sample Patient",

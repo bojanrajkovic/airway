@@ -1,6 +1,6 @@
-// The lint rules for React code: every rule in Oxlint's react, react-perf, and jsx-a11y plugins, as
-// errors, minus the few below that contradict how airway is built. Oxlint turns these plugins and
-// the React Compiler rules off by default, so each rule is listed by name.
+// Turns on every rule in Oxlint's react, react-perf, and jsx-a11y plugins as an error, except the
+// few listed below that conflict with how airway is built. Oxlint leaves these plugins and the
+// React Compiler rules off by default, so this file lists each rule by name.
 import type { DummyRuleMap } from "oxlint";
 
 const REACT = [
@@ -85,11 +85,12 @@ const REACT = [
   "void-use-memo",
 ];
 // Off on purpose:
-// - react-in-jsx-scope: the automatic JSX runtime needs no React import.
+// - react-in-jsx-scope: the automatic JSX runtime adds the import that JSX needs.
 // - jsx-no-literals: it's for translated apps, and airway isn't translated.
 // - forbid-component-props: by default it bans className, which React Aria components take.
 // - jsx-max-depth: its default of 2 rejects ordinary page layout.
-// - jsx-props-no-spreading: React Aria's wrappers pass their props through by spreading.
+// - jsx-props-no-spreading: a wrapper around a React Aria component spreads its props onto that
+//   component.
 // - every react-perf rule: they flag inline functions and objects, which the React Compiler
 //   memoizes in the build.
 const JSX_A11Y = [
@@ -134,6 +135,6 @@ const JSX_A11Y = [
 export const WEB_RULES: DummyRuleMap = {
   ...Object.fromEntries(REACT.map((rule) => [`react/${rule}`, "error"])),
   ...Object.fromEntries(JSX_A11Y.map((rule) => [`jsx-a11y/${rule}`, "error"])),
-  // TypeScript files carry JSX too.
+  // airway writes JSX in .tsx files, and the rule's default allows only .jsx.
   "react/jsx-filename-extension": ["error", { extensions: [".tsx"] }],
 };

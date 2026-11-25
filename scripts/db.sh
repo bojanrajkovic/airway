@@ -6,7 +6,7 @@ set -eu
 IMAGE=docker.io/library/postgres:19@sha256:aaa10f7ba7328b4a221a6c3184d83eef885bd16bf1f6de864757863156b0a4d1
 runtime=$(command -v podman || command -v docker || true)
 if [ -z "$runtime" ]; then
-  echo "Needs Podman or Docker." >&2
+  echo "scripts/db.sh needs Podman or Docker." >&2
   exit 1
 fi
 
@@ -14,7 +14,7 @@ case "${1:-}" in
   up)
     "$runtime" run --detach --rm --name airway-postgres --publish 127.0.0.1:54318:5432 \
       --env POSTGRES_PASSWORD=airway "$IMAGE" >/dev/null
-    # Checks over TCP: while the image initializes, it runs a temporary server that only listens
+    # The check uses TCP. While the image initializes, it runs a temporary server that listens only
     # on a local socket, so a socket check would report ready too early.
     for _ in $(seq 60); do
       if "$runtime" exec airway-postgres pg_isready --host 127.0.0.1 --quiet; then

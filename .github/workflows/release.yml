@@ -1,4 +1,5 @@
-# Keeps a release PR open. Merging it tags v<version>, which starts publish.yml.
+# Release Please keeps a release PR open. Merging that PR tags v<version>,
+# and the tag starts publish.yml.
 name: Release
 
 on:
@@ -19,7 +20,7 @@ jobs:
     environment: release
     permissions: {}
     steps:
-      # A tag or PR made with GITHUB_TOKEN doesn't start CI, and one made with an App's token does.
+      # GITHUB_TOKEN can't start CI with a tag or PR, so Release Please uses an App's token.
       - uses: actions/create-github-app-token@f418cff399f7aef4c2f0ad47e25ca7a6abbdd6fc # v3.4.0
         id: app-token
         with:

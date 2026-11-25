@@ -1,20 +1,21 @@
 #!/usr/bin/env bash
 # Renovate runs this after a Playwright update. The browser tests run in Playwright's image, whose
-# browsers must match the playwright package in the pnpm catalog. This moves every Playwright image
-# in the workflows to the catalog's version, keeping each one's distro, and pins the new image's
-# digest. It changes nothing when the versions already match. Run it from the repo root.
+# browsers must match the playwright package in the pnpm catalog. This script updates every
+# Playwright image in the workflows to the catalog's version, keeps the image's distro, and pins the
+# new image's digest. It skips an image that already matches the catalog's version. Run it from the
+# repo root.
 set -euo pipefail
 
 want=$(sed -nE 's/^  playwright: "?([0-9.]+)"?$/\1/p' pnpm-workspace.yaml)
 if [[ -z $want ]]; then
-  echo "playwright-image: no playwright version in the pnpm-workspace.yaml catalog" >&2
+  echo "playwright-image: can't find a playwright version in the pnpm-workspace.yaml catalog" >&2
   exit 1
 fi
 
 pattern='mcr\.microsoft\.com/playwright:v[0-9.]+-[a-z]+@sha256:[0-9a-f]{64}'
 mapfile -t files < <(grep -rlE "$pattern" .github/workflows || true)
 if [[ ${#files[@]} -eq 0 ]]; then
-  echo "playwright-image: no digest-pinned Playwright image in .github/workflows" >&2
+  echo "playwright-image: can't find a digest-pinned Playwright image in .github/workflows" >&2
   exit 1
 fi
 
