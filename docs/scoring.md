@@ -1,15 +1,15 @@
 # Scoring
 
-How airway computes and labels its numbers.
+This page describes how airway computes and labels its numbers.
 
 ## Rule sets
 
-The AASM (American Academy of Sleep Medicine) has different scoring rules for children and adults. `ruleSetFor(night, profile)` in `@airway/contract/profile` picks one per night from the patient's birth date:
+The AASM (American Academy of Sleep Medicine) has different scoring rules for children and adults. `ruleSetFor(night, profile)` in `@airway/contract/profile` picks a rule set for each night from the patient's birth date:
 
-- **pediatric** before the night of the 18th birthday, and **adult** from that night on;
-- with `AIRWAY_ADULT_RULES_FROM_13=true`, adult from the night of the 13th birthday instead, as AASM allows for ages 13 to 17.
+- It picks **pediatric** before the night of the 18th birthday, and **adult** from that night on.
+- With `AIRWAY_ADULT_RULES_FROM_13=true`, it picks **adult** from the night of the 13th birthday, as the AASM allows for ages 13 to 17.
 
-A 29 February birthday counts from 28 February in other years.
+In non-leap years, a 29 February birthday falls on 28 February.
 
 ## Night rows
 
@@ -26,10 +26,10 @@ flowchart LR
 ```
 
 - `signals` contains the day's STR.edf values unchanged.
-- `sessions` is the number of the night's sessions, and `expected_sessions` is half of STR.edf's `MaskEvents`, rounded down. `session_count_approximate` is true when the session count isn't exactly half of `MaskEvents`, so an odd `MaskEvents` always sets it.
+- `sessions` is the number of sessions in the night, and `expected_sessions` is half of STR.edf's `MaskEvents`, rounded down. `session_count_approximate` is true when the session count differs from half of `MaskEvents`. It's always true when `MaskEvents` is odd.
 - `longest_stretch` is the longest session in minutes, or 0 on a night with no sessions.
-- `obstructive_apneas`, `central_apneas`, `unclassified_apneas`, `hypopneas`, and `arousals` count the events of each type. `events_outside_mask_on` counts the events more than 60 s outside every session.
-- `ahi_check` is the outcome of [the AHI (apnea-hypopnea index) check](#the-ahi-check), and `rule_set` is the rule set the caller passes.
+- `obstructive_apneas`, `central_apneas`, `unclassified_apneas`, `hypopneas`, and `arousals` count the events of each type. `events_outside_mask_on` counts the events that fall more than 60 s outside every session.
+- `ahi_check` is the outcome of [the AHI (apnea-hypopnea index) check](#the-ahi-check), and `rule_set` is the rule set that the caller passes.
 
 The caller adds `arrived_at`.
 
@@ -53,7 +53,7 @@ airway shows the machine's own nightly numbers from STR.edf: usage, the AHI and 
 
 ## derived_version
 
-Every change to how airway derives its tables raises `derived_version`, and gets an entry here: the version, what changed, and which numbers move.
+Every change to how airway derives its tables raises `derived_version`. The table below lists each version, what changed, and which numbers move.
 
 | Version | What changed |
 |---|---|

@@ -5,14 +5,14 @@ description: Write plain-language notes into airway's open Release Please PR bef
 
 # Release notes
 
-Release Please keeps one release PR open (label `autorelease: pending`) with notes generated from commit titles. This skill replaces them with notes a person who uses airway can read, then hands the PR back to the maintainer to merge. Merging it tags the release, and the GitHub release takes its notes from the PR body. [docs/release.md](../../../docs/release.md) describes the whole flow.
+Release Please keeps one release PR open (label `autorelease: pending`) with notes generated from commit titles. This skill replaces them with notes that a person who uses airway can read, then hands the PR back to the maintainer to merge. Merging it tags the release, and the GitHub release takes its notes from the PR body. [docs/release.md](../../../docs/release.md) describes the whole flow.
 
 ## 1. Gather
 
 ```sh
 gh pr list --label "autorelease: pending" --json number,title,body   # the release PR
 git fetch --tags origin main
-git describe --tags --abbrev=0 origin/main                          # the last release; none means this is the first
+git describe --tags --abbrev=0 origin/main                          # the last release's tag; if no tag exists, this release is the first
 git log --format='%s' <last-tag>..origin/main                       # squash titles, each ending in (#N)
 ```
 
@@ -25,7 +25,7 @@ git diff <last-tag>..origin/main -- docs/scoring.md   # a new derived_version en
 git log --format='%s' <last-tag>..origin/main | grep -E '^[a-z]+(\([^)]*\))?!:'   # breaking titles
 ```
 
-A new `derived_version` entry means every night is re-derived on deploy. A breaking title that migrates the notes schema means notes change shape; that PR's body says how.
+A new `derived_version` entry means airway re-derives every night on deploy. When a PR with a breaking title migrates the notes schema, its body says how the stored notes change.
 
 ## 2. Draft
 
@@ -36,11 +36,11 @@ Write for the person who reads the trends page, not for a developer:
 - For a breaking release, add a **Data changes** section: what happens to the data on deploy (re-derived nights, migrated notes), which numbers move and why (from the `docs/scoring.md` entry), and whether anything needs doing by hand.
 - The repo is public. Never put real CPAP values, dates of real nights, names, or serial numbers in the notes.
 
-Show the maintainer the draft and wait for changes or approval. Don't write anything to the PR before that.
+Show the maintainer the draft and wait for changes or approval. Write to the PR only after they approve.
 
 ## 3. Write it into the PR
 
-The release PR body has this shape. Release Please reads the version from the `##` heading when the PR merges, so keep the header, that heading, and the footer exactly as they are, and replace only the notes between the heading and the footer's `---`. The first release's heading has no compare link (`## 0.1.0 (2026-01-02)`); later ones do:
+The release PR body has this shape. Release Please reads the version from the `##` heading when the PR merges. Keep the header, that heading, and the footer exactly as they are, and replace only the notes between the heading and the footer's `---`. The heading links to a compare page in every release except the first (`## 0.1.0 (2026-01-02)`):
 
 ```markdown
 :robot: I have created a release *beep* *boop*
@@ -61,4 +61,4 @@ Save the new body to a file, check that the header line, the `##` version headin
 gh pr edit <N> --body-file <file>
 ```
 
-Release Please rewrites the body whenever `main` moves, so tell the maintainer the notes are in place and that the PR is ready to merge now. Don't merge it yourself unless they ask.
+Release Please rewrites the body whenever a commit lands on `main`, so tell the maintainer that the notes are in place and that the PR is ready to merge now. Merge it yourself only if they ask.

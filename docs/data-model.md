@@ -1,30 +1,28 @@
 # Data model
 
-The datasets, the derived tables, their units, and derived_version.
+This page describes the datasets, the derived tables, their units, and derived_version.
 
 ## Datasets
 
-A dataset is something to query: a derived table of the same name, with each column described once. `DATASETS` in `@airway/contract/registry/datasets` lists the five.
+A dataset is the form of a derived table that queries use. It has the table's name and describes each column once. `DATASETS` in `@airway/contract/registry/datasets` lists the five.
 
 | Dataset | One row per | Columns |
 |---|---|---|
-| `nights` | Night | The machine's `STR.edf` statistics, then airway's: session counts, the longest stretch, event counts, the AHI check, the rule set, and the arrival time |
+| `nights` | Night | The machine's `STR.edf` statistics, then airway's own columns: session counts, the longest stretch, event counts, the AHI check, the rule set, and the arrival time |
 | `sessions` | Mask-on period | Start, end, duration, and whether it comes from the machine's mask-on times or from the recording files |
 | `events` | Event the machine flagged | Type, source, duration, and whether it fell outside every mask-on period |
 | `samples` | 2 seconds of therapy | The nine low-rate signals: pressures, leak, respiratory rate, tidal volume, minute ventilation, snore, and flow limitation |
-| `breaths` | Breath airway detects in the flow signal | Duration, amplitude, and inspiratory volume |
+| `breaths` | Breath that airway detects in the flow signal | Duration, amplitude, and inspiratory volume |
 
-`nights` keeps the machine's numbers apart from airway's. The machine's are the headline: `ahi` is the AHI the machine scored, and airway's event counts sit beside it under their own names.
+`nights` keeps the machine's numbers apart from airway's. The machine's numbers are the primary ones. `ahi` is the AHI that the machine scored, and airway's event counts have their own column names.
 
-Values are spelled out, such as `obstructive_apnea`, never the machine's codes.
+airway stores each value as a spelled-out name, such as `obstructive_apnea`, in place of the machine's code.
 
-Each dataset has a grain, the shortest time step its rows can be bucketed into. `nights` has `night`, because a night's row has no moment within the night. The other four have `2s`. A [query](query.md#the-query-spec) can't bucket finer than the grain.
+Each dataset has a grain, the shortest time step its rows can be bucketed into. The grain of `nights` is `night`, because a night's row covers the whole night. The grain of the other four is `2s`. A [query](query.md#the-query-spec) can't bucket finer than the grain.
 
-`events`, `samples`, and `breaths` share three columns. `session` is the mask-on period's number within the night, so any of them can be broken down by session without a join. `night` is the sleep day. `hour_of_night` is the wall-clock hour in the home time zone.
+`events`, `samples`, and `breaths` share three columns. `session` is the mask-on period's number within the night, so a query can break any of the three datasets down by session without a join. `night` is the sleep day. `hour_of_night` is the wall-clock hour in the home time zone.
 
-A breath's amplitude and inspiratory volume are computed from the flow signal, so `column_units` gives amplitude flow's unit, L/s, and gives volume litres.
-
-`registry/columns.ts` holds the columns and units more than one dataset uses, and each dataset is one file beside it. The `nights` and `samples` tables get their machine-signal columns from these files, so a signal is listed once.
+`registry/columns.ts` defines the columns and units that more than one dataset uses, and each dataset has its own file in the same folder. The `nights` and `samples` tables get their machine-signal columns from these files, so a signal is listed once.
 
 ## Columns
 
@@ -40,15 +38,15 @@ A dataset is a list of columns, and each column is described once, in `@airway/c
 | `enumeration(name, values, description)` | dimension | One of a fixed list of spelled-out values |
 | `time(name, kind, description)` | time | A timestamp or a night |
 
-Time and dimension columns can be grouped by, and metrics can't. `operationsFor(column)` gives the filter operations a column allows, which follow from its kind, so no column lists its own.
+A query can group by time and dimension columns, but it can't group by metrics. `operationsFor(column)` returns the filter operations that a column allows. It works them out from the column's kind, so a column's definition doesn't list operations.
 
-Every `nights` metric also has `combine`: how a week or month of nights combines it, one of `rate`, `median`, `max`, or `mean`. The helpers in `nights.ts` set it from the kind of column they make, and [Trends](trends.md#how-nights-combine) explains each one.
+Every `nights` metric also has `combine`, which says how airway combines the metric's values over a week or month of nights: `rate`, `median`, `max`, or `mean`. The helpers in `nights.ts` set it from the kind of column they make, and [Trends](trends.md#how-nights-combine) explains each one.
 
 ## Column SQL
 
-A column's SQL is a `TrustedSql`: SQL that came from source code and never from a request, so it's safe to put in a statement. Only a computed column has one. It writes its SQL in a `sql` template, which accepts only another `TrustedSql` or the `homeZone` marker between its text, so interpolating any other value fails to compile.
+A column's SQL is a `TrustedSql`: SQL that came from source code and never from a request, so it's safe to put in a statement. Only a computed column has one. Its definition writes the SQL in a `sql` template. The template accepts only another `TrustedSql` or the `homeZone` marker as an interpolated value, so interpolating any other value fails to compile.
 
-A plain column has no SQL: it's the table column of its own name, and whoever builds a statement quotes that name.
+A plain column reads the table column with the same name, and the code that builds a statement quotes that name.
 
 ```ts
 const hour = sql`extract(hour from ts at time zone ${homeZone})::int`;
@@ -58,15 +56,15 @@ render(hour, { homeZone: 3 });
 // extract(hour from ts at time zone $3)::int
 ```
 
-`homeZone` stands for the `AIRWAY_TIME_ZONE` setting. `render` replaces it with the number of a bound parameter, so the registry names no zone and the zone never becomes SQL text.
+`homeZone` stands for the `AIRWAY_TIME_ZONE` setting. `render` replaces it with the number of a bound parameter, so the zone stays out of the registry and reaches Postgres as a parameter value.
 
 ## Units
 
-A stored value keeps the machine's unit. The app shows some units as others: L/s as L/min, and L as mL.
+A stored value keeps the machine's unit. The app converts some units for display: L/s becomes L/min, and L becomes mL.
 
-A machine signal's unit and decimals come from `@airway/edf`'s AirSense table, which copies each signal's unit and its physical and digital ranges from the real headers. The ranges give the step between two values, and `decimalsForStep(step)` turns the step into the decimals needed to write every value. For example, leak is in L/s with a step of 0.02, so it has 2 decimals. Ingest writes these rows to `column_units` from `COLUMN_UNITS`.
+A machine signal's unit and decimals come from `@airway/edf`'s AirSense table, which copies each signal's unit and its physical and digital ranges from the real headers. The ranges give the step between two values, and `decimalsForStep(step)` turns the step into the decimals needed to write every value. For example, leak is in L/s with a step of 0.02, so it has 2 decimals. airway computes a breath's amplitude (L/s) and inspiratory volume (L) from the 25 Hz flow signal, so both use the flow signal's decimals. `COLUMN_UNITS` lists these units and decimals. Only the synthetic loader writes them to the `column_units` table.
 
-The units are fixed in code because ResMed hasn't changed them: OSCAR hard-codes the same units for the S9, AirSense 10, and AirSense 11. Decoding still uses each file's own step, so a file with a different step decodes correctly. A column airway computes declares its unit and decimals in the registry.
+The units are fixed in code because ResMed hasn't changed them: OSCAR hard-codes the same units for the S9, AirSense 10, and AirSense 11. Decoding still uses each file's own step, so a file with a different step decodes correctly. A column that airway computes declares its unit and decimals in the registry.
 
 `toDisplay(value, stored)` and `toStored(value, stored)` convert between the stored and display units. A stored value converts to display and back exactly.
 
@@ -78,13 +76,13 @@ For example, with leak stored in L/s and tidal volume in L, as an AirSense 10 de
 | 1.14 L/s | 68.4 L/min |
 | 0.3 L | 300 mL |
 
-`toStored` is how a value typed in display units becomes one to compare with stored values: a leak of 24 L/min is a stored 0.4.
+`toStored` converts a value typed in display units so that it can be compared with stored values. For example, a leak of 24 L/min becomes 0.4 L/s.
 
 ## Derived tables
 
-Everything airway derives from the card's files lives in one Postgres schema, `derived`. `derivedTables(schema)` and `derivedIndexesAndKeys(schema)` in `@airway/contract/derived/ddl` return the statements that create it, and no other code creates a derived table or index. Both take the schema's name, so the same tables can be built in `derived_next` beside the ones in use. `derivedIndexesAndKeys` creates the indexes and the foreign keys from `samples` and `breaths` to `segments`. A load runs it after its rows are in, because building an index once is faster than updating it for every row, and adding a foreign key checks every row in one pass instead of one row at a time. What people and agents write lives in a second schema, `notes`, which [Notes](notes.md) describes.
+Everything airway derives from the card's files lives in one Postgres schema, `derived`. `derivedTables(schema)` and `derivedIndexesAndKeys(schema)` in `@airway/contract/derived/ddl` return the statements that create it, and no other code creates a derived table or index. Both take the schema's name, so the same tables can be built in `derived_next` beside the ones in use. `derivedIndexesAndKeys` creates the indexes and the foreign keys from `samples` and `breaths` to `segments`. A load runs `derivedIndexesAndKeys` after it inserts the rows, because building an index once is faster than updating it for every row, and adding a foreign key checks every row in one pass instead of one row at a time. What people and agents write lives in a second schema, `notes`, which [Notes](notes.md) describes.
 
-Every table is UNLOGGED. The data can be rebuilt from the files, so it skips the write-ahead log and backups. A crash empties them.
+Every table is UNLOGGED. airway can rebuild the data from the files, so the tables skip the write-ahead log and backups. A crash empties the tables.
 
 ```mermaid
 erDiagram
@@ -106,7 +104,7 @@ erDiagram
 | `events` | Machine event. `ts` is the event's start. When the machine writes a duration of 0, `duration` is null and `ts` is the event's end. `session` is null when the night has no sessions | none |
 | `samples` | 2 seconds of therapy: the nine PLD signals | none |
 | `breaths` | Breath detected in the flow signal. `amplitude` is the in-breath's peak flow, and `duration` ends when the out-breath does, so a pause is a gap between breaths | none |
-| `files` | Imported file, with its size, SHA-256, and ctime. `night` is null for `STR.edf` and `Identification.tgt`. `segment` names the segment a BRP or PLD file's data belongs to, so a segment's files are one join away, including both halves of a split PLD. It's null for other files and for a file no segment reads | `path` |
+| `files` | Imported file, with its size, SHA-256, and ctime. `night` is null for `STR.edf` and `Identification.tgt`. `segment` names the segment a BRP or PLD file's data belongs to, so a segment's files are one join away, including both halves of a split PLD. `segment` is null for every other file, for a header-only BRP or PLD file, and for a PLD file that doesn't overlap any segment | `path` |
 | `device` | Machine: serial and model | `serial` |
 | `settings_changes` | Setting that changed on a used day, compared with the previous used day | `night, setting` |
 | `daily_usage` | Day `STR.edf` covers, used or not | `day` |
@@ -116,11 +114,11 @@ erDiagram
 
 ### Keys
 
-Deleting a `nights` row deletes that night's rows from `files`, `sessions`, `segments`, `events`, `samples`, and `breaths`, through `ON DELETE CASCADE` foreign keys. One delete removes a night, and its rows go back in parents first. A segment can't be deleted while a `files` row names it.
+Deleting a `nights` row deletes that night's rows from `files`, `sessions`, `segments`, `events`, `samples`, and `breaths`, through `ON DELETE CASCADE` foreign keys. To rebuild a night, ingest deletes the night's `nights` row and then inserts the new rows, parent tables first. A segment can't be deleted while a `files` row names it.
 
 A sample or breath references its segment together with the segment's session, so its `session` can't disagree with the segment's.
 
-`settings_changes`, `daily_usage`, `period_percentiles`, and `column_units` reference no night, because they cover days and periods that have no `nights` row.
+`settings_changes`, `daily_usage`, `period_percentiles`, and `column_units` don't reference `nights`, because they cover days and periods that have no `nights` row.
 
 ### Values
 

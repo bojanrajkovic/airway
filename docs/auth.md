@@ -1,8 +1,8 @@
 # Auth
 
-airway runs behind an identity proxy that signs in each person and passes a signed token with every request. The server checks that token on the API (`/trpc`) and on MCP (`/mcp`), and turns it into an author: who made the request, and whether it came from the web app or an agent. Notes and query history record that author.
+airway runs behind an identity proxy that signs in each person and passes a signed token with every request. The server checks that token on the API (`/trpc`) and on MCP (`/mcp`), and turns it into an author. An author says who made the request, and whether it came from the web app or an agent. Notes and query history record that author.
 
-`AIRWAY_AUTH` picks how the server finds the author. It's required and has no default, so a deployment that forgets it stops at startup instead of running open.
+`AIRWAY_AUTH` picks how the server finds the author. It's required and has no default, so a server started without it stops at startup instead of serving requests with no author check.
 
 | Mode | Who the author is | Used for |
 |---|---|---|
@@ -13,7 +13,7 @@ With `none`, the server logs a warning at every startup. [Configuration](configu
 
 ## What's checked
 
-`createApp` mounts `requireAuthor` on `/trpc/*` and `/mcp`, in one place, so no route under those paths can skip it. Static files and `/healthz` need no author: the bundle is the public repo's code and holds no data, and the proxy guards both hostnames anyway.
+`createApp` mounts `requireAuthor` on `/trpc/*` and `/mcp`, in one place, so every route under those paths runs it. The server serves static files and `/healthz` without running `requireAuthor`.
 
 The path sets the author's channel: `/trpc` is `web`, and `/mcp` is `mcp`. The app shows an `mcp` author as "Agent for Sam".
 
@@ -38,17 +38,17 @@ With `pomerium`, a token must:
 - not have expired.
 - carry an `email`.
 
-The server never compares the token with the `Host` or `X-Forwarded-Host` header. Pomerium rewrites `Host` to the internal address, and a client can set `X-Forwarded-Host` to anything.
+The server compares the token with the configured hosts only, and ignores the `Host` and `X-Forwarded-Host` headers. Pomerium rewrites `Host` to the internal address, and a client can set `X-Forwarded-Host` to anything.
 
-The author's name is the token's `name` claim. When it's empty, as it is for a Google profile with no name, the name falls back to the email's local part.
+The author's name is the token's `name` claim. When the claim is empty, as it is for a Google profile with no name, the server uses the email's local part.
 
 ## How it's built
 
-Each mode is a verifier: a function from a request's headers and channel to the identity it vouches for, an email and maybe a name. `src/auth/identity.ts` picks the verifier at startup and does everything else the same way for every mode: the span, the refusal log, and turning the identity into an author with the name fallback. `src/auth/pomerium.ts` is the Pomerium verifier. A new provider is a new verifier and a new `AIRWAY_AUTH` value.
+Each mode is a verifier, which is a function that takes a request's headers and channel and returns the identity it verified. An identity is an email and an optional name. `src/auth/identity.ts` picks the verifier at startup. For every mode, it then records the span, logs each failure, and turns the identity into an author, applying the name fallback. `src/auth/pomerium.ts` is the Pomerium verifier. To add a provider, write a verifier and add an `AIRWAY_AUTH` value.
 
 ## Failures
 
-Every failure answers with a JSON body naming its kind, such as `{"error": "expired"}`. It's logged at `warn` with the kind, the channel, and the jose or fetch error behind it. That error names the check that failed (code, claim, reason, message) and, for a claim failure, carries the token's decoded claims, email and name included, on purpose: they're what debugging a refusal needs. The raw token is never logged. The span records the error's class, message, and stack, without the claims.
+When a token check fails, the server responds with a JSON body that contains the failure kind, such as `{"error": "expired"}`. The server logs verification errors at `warn` with the kind, the channel, and the underlying jose or fetch error. The jose error includes the failed check's code, claim, reason, and message. For a failed claim check, it also includes the token's decoded claims, with the email and name, for debugging. The server leaves the raw token out of the log. The span records the error's class, message, and stack, without the claims.
 
 | Kind | Status | Cause |
 |---|---|---|
@@ -57,9 +57,9 @@ Every failure answers with a JSON body naming its kind, such as `{"error": "expi
 | `expired` | 403 | past its `exp` |
 | `wrong_issuer` | 403 | `iss` isn't the channel's host. A token for another host fails here first, because jose checks `iss` before `aud` |
 | `wrong_audience` | 403 | `aud` isn't the channel's host |
-| `provider_unavailable` | 503 | the identity provider couldn't be reached; with Pomerium, the JWKS couldn't be fetched or read. The token may be fine, so this is the server's fault, not the caller's |
+| `provider_unavailable` | 503 | the identity provider couldn't be reached; with Pomerium, the JWKS couldn't be fetched or read. The token may be valid, so the status is a server error |
 
-airway never answers 401. Only Pomerium does, when a session has expired. The web app reloads on a 401, which sends the browser back through sign-in. A 401 from airway would reload the page, Pomerium would serve it on its still-valid session, and the reload would repeat forever.
+Every token failure returns 403 or 503. The web app reloads the page on a 401, which sends an expired proxy session back through sign-in. A 401 from airway would cause a reload loop, because the proxy session is still valid.
 
 ## Testing token checks
 
