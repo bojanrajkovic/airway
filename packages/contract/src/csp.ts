@@ -1,6 +1,7 @@
 /**
- * The one Content-Security-Policy airway sends, on every server response.
- * Everything loads from airway itself: no inline scripts or styles, no plugins, no framing.
+ * The server sends this one Content-Security-Policy with every response.
+ * The browser loads scripts, styles, images, and fonts only from airway's own origin.
+ * The policy blocks inline scripts, inline styles, plugins, and framing.
  */
 export const CSP = [
   "default-src 'self'",

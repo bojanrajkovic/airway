@@ -24,43 +24,49 @@ import {
 
 const cell = z.union([z.number(), z.string(), z.boolean(), Instant, PlainDate, z.null()]);
 
-/** What `query.rows` takes: a clicked bucket of a query's chart, in one group. */
+/** `query.rows` takes the bucket and the group that a user clicked in a query's chart. */
 export const BucketSelection = z.strictObject({
   spec: querySpec,
-  /** Where the bucket starts, as the result's series row gives it. */
+  /** The `bucket` value of the clicked series row. */
   bucket: z.union([Instant, PlainDate]),
-  /** The group's breakdown values, in the query's breakdown order. */
+  /** The group's value for each breakdown, in the order that the query lists its breakdowns. */
   breakdowns: z.array(cell),
 });
 export type BucketSelection = z.infer<typeof BucketSelection>;
 
-/** What `sql.run` takes: one read-only statement. */
+/** `sql.run` takes one read-only SQL statement. */
 export const SqlStatement = z.strictObject({ sql: z.string().trim().min(1) });
 
-/** What `links.resolve` takes. */
+/** `links.resolve` takes a link's short code. */
 export const LinkCode = z.strictObject({ code: ShortCode });
 
-/** An explicit run's links. `link` is null when the explorer link would be too long to use. */
+/**
+ * `query.run` returns these links with its result. `link` is null when the explorer link would be
+ * too long to use.
+ */
 type RunLinks = { link: string | null; shortLink: string };
 
-/** What `query.rows` returns: up to 100 of a bucket's rows, oldest first, in display units. */
+/** `query.rows` returns up to 100 of a bucket's rows, oldest first and in display units. */
 export type BucketRows = {
   columns: ResultColumn[];
-  /** Each row's moment and night, so a click can open the waveform viewer on it. */
+  /** The web app opens the waveform viewer at a clicked row's `ts` and `night`. */
   rows: { ts: Temporal.Instant; night: Temporal.PlainDate; values: Cell[] }[];
   truncated: boolean;
 };
 
-/** A note row, including its author. */
+/** A row of the `notes` table, which includes the note's author. */
 export type Note = typeof notes.$inferSelect;
 
-/** A finding's result under one `derived_version`. */
+/** A finding's result, computed from the derived tables of one `derived_version`. */
 export type Snapshot = { derivedVersion: number; ranAt: Temporal.Instant; result: SnapshotResult };
 
-/** What `findings.get` returns. Snapshots are newest version first. */
+/**
+ * `findings.get` returns a note, its short code, and its snapshots, sorted from the newest
+ * `derived_version` to the oldest.
+ */
 export type Finding = { note: Note; shortCode: string; snapshots: Snapshot[] };
 
-/** One query run from the history, with the query it ran. */
+/** Describes one run in the history and the query that the run executed. */
 export type HistoryEntryView = {
   id: number;
   shortCode: string;
@@ -71,13 +77,16 @@ export type HistoryEntryView = {
   truncated: boolean;
 };
 
-/** A page of history, newest first. `before` is what to pass for the next page, or null on the last. */
+/**
+ * `history.list` returns one page of entries, newest first. Pass `before` to `history.list` to
+ * fetch the next page. `before` is null on the last page.
+ */
 export type HistoryPage = { entries: HistoryEntryView[]; before: number | null };
 
 /**
- * Every tRPC procedure under its final name: whether it's a query or a mutation, and the zod schema
- * its input must pass. A procedure that takes nothing has a null input. A run that records history
- * is a mutation, because it writes.
+ * Lists every tRPC procedure under its final name, with its kind (query or mutation) and the zod
+ * schema that validates its input. `input` is null when clients call the procedure without input.
+ * A run that records history is a mutation because it writes a history entry.
  *
  * The web app imports only this file's types. The notes inputs are built from the Drizzle tables,
  * so importing `PROCEDURES` as a value would put Drizzle in the browser bundle.
@@ -107,7 +116,10 @@ export const PROCEDURES = {
 
 export type ProcedureName = keyof typeof PROCEDURES;
 
-/** What each procedure returns. The server's types guarantee it, so nothing checks it at runtime. */
+/**
+ * Maps each procedure to its return type. The server's types guarantee each output, so clients use
+ * the output without validating it.
+ */
 export type ProcedureOutputs = {
   "query.run": QueryResult & RunLinks;
   "query.tile": QueryResult;
@@ -132,7 +144,10 @@ export type ProcedureOutputs = {
   "app.status": AppStatus;
 };
 
-/** What a client sends each procedure: its schema's input type, or nothing. */
+/**
+ * Maps each procedure to the type of input that a client sends. That type is the input type of the
+ * procedure's zod schema, or void when `input` is null.
+ */
 export type ProcedureInputs = {
   [Name in ProcedureName]: (typeof PROCEDURES)[Name]["input"] extends z.ZodType
     ? z.input<(typeof PROCEDURES)[Name]["input"]>

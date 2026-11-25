@@ -6,8 +6,8 @@ type SqlPart = string | typeof homeZone;
 
 declare const trusted: unique symbol;
 /**
- * SQL that came from source code: text typed in a `sql` template. It never holds a value from a
- * request, so it's safe to put in a statement.
+ * Marks SQL that a developer typed in a `sql` template. Every part comes from source code, so the
+ * SQL is safe to put in a statement.
  */
 export type TrustedSql = { readonly parts: readonly SqlPart[]; readonly [trusted]: true };
 
@@ -17,8 +17,8 @@ function trust(parts: readonly SqlPart[]): TrustedSql {
 }
 
 /**
- * Tags SQL written in a registry file. Only another `TrustedSql` or `homeZone` can be
- * interpolated, so a string from anywhere else fails to compile.
+ * Tags SQL written in a registry file. Interpolated values must be `TrustedSql` or `homeZone`, so
+ * interpolating any other string fails to compile.
  */
 export function sql(
   strings: TemplateStringsArray,
@@ -37,10 +37,10 @@ export function sql(
   return trust(parts);
 }
 
-/** The parameter number each marker is bound as, such as 3 for `$3`. */
+/** Maps each marker to the number of its bound parameter, such as 3 for `$3`. */
 export type RenderParameters = { homeZone: number };
 
-/** The SQL text, with each marker replaced by its parameter. */
+/** Returns the SQL text with each marker replaced by its parameter. */
 export function render(trustedSql: TrustedSql, parameters: RenderParameters): string {
   return trustedSql.parts
     .map((part) => (typeof part === "string" ? part : `$${parameters.homeZone.toFixed(0)}`))
@@ -49,13 +49,13 @@ export function render(trustedSql: TrustedSql, parameters: RenderParameters): st
 
 type Described = {
   name: string;
-  /** What the column means, for a person or an agent choosing columns. */
+  /** Tells a person or an agent choosing columns what the column means. */
   description: string;
-  /** Set only on a computed column. Without it, the column is the table column of the same name. */
+  /** A computed column sets `sql`. Every other column reads the table column of the same name. */
   sql?: TrustedSql;
 };
 
-// A property can't be set to undefined, so a column without SQL leaves it out.
+// An optional property can't be set to undefined, so a column without SQL omits `sql`.
 const computed = (sql: TrustedSql | undefined): Pick<Described, "sql"> =>
   sql === undefined ? {} : { sql };
 export type TimeColumn = Described & { role: "time"; kind: "timestamp" | "date" };
@@ -65,14 +65,8 @@ export type DimensionColumn = Described &
     | { role: "dimension"; kind: "enum"; values: readonly [string, ...string[]] }
   );
 /**
- * How a week or month combines a nights metric's nightly values, the way OSCAR combines a date
- * range. Only used nights count.
- *
- * - `rate`: the mean weighted by each night's usage, for a per-hour index such as AHI. That's the
- *   week's total events over its total hours, from the machine's own scores.
- * - `median`: the median of the nightly values, for the machine's percentiles
- * - `max`: the highest nightly value, for the machine's maxima
- * - `mean`: the plain mean, for durations and counts, so a week's value is per night, like one night's
+ * The ways to combine a nights metric's nightly values into one value for a week or month.
+ * docs/trends.md describes each one.
  */
 export const COMBINE = ["rate", "median", "max", "mean"] as const;
 export type Combine = (typeof COMBINE)[number];
@@ -80,27 +74,32 @@ export type Combine = (typeof COMBINE)[number];
 export type MetricColumn = Described & {
   role: "metric";
   kind: "number";
-  /** `from_header` for a machine signal, whose unit ingest writes to `column_units`. */
+  /** `from_header` means the unit comes from the signal's EDF header, through `COLUMN_UNITS`. */
   unit: ColumnUnit | "from_header";
 };
 
-/** A nights metric. Only nights get summarized, so only their metrics say how they combine. */
+/**
+ * A metric of the `nights` dataset. Only nights are combined into weeks and months, so only a
+ * nights metric sets `combine`.
+ */
 export type NightsMetric = MetricColumn & { combine: Combine };
-/** One queryable column. Time and dimension columns can be grouped by; metrics can't. */
 export type Column = TimeColumn | DimensionColumn | MetricColumn;
 
 export type Dataset = {
-  /** Also the name of the derived table its columns read. */
+  /** The name of the dataset and of its table in the derived schema. */
   name: string;
   description: string;
-  /** The shortest time step its rows can be bucketed into. `nights` has no moment within a night. */
+  /**
+   * The shortest time step that a query can bucket the dataset's rows into. A `nights` row covers a
+   * whole night, so its grain is `night`.
+   */
   grain: "2s" | "night";
   columns: readonly [Column, ...Column[]];
 };
 
 /**
- * A value the machine recorded. Ingest writes its unit to `column_units` from `@airway/edf`'s
- * AirSense table.
+ * Builds a metric column for a value that the machine recorded. Ingest looks up the value's unit in
+ * `@airway/edf`'s AirSense table and writes the unit to `column_units`.
  */
 export function signal(name: string, description: string): MetricColumn {
   return {
@@ -112,7 +111,7 @@ export function signal(name: string, description: string): MetricColumn {
   };
 }
 
-/** A value airway computes, in a unit airway chooses. */
+/** Builds a metric column for a value that airway computes, in a unit that airway chooses. */
 export function metric(
   name: string,
   unit: ColumnUnit,
@@ -144,11 +143,11 @@ export function time(name: string, kind: TimeColumn["kind"], description: string
 }
 
 const EQUALITY = ["=", "!="] as const;
-/** Operations that compare with one value. */
+/** Operations that compare a column with one value. */
 export const COMPARISONS = [...EQUALITY, ">", ">=", "<", "<="] as const;
-/** Operations that compare with a list of values. */
+/** Operations that compare a column with a list of values. */
 export const MEMBERSHIP = ["in", "not-in"] as const;
-/** Operations that take no value. */
+/** Operations that check whether a column has a value. */
 export const NULL_CHECKS = ["exists", "does-not-exist"] as const;
 export type Comparison = (typeof COMPARISONS)[number];
 export type FilterOperation =
@@ -156,7 +155,7 @@ export type FilterOperation =
   | (typeof MEMBERSHIP)[number]
   | (typeof NULL_CHECKS)[number];
 
-/** The filter operations a column allows, which follow from its kind. */
+/** Returns the filter operations that a query can apply to `column`. */
 export function operationsFor(column: Column): readonly FilterOperation[] {
   switch (column.kind) {
     case "number":

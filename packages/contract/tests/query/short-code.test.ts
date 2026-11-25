@@ -38,7 +38,7 @@ describe("shortCode", () => {
       target: { kind: "sql", text: "select count(*) from nights" } satisfies ShortLinkTarget,
       code: "twzsvpdnh7",
     },
-  ])("gives $code, the same code as ever", async ({ target, code }) => {
+  ])("still gives $code", async ({ target, code }) => {
     await expect(shortCode(target)).resolves.toBe(code);
   });
 
@@ -48,7 +48,7 @@ describe("shortCode", () => {
     await expect(shortCode(spec(reordered))).resolves.toBe(await shortCode(spec(events)));
   });
 
-  it("gives a spec and the same text as SQL different codes", async () => {
+  it("gives different codes to a spec and to SQL with the same text", async () => {
     const text = '{"v":1,"dataset":"events","nights":{"last":7}}';
 
     await expect(shortCode({ kind: "sql", text })).resolves.not.toBe(await shortCode(spec(events)));

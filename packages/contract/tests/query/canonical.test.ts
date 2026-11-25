@@ -129,7 +129,7 @@ describe("canonicalize", () => {
     });
   });
 
-  it("writes every time in UTC, so one instant has one spelling", () => {
+  it("writes every timestamp in UTC, so equal instants produce the same JSON", () => {
     const written = {
       v: 1,
       dataset: "events",

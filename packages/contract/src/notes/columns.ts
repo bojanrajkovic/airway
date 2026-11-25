@@ -4,7 +4,7 @@ import { customType } from "drizzle-orm/pg-core";
 // `timestamptz` and `date` as text. They override the pool's parsers, so the pool's Temporal
 // conversion never runs for Drizzle queries. These columns convert the text themselves.
 
-/** A `timestamptz` column read and written as a `Temporal.Instant`. */
+/** Reads and writes a `timestamptz` column as a `Temporal.Instant`. */
 export const instant = customType<{ data: Temporal.Instant; driverData: string }>({
   dataType: () => "timestamp with time zone",
   toDriver: (value) => value.toString(),
@@ -12,7 +12,7 @@ export const instant = customType<{ data: Temporal.Instant; driverData: string }
   fromDriver: (value) => Temporal.Instant.from(value),
 });
 
-/** A `date` column read and written as a `Temporal.PlainDate`. */
+/** Reads and writes a `date` column as a `Temporal.PlainDate`. */
 export const plainDate = customType<{ data: Temporal.PlainDate; driverData: string }>({
   dataType: () => "date",
   toDriver: (value) => value.toString(),

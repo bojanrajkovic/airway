@@ -27,8 +27,8 @@ export type Granularity = (typeof GRANULARITIES)[number];
 /**
  * The most nights a query can cover at each step: a night, a week, a fortnight, a month, a
  * quarter, a year, and then ten years. A fine step over a long range would be millions of buckets.
- * These are chosen round spans, not worked out from `AUTO_BUCKETS`: they bound what a spec may
- * ask for, and `auto` then picks within them.
+ * We picked these round spans by hand. They limit what a spec may ask for, and `auto` then picks
+ * a step within them.
  */
 export const MAX_NIGHTS: Record<Granularity, number> = {
   "2s": 1,
@@ -42,7 +42,7 @@ export const MAX_NIGHTS: Record<Granularity, number> = {
   month: 3660,
 };
 
-/** A query's night range: the most recent n nights, or two dates, both included. */
+/** A query covers the most recent n nights, or the nights between two dates, both included. */
 export type Nights = { last: number } | { from: string; to: string };
 
 /** How many nights a range covers. */
@@ -53,8 +53,8 @@ export function nightCount(nights: Nights): number {
 }
 
 /**
- * The steps a dataset allows: its grain and every longer one. Given a night range, only the steps
- * that can cover that many nights.
+ * Returns the steps a dataset allows, which are its grain and every longer step. Given a night
+ * range, it returns only the steps that can cover that many nights.
  */
 export function granularitiesFor(dataset: Dataset, nights?: Nights): readonly Granularity[] {
   const steps = GRANULARITIES.slice(GRANULARITIES.indexOf(dataset.grain));
@@ -102,8 +102,8 @@ export const DEFAULT_LIMIT = 100;
 
 const TIME = "expected a time with its offset, such as 2026-06-01T02:00:00-04:00";
 const readInstant = Result.fromThrowable((text: string) => Temporal.Instant.from(text));
-// We accept ISO timestamps with an offset, so a time never depends on the reader's time zone. A
-// few forms the ISO format allows, such as ten decimal places, are rejected because
+// We accept ISO timestamps with an offset, so a time never depends on the reader's time zone. We
+// also reject a few forms that the ISO format allows, such as ten decimal places, because
 // Temporal.Instant can't parse them.
 export const instant = z.iso
   .datetime({ offset: true, error: TIME })
@@ -167,8 +167,9 @@ function valueSchema(column: Column): z.ZodType<Scalar, Scalar> {
  * - a null check (`exists`, `does-not-exist`) with no value
  * - a list operation (`in`, `not-in`) with a list of values
  *
- * Each shape allows only the operations `operationsFor` gives the column, and its values have the
- * column's type. docs/query.md has a diagram of how this fits into the whole spec.
+ * Each shape allows only the operations that `operationsFor` returns for the column, and the
+ * values must have the column's type. docs/query.md has a diagram of how this fits into the whole
+ * spec.
  */
 // oxlint-disable-next-line typescript/explicit-function-return-type -- zod infers this schema's type; writing it out would repeat the schema
 function filterSchema(column: Column) {
@@ -183,8 +184,8 @@ function filterSchema(column: Column) {
   return z.discriminatedUnion("op", [
     z.strictObject({ column: name, op: z.enum(only(COMPARISONS)), value }),
     z.strictObject({ column: name, op: z.enum(NULL_CHECKS) }),
-    // Numbers, booleans, and times have no list operations, and zod rejects a shape with an empty
-    // `op` list, so they don't get this shape.
+    // z.discriminatedUnion throws when an option's `op` enum is empty, so only columns with list
+    // operations include this shape.
     ...(lists.length > 0
       ? [
           z.strictObject({
@@ -205,7 +206,7 @@ export const isOneOf = <Value extends string>(
   value: string,
 ): value is Value => values.some((one) => one === value);
 
-/** The columns a calculation can take. COUNT takes none. */
+/** Returns the columns that a calculation can take, which is an empty list for COUNT. */
 export function columnsFor({ columns }: Dataset, op: CalculationOp): string[] {
   if (op === "COUNT") {
     return [];
@@ -223,9 +224,10 @@ export function columnsFor({ columns }: Dataset, op: CalculationOp): string[] {
 }
 
 /**
- * The schema for one calculation in a dataset. It has four shapes, picked by `op`, and each lists
- * the columns its operations take (`columnsFor`): COUNT takes none, COUNT_DISTINCT takes any,
- * SUM, AVG, and the percentiles take a metric, and MIN and MAX take a column with an order.
+ * The schema for one calculation in a dataset. It has four shapes, picked by `op`, and each shape
+ * lists the columns that `columnsFor` returns for its operations. COUNT takes no column, and
+ * COUNT_DISTINCT takes any column. SUM, AVG, and the percentiles take a metric. MIN and MAX take a
+ * column with an order.
  */
 // oxlint-disable-next-line typescript/explicit-function-return-type -- zod infers this schema's type; writing it out would repeat the schema
 function calculationSchema(dataset: Dataset) {
@@ -242,12 +244,12 @@ function calculationSchema(dataset: Dataset) {
 
 type CalculationReference = { op: CalculationOp; column?: string | undefined };
 
-/** How a calculation is written in messages and column headings: `COUNT`, `P95(leak)`. */
+/** Labels a calculation for messages and column headings, such as `COUNT` or `P95(leak)`. */
 export function calculationLabel({ op, column }: CalculationReference): string {
   return column === undefined ? op : `${op}(${column})`;
 }
 
-/** The kind of value a calculation gives: MIN and MAX give their column's kind. */
+/** Returns the kind of value a calculation produces. MIN and MAX produce their column's kind. */
 export function calculationKind(
   dataset: Dataset,
   { op, column }: CalculationReference,
@@ -273,12 +275,12 @@ export const STEP_SECONDS: Record<Granularity, number> = {
   week: 7 * 86_400,
   month: 30 * 86_400,
 };
-/** The most buckets `auto` gives one group: about what a chart can show. */
+/** `auto` puts at most this many buckets in one group, about as many as a chart can show. */
 export const AUTO_BUCKETS = 300;
 
 /**
- * The most buckets one group can get at a step: every night counted as a full 24 hours, noon to
- * noon, though a real night has data only while the mask is on.
+ * Returns the most buckets one group can have at a step. It counts every night as a full 24 hours,
+ * noon to noon, though a real night has data only while the mask is on.
  */
 export const bucketCount = (nights: Nights, step: Granularity): number =>
   (nightCount(nights) * STEP_SECONDS.night) / STEP_SECONDS[step];
@@ -287,9 +289,9 @@ export const bucketCount = (nights: Nights, step: Granularity): number =>
 type Bucketing = { nights: Nights; granularity?: Granularity | "auto" | undefined };
 
 /**
- * The step a spec buckets by, or undefined for totals only. `auto` picks the finest step the
- * dataset and night range allow with `nights × 86,400 ÷ step seconds ≤ AUTO_BUCKETS`. The pick
- * depends only on the spec, so a link's step never changes under it.
+ * Returns the step that a spec buckets by, or undefined for totals only. For `auto`, returns the
+ * finest step that the dataset allows and that satisfies
+ * `nights × 86,400 ÷ step seconds ≤ AUTO_BUCKETS`.
  */
 export function granularityOf(
   dataset: Dataset,
@@ -308,8 +310,8 @@ export function granularityOf(
 }
 
 /**
- * Maps a list that has at least one item, keeping that in the type. zod's unions take a list typed
- * as non-empty, and a plain `map` returns one typed as possibly empty.
+ * Maps a list that has at least one item and returns a list typed as non-empty. zod's unions need
+ * that type, and a plain `map` returns a list typed as possibly empty.
  */
 function mapNonEmpty<Item, Mapped>(
   [first, ...rest]: readonly [Item, ...Item[]],
@@ -376,7 +378,7 @@ type Problem = { path: (string | number)[]; message: string };
 const nightsText = (count: number): string =>
   count === 1 ? "1 night" : `${count.toFixed(0)} nights`;
 
-/** A named step over more nights than it covers (`MAX_NIGHTS`). */
+/** Reports a named step when the range has more nights than `MAX_NIGHTS` allows for that step. */
 function rangeProblems(dataset: Dataset, { nights, granularity }: Fields): Problem[] {
   const count = nightCount(nights);
 
@@ -394,7 +396,7 @@ function rangeProblems(dataset: Dataset, { nights, granularity }: Fields): Probl
   ];
 }
 
-/** Each value after the first that's the same as an earlier one. */
+/** Reports each value that repeats an earlier value in the list. */
 function repeats(values: readonly string[], field: string): Problem[] {
   return values.flatMap((value, index) =>
     values.indexOf(value) < index
@@ -403,7 +405,7 @@ function repeats(values: readonly string[], field: string): Problem[] {
   );
 }
 
-/** A calculation, breakdown, or order written twice. */
+/** Reports a calculation, breakdown, or order that's written twice. */
 function repeatProblems({ calculations, breakdowns, orders }: Fields): Problem[] {
   const ordered = orders.map(({ op, column }) =>
     op === undefined ? (column ?? "") : calculationLabel({ op, column }),
@@ -430,7 +432,7 @@ function orderProblems({ calculations, breakdowns, orders }: Fields): Problem[] 
       : [
           {
             path: ["orders", index],
-            message: `an order names a calculation or a breakdown of this query: ${[...labels, ...breakdowns].join(", ")}`,
+            message: `an order must name a calculation or a breakdown of this query: ${[...labels, ...breakdowns].join(", ")}`,
           },
         ],
   );
@@ -444,8 +446,9 @@ const HAVING_VALUES = {
 };
 
 /**
- * A having that names no calculation of the same spec, or compares with the wrong kind of value:
- * a number for most calculations, and a time or date for MIN and MAX of one.
+ * Reports a having that names a calculation missing from the spec, or that compares with the wrong
+ * kind of value. Most calculations compare with a number. MIN and MAX of a time or date column
+ * compare with a time or date.
  */
 function havingProblems(dataset: Dataset, { calculations, havings }: Fields): Problem[] {
   const labels = calculations.map(calculationLabel);
@@ -457,7 +460,7 @@ function havingProblems(dataset: Dataset, { calculations, havings }: Fields): Pr
       return [
         {
           path: ["havings", index],
-          message: `a having names a calculation of this query: ${labels.join(", ")}`,
+          message: `a having must name a calculation of this query: ${labels.join(", ")}`,
         },
       ];
     }
@@ -470,7 +473,7 @@ function havingProblems(dataset: Dataset, { calculations, havings }: Fields): Pr
   });
 }
 
-/** One dataset's spec: its fields, then the checks that look across them. */
+/** The schema for one dataset's spec. It checks each field, then runs the checks across fields. */
 // oxlint-disable-next-line typescript/explicit-function-return-type -- zod infers this schema's type; writing it out would repeat the schema
 function specSchema(dataset: Dataset) {
   return fieldsSchema(dataset).superRefine((fields, context) => {
@@ -488,8 +491,8 @@ function specSchema(dataset: Dataset) {
 }
 
 /**
- * A builder query: what to compute over which rows of one dataset. It accepts only what the
- * registry describes, so a parsed spec names real columns with operations and values that fit them.
+ * Validates a builder query against the registry. A parsed spec uses only columns that its dataset
+ * defines, with operations and values that each column's kind allows.
  */
 export const querySpec = z.discriminatedUnion("dataset", mapNonEmpty(DATASETS, specSchema));
 /** A query as it's written: only `v`, `dataset`, and `nights` are required. */

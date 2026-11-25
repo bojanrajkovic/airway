@@ -41,13 +41,14 @@ describe("buildSessions", () => {
     expect(built.approximate).toBe(true);
   });
 
-  it("makes a session per STR slot and puts each segment in the one it overlaps", () => {
+  it("creates one session per STR slot and assigns each segment to the overlapping session", () => {
     const built = buildSessions(
       inputs({
         maskOn: [540, 700],
         maskOff: [640, 760],
         maskEvents: 4,
-        // The first period's two files are 100 s apart; the slot's minute floors its start 40 s early.
+        // STR.edf stores whole minutes, so slot 1 starts 40 s before its first file. A 100 s gap
+        // separates slot 1's two files.
         segments: [span(at(540, 40), at(590)), span(at(591, 40), at(640)), span(at(700), at(760))],
       }),
     );
@@ -66,7 +67,7 @@ describe("buildSessions", () => {
     expect(built.sessions).toEqual([{ session: 1, start: at(0), end: at(30), source: "str" }]);
   });
 
-  it("matches a segment within 60 s of a session, and no further", () => {
+  it("puts a segment that starts 50 s after a session in that session, and makes a derived session for a segment that starts 120 s after it", () => {
     const built = buildSessions(
       inputs({
         maskOn: [540],
@@ -80,7 +81,7 @@ describe("buildSessions", () => {
     expect(built.sessions[1]?.source).toBe("derived");
   });
 
-  it("gives a segment that overlaps two sessions to the larger overlap", () => {
+  it("puts a segment that overlaps two sessions in the session that it overlaps more", () => {
     const built = buildSessions(
       inputs({
         maskOn: [540, 601],
@@ -93,7 +94,7 @@ describe("buildSessions", () => {
     expect(built.sessionOfSegment).toEqual([2]);
   });
 
-  it("joins leftover segments 90 s or less apart into derived sessions after the 10 slots", () => {
+  it("joins segments that match no slot into a derived session when they're 90 s or less apart", () => {
     const slots = Array.from({ length: 10 }, (_, i) => 60 * i);
     const built = buildSessions(
       inputs({
@@ -102,9 +103,9 @@ describe("buildSessions", () => {
         maskEvents: 2 * 12,
         segments: [
           span(at(600), at(620)),
-          // 90 s after the last: joins.
+          // This segment starts 90 s after the previous segment ends, so the two join.
           span(at(621, 30), at(640)),
-          // 91 s after the last: a new session.
+          // This segment starts 91 s after the previous segment ends, so it begins a new session.
           span(at(641, 31), at(660)),
         ],
       }),
@@ -118,7 +119,7 @@ describe("buildSessions", () => {
     expect(built.approximate).toBe(false);
   });
 
-  it("flags the night when the sessions can't add up to the machine's count", () => {
+  it("marks the night approximate when the number of sessions differs from half the machine's count of mask events", () => {
     const built = buildSessions(inputs({ maskOn: [540], maskOff: [600], maskEvents: 6 }));
 
     expect(built.approximate).toBe(true);
@@ -131,14 +132,14 @@ describe("assignEvents", () => {
     { session: 2, start: at(700), end: at(760), source: "str" as const },
   ];
 
-  it("puts an event in the session that holds it, allowing 60 s past either end", () => {
+  it("puts an event in the session that contains it, with 60 s of slack at either end", () => {
     expect(assignEvents([span(at(550), at(551)), span(at(600, 30), at(601))], sessions)).toEqual([
       { session: 1, outsideMaskOn: false },
       { session: 1, outsideMaskOn: false },
     ]);
   });
 
-  it("gives an event outside every session to the nearest one, marked outside mask-on", () => {
+  it("puts an event outside every session in the nearest session and marks the event outside mask-on", () => {
     expect(assignEvents([span(at(610), at(611)), span(at(690), at(691))], sessions)).toEqual([
       { session: 1, outsideMaskOn: true },
       { session: 2, outsideMaskOn: true },
@@ -154,7 +155,7 @@ describe("assignEvents", () => {
     ]);
   });
 
-  it("leaves the session empty on a night with no sessions", () => {
+  it("returns a null session for an event on a night with no sessions", () => {
     expect(assignEvents([span(at(550), at(551))], [])).toEqual([
       { session: null, outsideMaskOn: true },
     ]);

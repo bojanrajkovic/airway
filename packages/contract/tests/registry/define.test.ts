@@ -27,12 +27,12 @@ describe("sql", () => {
 });
 
 describe("a column's SQL", () => {
-  it("is absent on a plain column, which is the table column of its own name", () => {
+  it("is undefined for a column read directly from its table", () => {
     expect(signal("leak", "Leak.").sql).toBeUndefined();
     expect(metric("duration", { unit: "s", decimals: 1 }, "Length.").sql).toBeUndefined();
   });
 
-  it("is the given SQL when a column has its own", () => {
+  it("is the SQL passed to the builder for a computed column", () => {
     const hour = dimension("hour_of_night", "integer", "Hour.", sql`extract(hour from ts)`);
 
     expect(hour.sql).toEqual(sql`extract(hour from ts)`);
@@ -50,7 +50,7 @@ describe("operationsFor", () => {
     ],
     ["a boolean", dimension("approximate", "boolean", "Flag."), ["=", "!="]],
     ["an enum", enumeration("type", ["hypopnea", "arousal"], "Type."), ["=", "!=", "in", "not-in"]],
-  ])("allows %s its comparisons, plus the null checks", (_, column, comparisons) => {
+  ])("returns the comparisons for %s, followed by the null checks", (_, column, comparisons) => {
     expect(operationsFor(column)).toEqual([...comparisons, "exists", "does-not-exist"]);
   });
 });

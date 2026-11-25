@@ -27,10 +27,10 @@ export type AhiCheck =
   | { outcome: "no_usage" };
 
 /**
- * Recomputes the night's AHI from its apneas and hypopneas, including those outside mask-on time,
- * and compares it with STR.edf's AHI. airway's index in tenths is 600 × events ÷ usage, rounded
- * down. Usage is in whole minutes, so the math stays in integers. The machine's AHI is rounded to
- * tenths to drop float noise. Returns `no_usage` when usage is 0 or missing.
+ * Recomputes the night's AHI from the night's apneas and hypopneas, including those outside mask-on
+ * time, and compares the result with STR.edf's AHI. airway's index in tenths is 600 × events ÷
+ * usage, rounded down. Usage is in whole minutes, so the math stays in integers. The machine's AHI
+ * is rounded to tenths to drop float noise. Returns `no_usage` when usage is 0 or missing.
  */
 export function ahiCheck(day: UsedStrDay, events: readonly NightEvent[]): AhiCheck {
   const usage = day.signals["usage"] ?? 0;
@@ -56,12 +56,13 @@ export type NightInputs = {
   ruleSet: RuleSet;
 };
 
-/** A night's row without `arrived_at`, and the AHI check whose outcome is the row's `ahi_check`. */
+/** `nightRow` returns the night's row and the full AHI check, which ingest logs on a mismatch. */
 export type ScoredNight = { row: Omit<NightRow, "arrived_at">; ahi: AhiCheck };
 
 /**
- * Builds a night's row from the night's STR.edf day, sessions, event rows, and rule set. The
- * longest stretch is the longest session in minutes, or 0 on a night with no sessions.
+ * Builds a night's row from the night's STR.edf day, sessions, event rows, and rule set.
+ * `longest_stretch` is the length of the longest session in minutes, or 0 on a night with no
+ * sessions.
  */
 export function nightRow({ day, sessions, events, ruleSet }: NightInputs): ScoredNight {
   const count = (type: EventType): number => events.filter((event) => event.type === type).length;

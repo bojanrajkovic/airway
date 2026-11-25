@@ -4,7 +4,7 @@ import { AGENT_HINT, AGENT_ROW_LIMIT, capForAgent, type AgentCell } from "../../
 
 const rowsOf = (count: number): AgentCell[][] =>
   Array.from({ length: count }, (_, index) => [index, "2031-03-01"]);
-/** The characters the rows take inside a JSON array, without its brackets. */
+/** Counts the characters in the JSON for `rows`, minus the two outer brackets. */
 const lengthOf = (rows: readonly (readonly AgentCell[])[]): number =>
   Math.max(0, JSON.stringify(rows).length - 2);
 
@@ -15,7 +15,7 @@ describe("capForAgent", () => {
     expect(capForAgent(rows, 25_000)).toEqual({ rows, truncated: false });
   });
 
-  it("cuts at the row limit, and says how to get the rest", () => {
+  it("cuts at the row limit and adds the hint for getting the rest", () => {
     const rows = rowsOf(AGENT_ROW_LIMIT + 1);
 
     expect(capForAgent(rows, 25_000)).toEqual({
@@ -25,7 +25,7 @@ describe("capForAgent", () => {
     });
   });
 
-  it("cuts earlier when the characters run out", () => {
+  it("cuts before the row limit when the rows exceed the character budget", () => {
     const rows = [["a".repeat(10)], ["b".repeat(10)], ["c".repeat(10)]];
     // Each row is 14 characters, and two rows with their comma are 29.
     const { rows: kept, truncated } = capForAgent(rows, 29);
@@ -35,7 +35,7 @@ describe("capForAgent", () => {
     expect(capForAgent(rows, 28).rows).toEqual(rows.slice(0, 1));
   });
 
-  it("keeps the most leading rows that fit, each one whole", () => {
+  it("keeps as many whole rows from the start as fit in the budget", () => {
     const cell = fc.oneof(fc.integer(), fc.string(), fc.boolean(), fc.constant(null));
     const rows = fc.array(fc.array(cell, { maxLength: 5 }), { maxLength: 300 });
 

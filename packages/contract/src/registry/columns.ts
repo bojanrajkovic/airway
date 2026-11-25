@@ -25,7 +25,7 @@ export const hourOfNight = dimension(
   sql`extract(hour from ts at time zone ${homeZone})::int`,
 );
 
-/** `ts` with the dataset's own description of what the moment is. */
+/** Builds a `ts` column. Each dataset describes the moment its `ts` records. */
 export const ts = (description: string): Column => time("ts", "timestamp", description);
 
 export const minutes: ColumnUnit = { unit: "min", decimals: 1 };

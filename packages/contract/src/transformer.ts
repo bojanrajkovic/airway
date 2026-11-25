@@ -1,5 +1,6 @@
-// How tRPC carries values the server and the web app share. JSON has no Temporal types, so superjson
-// sends each as its ISO string and rebuilds it on the other side.
+// tRPC uses this superjson instance to serialize the values that the server and the web app share.
+// Plain JSON would deliver a Temporal value as a string. This instance sends the value's ISO string
+// and rebuilds the Temporal value on the other side.
 import { SuperJSON } from "superjson";
 
 export const transformer = new SuperJSON();

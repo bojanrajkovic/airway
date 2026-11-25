@@ -61,7 +61,7 @@ async function inRollback(
   }
 }
 
-/** The constraint a write broke, read from the Postgres error drizzle wraps. */
+/** Returns the constraint that a write broke. Drizzle wraps the Postgres error that names it. */
 async function brokenConstraint(write: PromiseLike<unknown>): Promise<string | undefined> {
   try {
     await write;
@@ -102,8 +102,8 @@ migrated("migrate() creates the notes tables", async ({ db }) => {
   ]);
 });
 
-// Postgres writes a timestamp's offset in the session's time zone, such as -05, so the column
-// has to read more than UTC's +00.
+// Postgres writes each timestamp with the offset of the session's time zone, such as -05, so
+// the column has to parse offsets other than +00.
 migrated.for(["UTC", "America/New_York"])(
   "Instants and PlainDates round-trip through their columns, with the session in %s",
   async (zone, { db }) => {
@@ -163,7 +163,7 @@ describe("constraints", () => {
       },
     ],
     [
-      "a time range on a note known only to the month",
+      "a time range with month precision",
       "notes_time_range",
       {
         datePrecision: "month",
@@ -175,7 +175,7 @@ describe("constraints", () => {
     ["a 32,001-character body", "notes_body_length", { body: "x".repeat(32_001) }],
     ["a body of only spaces", "notes_body_length", { body: "  \n " }],
     [
-      "an edit without its editor",
+      "an edit time but no editor",
       "notes_updated_together",
       { updatedAt: Temporal.Instant.from("2030-01-11T00:00Z") },
     ],
@@ -183,7 +183,7 @@ describe("constraints", () => {
 
   migrated.for(rejects)("a note with %s fails", async ([, constraint, change], { db }) => {
     await inRollback(db, async (db) => {
-      // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the CHECK constraints reject values the column types already forbid, so the test has to cast
+      // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the CHECK constraints reject values that the column types already forbid, so the test has to cast
       const values = { ...note, ...change } as typeof notes.$inferInsert;
 
       expect(await brokenConstraint(db.insert(notes).values(values))).toBe(constraint);

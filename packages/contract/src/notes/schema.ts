@@ -16,7 +16,7 @@ import { CHANNELS } from "../author.ts";
 import type { QuerySpecInput } from "../query/spec.ts";
 import { instant, plainDate } from "./columns.ts";
 
-/** What a note is about. A `finding` note also has a row in `findings`. */
+/** Lists the categories that a note can be in. A `finding` note also has a row in `findings`. */
 export const NOTE_CATEGORIES = [
   "procedure",
   "study",
@@ -28,23 +28,23 @@ export const NOTE_CATEGORIES = [
 ] as const;
 export type NoteCategory = (typeof NOTE_CATEGORIES)[number];
 
-/** How precisely a note's dates are known. */
+/** Says whether a note's dates are known to the day, the month, or the year. */
 export const DATE_PRECISIONS = ["day", "month", "year"] as const;
 export type DatePrecision = (typeof DATE_PRECISIONS)[number];
 
-/** The kinds of query a short link opens. */
+/** Lists the kinds of query that a short link can open. */
 export const SHORT_LINK_KINDS = ["spec", "sql"] as const;
 
-/** The longest note body, in characters. */
+/** A note's body can be at most this many characters long. */
 export const MAX_BODY_LENGTH = 32_000;
 
-// The lists are our own constants, never input, so they go into the DDL as literals.
+// Callers pass only our own constants, so `oneOf` writes the values into the DDL as literals.
 const oneOf = (column: Column, values: readonly string[]): SQL =>
   sql`${column} in (${sql.raw(values.map((value) => `'${value}'`).join(", "))})`;
 
 /**
- * The person and channel behind a request, as notes and history store them. A function, because
- * each table needs its own column builders.
+ * Returns the columns that record who made a request and through which channel, for `notes` and
+ * `query_history`. `authorColumns` is a function because each table needs its own column builders.
  */
 // oxlint-disable-next-line typescript/explicit-function-return-type -- drizzle infers these columns' types; writing them out would repeat them
 const authorColumns = () => ({
@@ -56,8 +56,8 @@ const authorColumns = () => ({
 export const notesSchema = pgSchema("notes");
 
 /**
- * Everything written about one or more nights. Deleting a note sets `deletedAt`; nothing is ever
- * purged, so a delete can be undone.
+ * Each row is a note about one or more nights. Deleting a note only sets `deletedAt` and keeps the
+ * row, so a delete can be undone.
  */
 export const notes = notesSchema.table(
   "notes",
@@ -80,14 +80,14 @@ export const notes = notesSchema.table(
     deletedAt: instant("deleted_at"),
   },
   (table) => [
-    // The findings foreign key points at (id, category), so a finding can only reference a
+    // The findings foreign key points at (id, category), so a finding can reference only a
     // finding note.
     unique("notes_id_category").on(table.id, table.category),
     check("notes_category", oneOf(table.category, NOTE_CATEGORIES)),
     check("notes_author_channel", oneOf(table.authorChannel, CHANNELS)),
     check("notes_date_precision", oneOf(table.datePrecision, DATE_PRECISIONS)),
-    // A month is stored as its 1st and a year as 1 January, so sorting and range filters work.
-    // Truncating to `day` changes nothing, so day precision allows any date.
+    // Each night must be the first day of its period, such as the 1st for `month`, so that sorting
+    // and range filters work.
     check(
       "notes_dates_match_precision",
       sql`${table.firstNight} = date_trunc(${table.datePrecision}, ${table.firstNight}::timestamp)::date
@@ -95,14 +95,15 @@ export const notes = notesSchema.table(
           or ${table.lastNight} = date_trunc(${table.datePrecision}, ${table.lastNight}::timestamp)::date)`,
     ),
     check("notes_last_night_order", sql`${table.lastNight} >= ${table.firstNight}`),
-    // A time range needs both ends, in order, and only on a note dated to the day.
+    // A time range needs a start and a later end, and only a note with day precision can have a
+    // time range.
     check(
       "notes_time_range",
       sql`(${table.startsAt} is null and ${table.endsAt} is null)
         or (${table.startsAt} is not null and ${table.endsAt} is not null
           and ${table.startsAt} < ${table.endsAt} and ${table.datePrecision} = 'day')`,
     ),
-    // A body has some text, and no more than the limit.
+    // A body contains a non-whitespace character and is at most `MAX_BODY_LENGTH` characters long.
     check(
       "notes_body_length",
       sql`${table.body} ~ '[^[:space:]]'
@@ -117,8 +118,8 @@ export const notes = notesSchema.table(
 );
 
 /**
- * Every builder query or SQL statement anyone linked to, keyed by its short code. Each row holds a
- * canonical spec or SQL text, matching its kind.
+ * Stores every builder query and SQL statement that someone has linked to, keyed by short code. A
+ * `spec` row stores a canonical spec, and a `sql` row stores SQL text.
  */
 export const shortLinks = notesSchema.table(
   "short_links",
@@ -141,8 +142,8 @@ export const shortLinks = notesSchema.table(
 );
 
 /**
- * The query behind a finding note. `category` is always `finding`; it exists so the foreign key
- * can require the note to be in that category.
+ * Links each finding note to the short link for its query. `category` is always `finding`. The
+ * column exists so the foreign key can require a note in the `finding` category.
  */
 export const findings = notesSchema.table(
   "findings",
@@ -165,12 +166,12 @@ export const findings = notesSchema.table(
   ],
 );
 
-/** A finding's result rows, capped the way agent results are. */
+/** A snapshot stores a finding's result rows, truncated at the same limit as an agent result. */
 export type SnapshotResult = Pick<AgentResult, "columns" | "rows" | "truncated">;
 
 /**
- * A finding's result under one `derived_version`. Run now replaces the current version's row, and
- * older versions' rows stay for comparison.
+ * Each row stores a finding's result under one `derived_version`. "Run now" replaces the row for
+ * the current version and leaves the rows for older versions, so the results can be compared.
  */
 export const findingSnapshots = notesSchema.table(
   "finding_snapshots",
@@ -185,7 +186,10 @@ export const findingSnapshots = notesSchema.table(
   (table) => [primaryKey({ columns: [table.noteId, table.derivedVersion] })],
 );
 
-/** Each explicit run: the explorer's Run, opening a link, or an MCP tool call. Never pruned. */
+/**
+ * Records every query that someone runs by clicking Run in the explorer, opening a link, or calling
+ * an MCP tool. The rows stay forever.
+ */
 export const queryHistory = notesSchema.table(
   "query_history",
   {

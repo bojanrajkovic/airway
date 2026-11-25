@@ -19,7 +19,7 @@ describe("toExploreUrl", () => {
     );
   });
 
-  it("refuses a spec whose link would pass the limit", () => {
+  it("returns too_long for a spec whose link is longer than LINK_LIMIT", () => {
     const filters = Array.from({ length: 20 }, (_, filter) => ({
       column: "session",
       op: "in",
@@ -35,7 +35,7 @@ describe("parseExploreQuery", () => {
   it("reads back the query a link was made from", () => {
     fc.assert(
       fc.property(spec, (generated) => {
-        // A generated spec can be too long for a link, and those have nothing to read back.
+        // A generated spec can be too long for a link, so it has no link to read back.
         fc.pre(toExploreUrl(generated).isOk());
 
         const read = parseExploreQuery(queryOf(toExploreUrl(generated)._unsafeUnwrap()));

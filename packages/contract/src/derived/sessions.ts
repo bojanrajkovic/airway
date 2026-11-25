@@ -11,7 +11,7 @@ export type Session = Span & { session: number; source: (typeof SESSION_SOURCES)
 /** A night's STR.edf slots and mask events, and its BRP segments. */
 export type SessionInputs = Pick<UsedStrDay, "maskOn" | "maskOff" | "maskEvents"> & {
   night: Temporal.PlainDate;
-  /** The home time zone, whose winter offset turns STR.edf's device-clock minutes into instants. */
+  /** The home time zone. */
   zone: string;
   /** The night's BRP segments, in time order. */
   segments: readonly Span[];
@@ -19,9 +19,9 @@ export type SessionInputs = Pick<UsedStrDay, "maskOn" | "maskOff" | "maskEvents"
 
 export type Sessions = {
   sessions: Session[];
-  /** The session each segment belongs to, in the order of `segments`. */
+  /** The session that each segment belongs to, in the order of `segments`. */
   sessionOfSegment: number[];
-  /** True when the sessions can't add up to MaskEvents / 2. */
+  /** True when the number of sessions differs from MaskEvents / 2. */
   approximate: boolean;
 };
 
@@ -33,7 +33,8 @@ const JOIN_SECONDS = 90;
 const seconds = (from: Temporal.Instant, to: Temporal.Instant): number =>
   from.until(to).total("seconds");
 
-// How long `span` overlaps `session` widened by the slack, in seconds; 0 when they don't meet.
+// Returns the seconds that `span` overlaps `session`, after widening `session` by the slack on each
+// side. Returns 0 when they don't overlap.
 function overlap(span: Span, session: Span): number {
   const slack = SLACK_SECONDS * 1000;
   const start = Math.max(span.start.epochMilliseconds, session.start.epochMilliseconds - slack);
@@ -42,9 +43,7 @@ function overlap(span: Span, session: Span): number {
   return Math.max(0, (end - start) / 1000);
 }
 
-// STR.edf's used slots as spans. A slot 0 with a mask-off but no mask-on started before noon, so
-// it starts at noon (OSCAR's fix for the night's first period). A slot whose mask-on and mask-off
-// fall in the same minute is dropped: that period lasted under a minute.
+// Returns STR.edf's used slots as spans. Slot 0 without a mask-on starts at noon, as in OSCAR.
 function slotSpans({ night, zone, maskOn, maskOff }: SessionInputs): Span[] {
   const noon = toInstant(night.toPlainDateTime("12:00"), zone);
   const instant = (minutes: number): Temporal.Instant => noon.add({ minutes });
@@ -59,16 +58,7 @@ function slotSpans({ night, zone, maskOn, maskOff }: SessionInputs): Span[] {
   });
 }
 
-/**
- * A night's sessions, built the way ingest builds them:
- *
- * 1. Each used STR.edf slot is a `str` session.
- * 2. Each segment joins the `str` session it overlaps most, allowing 60 s on either side.
- * 3. Segments that match no slot, such as those past the 10 slots, join their neighbor when the gap
- *    is 90 s or less, and each run is a `derived` session.
- *
- * Sessions are numbered from 1 in time order.
- */
+/** Builds a night's sessions from STR.edf's slots and BRP segments, as docs/ingest.md describes. */
 export function buildSessions(inputs: SessionInputs): Sessions {
   const candidates: Candidate[] = slotSpans(inputs).map((span) => ({
     span,
@@ -113,14 +103,10 @@ export function buildSessions(inputs: SessionInputs): Sessions {
 
 type Candidate = { span: Span; source: Session["source"]; members: number[] };
 
-/** Where an event belongs: its session, and whether it fell outside every mask-on period. */
+/** An event's session, and whether the event fell outside every mask-on period. */
 export type EventPlace = { session: number | null; outsideMaskOn: boolean };
 
-/**
- * Each event goes to the session that contains it, allowing 60 s on either side. Otherwise it goes
- * to the nearest session, marked outside mask-on, so the sessions' counts add up to the night's. On
- * a night with no sessions, an event has no session.
- */
+/** Returns each event's session, as docs/ingest.md describes. */
 export function assignEvents(events: readonly Span[], sessions: readonly Session[]): EventPlace[] {
   return events.map((event): EventPlace => {
     const inside = sessions.find(

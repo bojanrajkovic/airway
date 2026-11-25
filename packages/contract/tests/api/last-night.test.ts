@@ -36,12 +36,12 @@ test("uses the configured cutoff", () => {
 describe("lastNightKey", () => {
   const zone = "America/New_York";
 
-  test("is yesterday's date until midnight, home time", () => {
+  test("is yesterday's date until midnight in the home zone", () => {
     expect(lastNightKey(at(zone, "2030-06-11", "23:59:59"), zone).toString()).toBe("2030-06-10");
     expect(lastNightKey(at(zone, "2030-06-12", "00:00"), zone).toString()).toBe("2030-06-11");
   });
 
-  test("follows the home date across a DST change, not UTC's", () => {
+  test("follows the home zone's date across a DST change", () => {
     // 23:30 EST on 3 November is 04:30 UTC on the 4th.
     expect(lastNightKey(at(zone, "2030-11-03", "23:30"), zone).toString()).toBe("2030-11-02");
     expect(lastNightKey(at(zone, "2030-03-10", "03:30"), zone).toString()).toBe("2030-03-09");

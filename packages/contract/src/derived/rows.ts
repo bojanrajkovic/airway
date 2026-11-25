@@ -1,5 +1,6 @@
-// One row type per derived table, keyed by column name, so the synthetic rows and ingest's writes
-// share one shape. ddl.ts creates the tables.
+// Defines one row type for each derived table, with fields named after the table's columns. The
+// synthetic rows and the rows that ingest writes use these types, so both have the same shape.
+// ddl.ts creates the tables.
 import type { RuleSet } from "../profile.ts";
 import type {
   AHI_CHECKS,
@@ -9,7 +10,10 @@ import type {
   SESSION_SOURCES,
 } from "./values.ts";
 
-/** Machine-signal columns, by column name. Null where the machine wrote no value. */
+/**
+ * Maps each machine-signal column's name to the column's value. The value is null when the machine
+ * left the column empty.
+ */
 export type SignalValues = Readonly<Record<string, number | null>>;
 
 export type DeviceRow = { serial: string; model: string };
@@ -30,7 +34,7 @@ export type SettingsChangeRow = {
   new_value: number | null;
 };
 
-/** `signals` holds the machine's STR.edf columns; the rest are airway's. */
+/** `signals` contains the machine's STR.edf columns. airway computes the other columns. */
 export type NightRow = {
   night: Temporal.PlainDate;
   signals: SignalValues;
@@ -52,9 +56,7 @@ export type NightRow = {
 export type FileRow = {
   path: string;
   kind: (typeof FILE_KINDS)[number];
-  /** Null for STR.edf and Identification.tgt. */
   night: Temporal.PlainDate | null;
-  /** The segment a BRP or PLD file's data belongs to; null for other files and unread ones. */
   segment: number | null;
   size: number;
   sha256: string;
@@ -79,12 +81,8 @@ export type SegmentRow = {
 
 export type EventRow = {
   night: Temporal.PlainDate;
-  /** Null on a night with no sessions. */
   session: number | null;
-  /**
-   * The event's start, which is the EVE onset minus the duration. When `duration` is null, `ts` is
-   * the onset, which marks the event's end.
-   */
+  /** The event's start. When `duration` is null, `ts` is the event's end. */
   ts: Temporal.Instant;
   duration: number | null;
   type: (typeof EVENT_TYPES)[number];
@@ -93,7 +91,7 @@ export type EventRow = {
   outside_mask_on: boolean;
 };
 
-/** `signals` holds PLD's columns. */
+/** `signals` has each PLD signal's value at `ts`. */
 export type SampleRow = {
   night: Temporal.PlainDate;
   segment: number;
@@ -108,12 +106,15 @@ export type BreathRow = {
   session: number;
   ts: Temporal.Instant;
   duration: number;
-  /** Peak flow of the in-breath. */
+  /** `amplitude` is the peak flow during the in-breath. */
   amplitude: number;
   inspiratory_volume: number;
 };
 
-/** Every derived table's rows, except `meta` and `period_percentiles`, which a load computes. */
+/**
+ * Groups the rows of every derived table by table name. The type omits `meta` and
+ * `period_percentiles` because a load computes their rows.
+ */
 export type DerivedRows = {
   device: DeviceRow[];
   column_units: ColumnUnitRow[];

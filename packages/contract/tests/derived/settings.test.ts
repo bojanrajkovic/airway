@@ -18,7 +18,7 @@ const used = (day: number, settings: Partial<typeof BASE> = {}): StrDay => ({
 const unused = (day: number): StrDay => ({ day: date(day), used: false });
 
 describe("settingsChanges", () => {
-  it("gives one row per changed setting", () => {
+  it("returns one row for each setting that changed", () => {
     const days = [
       used(0),
       used(1, { max_pressure: 14 }),
@@ -31,7 +31,7 @@ describe("settingsChanges", () => {
     ]);
   });
 
-  it("skips unused days and compares with the last used day", () => {
+  it("skips unused days and compares a used day with the used day before it", () => {
     const days = [used(0), unused(1), unused(2), used(3, { min_pressure: 7 })];
 
     expect(settingsChanges(days, date(0))).toEqual([
@@ -39,7 +39,7 @@ describe("settingsChanges", () => {
     ]);
   });
 
-  it("compares the first day from `from` with an earlier used day", () => {
+  it("compares the first day on or after `from` with the used day before it", () => {
     const days = [used(0), used(1, { epr_level: 3 }), used(2, { epr_level: 3 })];
 
     expect(settingsChanges(days, date(1))).toEqual([
@@ -47,13 +47,13 @@ describe("settingsChanges", () => {
     ]);
   });
 
-  it("gives no rows before `from`", () => {
+  it("leaves out changes made before `from`", () => {
     const days = [used(0), used(1, { epr_level: 3 }), used(2, { epr_level: 3 })];
 
     expect(settingsChanges(days, date(2))).toEqual([]);
   });
 
-  it("gives the first used day no rows", () => {
+  it("returns an empty list when only one day is used", () => {
     expect(settingsChanges([unused(0), used(1, { max_pressure: 20 })], date(0))).toEqual([]);
   });
 
