@@ -4,7 +4,7 @@ import { dataSignals, step, type EdfFileType, type EdfSignal } from "./airsense.
 import type { Annotation } from "./annotations.ts";
 import { recordBytes, type EdfHeader } from "./header.ts";
 
-/** The header fields that change from file to file. The file type sets the rest. */
+/** These header fields change from file to file. The file type sets the rest. */
 export type PerFileHeader = Pick<EdfHeader, "start" | "patient" | "recording">;
 
 export type EdfWriteError =
@@ -14,12 +14,12 @@ export type EdfWriteError =
   | { kind: "uneven_signals"; label: string; records: number; expected: number }
   | { kind: "field_too_long"; field: string; value: string }
   | { kind: "annotation_too_long"; annotation: Annotation }
-  // Real cards write every onset at or after the file's start.
+  // The machine writes every onset at or after the file's start.
   | { kind: "negative_onset"; annotation: Annotation };
 
 const HEADER_BYTES = 256;
 const SIGNAL_HEADER_BYTES = 256;
-// The machine's marker for "no value", written in place of NaN.
+// The machine marks "no value" with -1. digitize writes -1 in place of NaN.
 const MISSING = -1;
 
 const encoder = new TextEncoder();
@@ -33,7 +33,7 @@ class HeaderBuilder {
     this.bytes = new Uint8Array(length).fill(0x20);
   }
 
-  // Widths count bytes, not characters: "°C" takes 3 bytes in UTF-8.
+  // `width` is in bytes. "°C" is 3 bytes in UTF-8.
   field(name: string, value: string, width: number): Result<void, EdfWriteError> {
     const encoded = encoder.encode(value);
 
@@ -88,7 +88,6 @@ function writeHeader(
   ).map(() => builder.bytes);
 }
 
-// The signal headers store each field for every signal before the next field.
 function perSignal(
   signals: readonly EdfSignal[],
   name: string,
@@ -98,8 +97,6 @@ function perSignal(
   return signals.map((signal) => [`${signal.label} ${name}`, value(signal), width]);
 }
 
-// A signal's samples as digital values, in one pass. NaN becomes the machine's -1, which is an
-// error where -1 is inside the digital range, because it would read back as a value.
 function digitize(signal: EdfSignal, samples: Float64Array): Result<Int16Array, EdfWriteError> {
   const physicalMin = Number(signal.physicalMin);
   const size = step(signal);
@@ -125,8 +122,8 @@ function digitize(signal: EdfSignal, samples: Float64Array): Result<Int16Array, 
   return ok(digital);
 }
 
-// Every record ends with its Crc16 sample: the CRC-16/CCITT-FALSE of the record's other bytes,
-// little-endian, as the AirSense writes it.
+// Every record ends with its Crc16 sample, which is the CRC-16/CCITT-FALSE of the record's other
+// bytes in little-endian order. The AirSense writes the same checksum.
 function signRecords(bytes: Uint8Array, first: number, size: number): Uint8Array {
   const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
 
@@ -139,7 +136,7 @@ function signRecords(bytes: Uint8Array, first: number, size: number): Uint8Array
   return bytes;
 }
 
-// Every signal must fill the same whole number of records. Crc16 isn't passed in.
+// Every signal must fill the same whole number of records. Callers leave Crc16 out of `values`.
 function recordCount(
   file: EdfFileType,
   values: ReadonlyMap<string, Float64Array>,
@@ -168,10 +165,8 @@ function recordCount(
 }
 
 /**
- * Writes a signal file (BRP, PLD, SAD, or STR) from physical values, one array per label. Values
- * are rounded to the signal's step and clamped to its digital range; `NaN` is written as the
- * machine's -1 for "no value", which only signals whose digital range leaves out -1 accept. Each
- * record ends with its checksum.
+ * Writes a signal file (BRP, PLD, SAD, or STR) from physical values, one array per label.
+ * docs/synthetic-data.md describes the rounding and how `NaN` is written.
  */
 export function writeSignals(
   file: EdfFileType,
@@ -214,8 +209,8 @@ export function writeSignals(
 
 /**
  * Writes an EDF+D annotation file (EVE or CSL), one annotation per data record, as the machine
- * does. Each record starts with the timekeeping entry EDF+ requires, then holds the annotation,
- * padded with zeros. Each record ends with its checksum.
+ * does. Each record starts with the timekeeping entry that EDF+ requires. The annotation follows,
+ * padded with zeros, and the checksum ends the record.
  */
 export function writeAnnotations(
   file: EdfFileType,

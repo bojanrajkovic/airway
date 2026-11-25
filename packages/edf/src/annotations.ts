@@ -1,16 +1,17 @@
 import { err, ok, Result } from "neverthrow";
 import { coversRecords, recordBytes, type EdfReadError, type ReadableEdfFile } from "./header.ts";
 
-/** One EDF+ annotation, with times in seconds from the file's start. */
+/** An EDF+ annotation. `onset` counts seconds from the file's start. `duration` is in seconds. */
 export type Annotation = { onset: number; duration: number; label: string };
 
 const ANNOTATION_LABEL = "EDF Annotations";
-// A TAL: a signed onset, an optional duration after \x15, then texts each ended by \x14.
+// Matches a TAL (time-stamped annotation list): a signed onset, an optional duration after \x15,
+// then texts that each end with \x14.
 // oxlint-disable-next-line eslint/no-control-regex -- EDF+ separates a TAL's parts with \x14 and \x15
 const TAL = /^([+\-]\d+(?:\.\d+)?)(?:\x15(\d+(?:\.\d+)?)?)?\x14(.*)$/sv;
 const decoder = new TextDecoder();
 
-// Splits one record's annotation bytes into TALs, which EDF+ ends with a zero byte.
+// Splits one record's annotation bytes into TALs. EDF+ ends each TAL with a zero byte.
 function tals(chunk: Uint8Array): string[] {
   const found: string[] = [];
   let start = 0;
@@ -45,9 +46,10 @@ function parseTal(record: number, tal: string): Result<Annotation[], EdfReadErro
 }
 
 /**
- * Reads every annotation in an EDF+ file, in record order. Onsets and durations are seconds from
- * the file's start, and labels come back as written. Timekeeping TALs are dropped. Reads every
- * whole record on disk, including records past the header's count.
+ * Reads every annotation in an EDF+ file, in record order. Each onset counts seconds from the
+ * file's start, each duration is in seconds, and labels come back as written. Skips the timekeeping
+ * annotations that mark each record's start. Reads every whole record on disk, including records
+ * past the header's count.
  */
 export function readAnnotations(
   bytes: Uint8Array,

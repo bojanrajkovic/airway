@@ -3,28 +3,39 @@ export type FileSizeInputs = {
   size: number;
   headerBytes: number;
   recordBytes: number;
-  /** The header's record count: -1, EDF's "unknown", when the card never filled it in. */
+  /**
+   * The header declares this many records, or -1 when the card never filled in the count. EDF
+   * defines -1 as unknown.
+   */
   declaredRecords: number;
 };
 
-/** How a header's record count compares with the whole records on disk. */
+/**
+ * Says whether the header's record count is unknown, equal to the number of whole records on disk,
+ * or lower than that number.
+ */
 export type HeaderCount = "matches" | "unknown_length" | "undercounted";
 
 /**
- * What ingest does with a file, from its size against its header.
+ * Tells ingest whether to read, skip, or reject a file, based on the file's size and header.
  *
- * - `read`: at least one whole record. `records` counts every whole record on disk, and `header`
- *   says how the header's count compares, so a scan can report files by it.
- * - `skip`: a header with no records.
- * - `reject`: the file is `truncated` (fewer records than declared) or ends in a
- *   `partial_record`, so it was cut off or is still being written. Its night imports without it.
+ * - `read`: the file has at least one whole record. `records` is the number of whole records on
+ *   disk. `header` compares the header's record count with `records`, so a scan can report
+ *   files by `header`.
+ * - `skip`: the file contains only a header.
+ * - `reject`: the file has fewer whole records than its header declares (`truncated`) or ends
+ *   partway through a record (`partial_record`). Either the file was cut off or it's still being
+ *   written. Ingest imports the night without this file.
  */
 export type FileSizeCheck =
   | { verdict: "read"; header: HeaderCount; records: number }
   | { verdict: "skip"; header: Exclude<HeaderCount, "undercounted">; records: 0 }
   | { verdict: "reject"; reason: "truncated" | "partial_record" };
 
-/** Checks a file's size against its header. `truncated` wins over `partial_record`. */
+/**
+ * Checks a file's size against its header. Rejects a file as `truncated` when it is short of
+ * records and also ends in a partial record.
+ */
 export function checkFileSize({
   size,
   headerBytes,

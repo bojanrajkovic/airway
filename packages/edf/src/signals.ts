@@ -8,15 +8,20 @@ import {
   type ReadableEdfFile,
 } from "./header.ts";
 
-/** Which records to read, with `Array.slice`'s rules: 0-based, `toRecord` exclusive. */
+/**
+ * Selects the records to read. Records are numbered from 0, and the range ends just before
+ * `toRecord`, as in `Array.slice`.
+ */
 export type RecordRange = { fromRecord?: number; toRecord?: number };
 
 /**
- * Reads the named signals' samples in physical units, one array per label.
+ * Reads the samples of the signals named in `labels` and returns them in physical units, one
+ * array per label.
  *
- * Reads every whole record on disk by default, including records past the header's count. A
- * digital value outside the signal's digital range reads as NaN: that's how the card marks a
- * missing sample. Signals not asked for, Crc16 among them, are skipped.
+ * Reads every whole record on disk by default, including records past the header's count. The
+ * machine marks a missing sample with a digital value outside the signal's digital range.
+ * `readSignals` returns NaN for any such value. It skips the signals that aren't in `labels`, such
+ * as Crc16.
  */
 export function readSignals<L extends string>(
   bytes: Uint8Array,
@@ -43,7 +48,8 @@ export function readSignals<L extends string>(
   );
 }
 
-// Decodes the records in [fromRecord, toRecord) for each label, once the range is checked.
+// Decodes the records in [fromRecord, toRecord) for each label. `readSignals` has already
+// checked the range.
 function decode<L extends string>(
   bytes: Uint8Array,
   header: EdfHeader,
@@ -52,7 +58,7 @@ function decode<L extends string>(
 ): Result<Record<L, Float64Array>, EdfReadError> {
   const stride = recordBytes(header);
   const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
-  // Each signal's byte offset within a record: the samples of the signals before it.
+  // A record stores the signals' samples back to back, in header order.
   const offsets = header.signals.map((_, i) =>
     header.signals.slice(0, i).reduce((sum, signal) => sum + 2 * signal.samplesPerRecord, 0),
   );
@@ -89,6 +95,6 @@ function decode<L extends string>(
     result[label] = values;
   }
 
-  // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the loop sets every label or returns
+  // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the loop sets a value for every label or returns an error
   return ok(result as Record<L, Float64Array>);
 }

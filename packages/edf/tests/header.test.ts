@@ -3,7 +3,7 @@ import { isReadable, readHeader, type EdfReadError } from "../src/header.ts";
 import type { FileSizeCheck } from "../src/size.ts";
 import { crc16, file, flow, header, plain } from "./bytes.ts";
 
-// plain() has a 768-byte header and 6-byte records: two Flow samples and a Crc16.
+// plain() has a 768-byte header. Each record is 6 bytes: two Flow samples and one Crc16 sample.
 const RECORD = 6;
 
 const check = (records: string, bodyBytes: number): FileSizeCheck | EdfReadError =>
@@ -69,9 +69,12 @@ describe("readHeader", () => {
       2 * RECORD + 1,
       { verdict: "reject", reason: "partial_record" },
     ],
-  ])("gives checkFileSize the right numbers when a file %s", (_, records, bodyBytes, expected) => {
-    expect(check(records, bodyBytes)).toEqual(expected);
-  });
+  ])(
+    "passes the header's sizes and record count to checkFileSize when a file %s",
+    (_, records, bodyBytes, expected) => {
+      expect(check(records, bodyBytes)).toEqual(expected);
+    },
+  );
 
   it("checks the size on disk when given only the header's bytes", () => {
     const head = header(plain());
@@ -80,7 +83,7 @@ describe("readHeader", () => {
     expect(parsed.size).toEqual({ verdict: "read", header: "undercounted", records: 3 });
   });
 
-  it("asks for more bytes when they end before the header does", () => {
+  it("returns header_too_short with the header's length when the bytes end before the header ends", () => {
     const head = header(plain());
 
     expect(readHeader(head.subarray(0, 100))._unsafeUnwrapErr()).toEqual({
@@ -167,7 +170,7 @@ describe("readHeader", () => {
     expect(readHeader(file(plain({ reserved: "" }), 0))._unsafeUnwrap().header.format).toBe("EDF");
   });
 
-  it("narrows to a readable file only when the verdict is read", () => {
+  it("isReadable returns true only for a file with a 'read' verdict", () => {
     const read = readHeader(file(plain(), 2 * RECORD))._unsafeUnwrap();
     const skipped = readHeader(file(plain({ records: "-1" }), 0))._unsafeUnwrap();
 

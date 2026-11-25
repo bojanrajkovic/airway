@@ -2,12 +2,12 @@ import { open, type FileHandle } from "node:fs/promises";
 import { errAsync, ResultAsync } from "neverthrow";
 import { readHeader, type EdfFile, type EdfReadError } from "./header.ts";
 
-// The fixed part of every header, which says how long the whole header is.
+// Every header starts with 256 fixed bytes, which say how long the whole header is.
 const FIXED_BYTES = 256;
 
 /**
  * Reads a file's header from disk, without reading its records, and checks the file's size
- * against it. It reads the first 256 bytes, then the rest of the header if there's more.
+ * against the header. It reads the first 256 bytes, then the rest of the header if there's more.
  */
 export function readFileHeader(path: string): ResultAsync<EdfFile, EdfReadError> {
   const failed = (cause: unknown): EdfReadError => ({
@@ -33,7 +33,7 @@ function readHeaderFromHandle(
   return ResultAsync.fromPromise(handle.stat(), failed).andThen(({ size }) =>
     readFirstBytes(Math.min(FIXED_BYTES, size))
       .andThen((bytes) => readHeader(bytes, size))
-      // The first 256 bytes give the header's length; a file shorter than that is truncated.
+      // The first 256 bytes say how long the header is; a file shorter than the header is truncated.
       .orElse((error) =>
         error.kind === "header_too_short" &&
         error.headerBytes > FIXED_BYTES &&

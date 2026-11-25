@@ -1,43 +1,49 @@
 import { err, ok, Result } from "neverthrow";
 import { checkFileSize, type FileSizeCheck } from "./size.ts";
 
-/** One signal as a file header declares it. */
+/** Describes one signal with the values that the file header declares for it. */
 export type SignalHeader = {
   label: string;
   /** Empty when the header leaves the unit blank. */
   unit: string;
-  /** The header's text, exactly as the machine writes it: `0.00` for some signals, `0` for others. */
+  /** Stores the header's text exactly as the machine writes it, such as `0.00` or `0`. */
   physicalMin: string;
   physicalMax: string;
-  /** The range of the int16 values stored in the file. */
+  /** `digitalMin` and `digitalMax` bound the int16 values stored in the file. */
   digitalMin: number;
   digitalMax: number;
   samplesPerRecord: number;
 };
 
-/** What an EDF or EDF+ header says. Transducer and prefiltering fields are blank on the card. */
+/**
+ * `readHeader` parses these fields from an EDF or EDF+ header. It skips the transducer and
+ * prefiltering fields, which the card leaves blank.
+ */
 export type EdfHeader = {
-  /** The reserved field: `EDF` for plain EDF, `EDF+C` or `EDF+D` for EDF+. */
+  /** The reserved field reads `EDF` for plain EDF and `EDF+C` or `EDF+D` for EDF+. */
   format: "EDF" | "EDF+C" | "EDF+D";
-  /** The device clock's time, which has no zone, as the machine writes it. */
+  /** The machine writes the start time from the device clock, without a time zone. */
   start: Temporal.PlainDateTime;
   patient: string;
   recording: string;
   headerBytes: number;
-  /** -1 when the card never filled it in. */
+  /** -1 when the machine never filled in the record count. */
   declaredRecords: number;
   recordSeconds: number;
   /** In header order. */
   signals: readonly SignalHeader[];
 };
 
-/** Something the header contradicts without stopping the read. */
+/** `readHeader` reports a contradiction in the header as a warning and keeps reading. */
 export type EdfWarning =
   /** The recording field's `Startdate` names a different day from the header's start date. */
   { kind: "startdate_mismatch"; headerDate: Temporal.PlainDate; startdate: Temporal.PlainDate };
 
 export type EdfReadError =
-  /** `bytes` ends before the header does; `headerBytes` is how many it needs, 256 when unknown. */
+  /**
+   * `bytes` ends before the header ends. `headerBytes` is the header's length, or 256 when `bytes`
+   * is shorter than 256 bytes.
+   */
   | { kind: "header_too_short"; headerBytes: number }
   | { kind: "bad_field"; field: string; value: string }
   | { kind: "read_failed"; path: string; message: string }
@@ -46,18 +52,24 @@ export type EdfReadError =
   /** `bytes` ends before the file's last record, as when a caller passes only the header. */
   | { kind: "bytes_too_short"; needed: number; got: number }
   | { kind: "no_annotations" }
-  /** A TAL that doesn't follow EDF+'s grammar, in the record it came from. */
+  /**
+   * `tal` is a time-stamped annotation list (TAL) that breaks EDF+'s grammar. `record` is the
+   * number of the record that contains it.
+   */
   | { kind: "bad_annotation"; record: number; tal: string };
 
-/** A parsed header, `checkFileSize`'s result for the file, and any warnings. */
+/**
+ * `readHeader` returns the parsed header, the result of `checkFileSize` for the file, and any
+ * warnings.
+ */
 export type EdfFile = { header: EdfHeader; size: FileSizeCheck; warnings: EdfWarning[] };
 
-/** A file that `checkFileSize` says to read, so it has whole records to decode. */
+/** `checkFileSize` says to read this file, so the file has whole records to decode. */
 export type ReadableEdfFile = EdfFile & { size: Extract<FileSizeCheck, { verdict: "read" }> };
 
 export const isReadable = (file: EdfFile): file is ReadableEdfFile => file.size.verdict === "read";
 
-/** Checks that `bytes` reach the end of record `toRecord`, exclusive. */
+/** Checks that `bytes` covers every record before `toRecord`. */
 export function coversRecords(
   bytes: Uint8Array,
   header: EdfHeader,
@@ -70,7 +82,7 @@ export function coversRecords(
     : err({ kind: "bytes_too_short", needed, got: bytes.length });
 }
 
-/** The bytes in one data record, Crc16 included. */
+/** Returns the number of bytes in one data record, including the Crc16. */
 export const recordBytes = (file: { signals: readonly SignalHeader[] }): number =>
   2 * file.signals.reduce((sum, signal) => sum + signal.samplesPerRecord, 0);
 
@@ -99,7 +111,7 @@ class FieldReader {
     return value;
   }
 
-  /** Reads a number; `field` names it in a `bad_field` error. */
+  /** Reads a numeric field. `field` is the name that a `bad_field` error reports. */
   readNumber(
     field: string,
     width: number,
@@ -109,8 +121,9 @@ class FieldReader {
   }
 
   /**
-   * Reads one field for every signal: EDF stores each field for all signals before the next.
-   * With `parse`, each signal's text is parsed, and the first failure is returned.
+   * Reads one field for every signal. The signal headers list every signal's label, then every
+   * signal's transducer, and so on for each field.
+   * Given `parse`, `readColumn` parses each signal's text and returns the first failure.
    */
   readColumn(signals: number, width: number): string[];
   readColumn<T>(
@@ -147,7 +160,7 @@ function parseNumber(
   return valid ? ok(value) : err(badField(field, text));
 }
 
-// EDF+'s rule for its two-digit years: 85 to 99 are 19xx, the rest 20xx.
+// EDF+ reads two-digit years 85 to 99 as 19xx and the rest as 20xx.
 const fullYear = (yy: number): number => (yy >= 85 ? 1900 + yy : 2000 + yy);
 
 function parseStart(date: string, time: string): Result<Temporal.PlainDateTime, EdfReadError> {
@@ -177,7 +190,8 @@ function parseStart(date: string, time: string): Result<Temporal.PlainDateTime, 
   )();
 }
 
-// EDF+ starts the recording field with "Startdate 07-JAN-2030". Null when it doesn't.
+// EDF+ starts the recording field with "Startdate 07-JAN-2030". Returns null for any other
+// recording field.
 function startdate(recording: string): Temporal.PlainDate | null {
   const match = /^Startdate (\d\d)-([A-Z]{3})-(\d{4})(?: |$)/v.exec(recording);
   const month = MONTHS.indexOf(match?.[2] ?? "") + 1;
@@ -203,7 +217,8 @@ function parseSignals(reader: FieldReader, count: number): Result<SignalHeader[]
     (field: string) =>
     (text: string, signal: number): Result<number, EdfReadError> =>
       parseNumber(name(signal, field), text);
-  // Kept as text, so it round-trips exactly; parsed only to check it's a number.
+  // Keeps each physical value as text so that it round-trips exactly, and parses the text only to
+  // check that it's a number.
   const physical =
     (field: string) =>
     (text: string, signal: number): Result<string, EdfReadError> =>
@@ -232,7 +247,7 @@ function parseSignals(reader: FieldReader, count: number): Result<SignalHeader[]
             samplesPerRecord: samplesPerRecord[i] ?? 0,
           };
 
-          // An empty digital range would make every step a division by zero.
+          // Scaling a sample divides by the digital range, so an empty range would divide by zero.
           return signal.digitalMax > signal.digitalMin && signal.samplesPerRecord > 0
             ? ok(signal)
             : err(
@@ -247,11 +262,8 @@ function parseSignals(reader: FieldReader, count: number): Result<SignalHeader[]
 }
 
 /**
- * Parses an EDF or EDF+ header and checks the file's size against it.
- *
- * `bytes` must hold at least the whole header; `size` is the file's size on disk, which defaults
- * to `bytes.length` for a caller that read the whole file. A caller reading only the header reads
- * 256 bytes first; `header_too_short` then says how many the full header takes.
+ * Parses an EDF or EDF+ header and checks the file's size against it. `bytes` must contain the
+ * whole header. `size` is the file's size on disk, and defaults to `bytes.length`.
  */
 export function readHeader(bytes: Uint8Array, size = bytes.length): Result<EdfFile, EdfReadError> {
   if (bytes.length < FIXED_BYTES) {
