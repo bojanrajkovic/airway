@@ -12,12 +12,13 @@ const HZ = 25;
 const INHALE = 0.4;
 // A hypopnea shrinks breaths to this share of their volume.
 const HYPOPNEA_VOLUME = 0.4;
-// A breath squeezed into less than this share of its length before a pause is folded into the
-// previous breath's exhale instead.
+// When a breath has room for less than this share of its length before a pause, the previous
+// breath's exhale absorbs that time.
 const SHORTEST_FIT = 0.25;
-// Flow noise is uniform within this many L/s, which bounds flow during a pause: under the
-// pediatric step's 0.01 L/s threshold, and under 5% of a child's breath. Uniform because a draw
-// per 25 Hz sample is the generator's busiest loop, and a Gaussian draw costs several times more.
+// Flow noise is uniform within this many L/s. That keeps flow during a pause under the pediatric
+// step's 0.01 L/s threshold and under 5% of a child's breath. The noise is uniform because the
+// generator picks one value per 25 Hz sample in its busiest loop, and a Gaussian value costs
+// several times more.
 const NOISE = 0.002;
 
 type SecondsRange = { from: number; to: number };
@@ -53,9 +54,8 @@ function pauseRanges(
 }
 
 /**
- * The segment's breaths. Each breath's length follows the 2 s breathing rate at its start, and
- * its volume the 2 s tidal volume, shrunk during a hypopnea. No breath crosses a pause, so each
- * pause lasts exactly as long as the model says.
+ * Returns the segment's breaths, sized from the 2 s breathing rate and tidal volume. Breaths end
+ * at each pause and resume after it, so each pause in the flow lasts as long as the model's pause.
  */
 export function breaths(
   segment: Segment,

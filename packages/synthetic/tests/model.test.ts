@@ -34,12 +34,12 @@ const median = (values: readonly number[]): number => {
 };
 
 describe("syntheticNights", () => {
-  it("gives the same nights for the same seed, and different ones for another", () => {
+  it("returns the same nights for the same seed and different nights for a different seed", () => {
     expect(syntheticNights({ seed: 7, nights: 30 })._unsafeUnwrap().nights).toEqual(nights);
     expect(syntheticNights({ seed: 8, nights: 30 })._unsafeUnwrap().nights).not.toEqual(nights);
   });
 
-  it("starts each night's EVE file 3 to 35 s before its first segment, as on the real card", () => {
+  it("starts each night's EVE file 3 to 35 s before the night's first segment", () => {
     for (const night of nights) {
       const [file] = night.eventFiles;
       const lead = seconds(
@@ -53,7 +53,7 @@ describe("syntheticNights", () => {
     }
   });
 
-  it("starts each night on its own date, in order", () => {
+  it("dates consecutive nights one day apart", () => {
     expect(nights.map((night) => night.night.toString()).slice(0, 2)).toEqual([
       "2030-01-07",
       "2030-01-08",
@@ -73,7 +73,7 @@ describe("syntheticNights", () => {
     },
   );
 
-  it("fills every STR.edf signal except the ones the clock or file decides", () => {
+  it("sets every STR.edf signal except Date, MaskOn, MaskOff, and Crc16", () => {
     const expected = AIRSENSE.str.signals
       .map((signal) => signal.label)
       .filter((label) => !["Date", "MaskOn", "MaskOff", "Crc16"].includes(label));
@@ -83,7 +83,7 @@ describe("syntheticNights", () => {
     }
   });
 
-  it("puts every value on its signal's step", () => {
+  it("makes every value a whole number of steps above its signal's minimum", () => {
     for (const night of nights) {
       for (const [label, value] of night.str) {
         expect(onStep(AIRSENSE.str, label, value), label).toBe(true);
@@ -100,7 +100,7 @@ describe("syntheticNights", () => {
     }
   });
 
-  // A segment's first breaths need room before any pause, so none is squeezed into a spike.
+  // A pause that starts earlier would compress the segment's first breaths into a spike.
   it("starts every episode at least 10 s into its segment", () => {
     for (const night of nights) {
       for (const { at } of [...night.events, ...night.pauses]) {
@@ -113,7 +113,7 @@ describe("syntheticNights", () => {
     }
   });
 
-  it("makes segments whole minutes and keeps every episode inside one", () => {
+  it("makes every segment a whole number of minutes long and keeps every episode inside a single segment", () => {
     for (const night of nights) {
       for (const segment of night.segments) {
         expect(seconds(segment.start, segment.end) % 60).toBe(0);
@@ -132,7 +132,7 @@ describe("syntheticNights", () => {
     }
   });
 
-  it("makes pauses the length their kind promises", () => {
+  it("keeps each pause's duration within the range for its kind", () => {
     for (const night of nights) {
       const breath = 60 / (night.str.get("RespRate.50") ?? 1);
 
@@ -149,7 +149,7 @@ describe("syntheticNights", () => {
     }
   });
 
-  it("takes the medians and leak percentiles from the 2 s data", () => {
+  it("computes the medians and leak percentiles from the 2 s samples", () => {
     const [night] = nights;
     const leak = night?.segments.flatMap((segment) => [
       ...(segment.pldSeries.get("Leak.2s") ?? []),
@@ -158,7 +158,7 @@ describe("syntheticNights", () => {
     expect(night?.str.get("Leak.50")).toBeCloseTo(median(leak ?? []), 1);
   });
 
-  it("has short nights, bad nights, and every kind of pause across a month", () => {
+  it("generates a short night, a high-AHI night, and every kind of pause within 30 nights", () => {
     const usage = nights.map((night) => night.str.get("OnDuration") ?? 0);
     const ahi = nights.map((night) => night.str.get("AHI") ?? 0);
     const kinds = new Set(nights.flatMap((night) => night.pauses.map((pause) => pause.kind)));
@@ -173,7 +173,7 @@ describe("syntheticNights", () => {
     const grownUps = syntheticNights({ seed: 3, nights: 120, patient: "adult" })._unsafeUnwrap()
       .nights;
 
-    // The gaps between consecutive BRP files inside each period.
+    // Returns the seconds between consecutive BRP files inside each period.
     const gaps = (list: SyntheticNight[]): number[] =>
       list.flatMap((night) =>
         night.periods.flatMap(({ on, off }) => {
@@ -191,7 +191,7 @@ describe("syntheticNights", () => {
           .map((period, i) => seconds(night.periods[i]?.off ?? period.on, period.on)),
       );
 
-    it("gives a child up to 20 periods, sometimes more than STR.edf's 10 slots", () => {
+    it("generates 1 to 20 periods a night for a child, and on some nights more than STR.edf's 10 slots", () => {
       const counts = children.map((night) => night.periods.length);
 
       expect(Math.min(...counts)).toBeGreaterThanOrEqual(1);
@@ -199,7 +199,7 @@ describe("syntheticNights", () => {
       expect(counts.some((count) => count > 10)).toBe(true);
     });
 
-    it("puts a child's file gaps on both sides of ingest's 90 s join", () => {
+    it("makes some of a child's file gaps longer than the 90 s gap that ingest joins across, and some shorter", () => {
       const all = gaps(children);
 
       expect(Math.min(...all)).toBeGreaterThanOrEqual(5);
@@ -208,7 +208,7 @@ describe("syntheticNights", () => {
       expect(all.some((gap) => gap <= 90)).toBe(true);
     });
 
-    it("gives an adult 1 to 6 periods with file gaps of 90 s or less", () => {
+    it("generates 1 to 6 periods a night for an adult, with file gaps of 90 s or less", () => {
       const counts = grownUps.map((night) => night.periods.length);
 
       expect(Math.max(...counts)).toBeLessThanOrEqual(6);
@@ -216,7 +216,7 @@ describe("syntheticNights", () => {
       expect(Math.min(...gaps(grownUps))).toBeGreaterThanOrEqual(5);
     });
 
-    it("keeps breaks between periods from 60 s to 3 hours", () => {
+    it("makes every break between periods last between 60 s and 3 hours", () => {
       const all = [...breaks(children), ...breaks(grownUps)];
 
       expect(Math.min(...all)).toBeGreaterThanOrEqual(60);
@@ -225,7 +225,8 @@ describe("syntheticNights", () => {
 
     // A night that ran past noon would put its last files in the next night's folder.
     it("ends every night by 11:00 on the device clock", () => {
-      // Seed 1's 31st night ends near the deadline. The device clock keeps Chicago's winter offset.
+      // Seed 1's 31st night ends near the deadline. The device clock runs at Chicago's winter
+      // offset, UTC-6.
       const { nights: late } = syntheticNights({ seed: 1, nights: 31 })._unsafeUnwrap();
 
       for (const night of [...children, ...grownUps, ...late]) {
@@ -240,7 +241,7 @@ describe("syntheticNights", () => {
     });
   });
 
-  it("breathes slower and deeper for an adult", () => {
+  it("generates a slower respiratory rate and a larger tidal volume for an adult than for a child", () => {
     const mid = (list: SyntheticNight[], label: string): number =>
       median(list.map((night) => night.str.get(label) ?? 0));
 

@@ -41,13 +41,13 @@ import type { Patient } from "./patients.ts";
 import { breaths } from "./signals.ts";
 
 export type SynthesizeOptions = {
-  /** Sets each night's rule set: `pediatric` for a child, `adult` for an adult. */
+  /** A child's nights use the `pediatric` rule set, and an adult's nights use `adult`. */
   patient: Patient;
-  /** Stands in for every time ingest takes from the import: file ctimes and `arrived_at`. */
+  /** Sets every file's ctime and every night's `arrived_at`. Ingest reads both from the import. */
   arrivedAt: Temporal.Instant;
 };
 
-/** A CPAP data folder and the rows ingest should derive from it. */
+/** A CPAP data folder and the rows that ingest should derive from it. */
 export type Synthesized = { files: CpapFile[]; rows: DerivedRows };
 
 const RULE_SETS: Readonly<Record<Patient, RuleSet>> = { child: "pediatric", adult: "adult" };
@@ -55,7 +55,7 @@ const RULE_SETS: Readonly<Record<Patient, RuleSet>> = { child: "pediatric", adul
 const value = (n: number | undefined): number | null =>
   n === undefined || Number.isNaN(n) ? null : n;
 
-// The signals of `file` that fill a column of `table`, as [label, column] pairs.
+// Returns a [label, column] pair for each signal of `file` that maps to a column of `table`.
 const targets = (file: EdfFileType, table: "nights" | "samples"): [string, string][] =>
   dataSignals(file).flatMap((signal) =>
     signal.target.table === table ? [[signal.label, signal.target.column]] : [],
@@ -69,11 +69,10 @@ const SETTINGS = dataSignals(AIRSENSE.str).flatMap((signal) =>
 const sha256 = (bytes: Uint8Array): string => createHash("sha256").update(bytes).digest("hex");
 
 /**
- * The CPAP data folder for `nights`, and the rows ingest should derive from it. Both come from the
- * same inputs, so a test that edits a night gets files and rows that agree.
+ * Returns the CPAP data folder for `nights` and the rows that ingest should derive from it.
  *
- * A night with no segments has no folder, so ingest never sees it, and it gets only its
- * `daily_usage` row. The load fills `meta` and `period_percentiles`.
+ * For a night without segments, `synthesize` returns only a `daily_usage` row, because that night
+ * has no files for ingest to read. `loadDerived` writes the `meta` and `period_percentiles` rows.
  */
 export function synthesize(
   nights: readonly SyntheticNight[],
@@ -129,7 +128,7 @@ export function synthesize(
   });
 }
 
-// A night's STR.edf record, as ingest reads it.
+// Builds the record that ingest reads from STR.edf for a night.
 function usedDay(night: SyntheticNight, zone: string): UsedStrDay {
   return {
     day: night.night,
@@ -145,7 +144,8 @@ function usedDay(night: SyntheticNight, zone: string): UsedStrDay {
   };
 }
 
-// Every day STR.edf covers, from the first night to the last. A day with no night is unused.
+// Returns every day that STR.edf covers, from the first night to the last. Marks a day without a
+// night as unused.
 function strDays(used: readonly UsedStrDay[]): StrDay[] {
   const [first] = used;
   const last = used.at(-1);
@@ -204,7 +204,7 @@ type NightInputs = {
   options: SynthesizeOptions;
 };
 
-// Adds one night's rows to every table that holds a night's rows.
+// Adds one night's rows to every table that stores rows by night.
 function addNight(
   rows: DerivedRows,
   { night, day, files, zone, folder, options }: NightInputs,
@@ -235,7 +235,8 @@ function addNight(
     maskEvents: day.maskEvents,
     segments: segments.map(({ segment }) => segment),
   });
-  // A read BRP or PLD file names its segment, numbered from 1 like the segments rows.
+  // Returns the segment number of a BRP or PLD file that ingest read. Segment numbers start at 1,
+  // as in the `segments` rows.
   const segmentOf = (file: ImportedFile): number | null => {
     const i = segments.findIndex(({ brp, plds }) => brp === file || plds.includes(file));
 
@@ -249,7 +250,8 @@ function addNight(
     segment: segmentOf(file),
   }));
 
-  // Each BRP, PLD, and EVE file's .crc imports by size alone, even when its EDF is rejected.
+  // Ingest imports the .crc of each BRP, PLD, and EVE file by size alone, even when it rejects the
+  // file's EDF.
   const crcs = files.flatMap((file): FileSpec[] =>
     file.kind === "brp" || file.kind === "pld" || file.kind === "eve"
       ? [{ path: `${file.path}.crc`, kind: "crc", night: date, segment: null }]
@@ -273,8 +275,8 @@ function addNight(
     const index = i + 1;
     const { pldSeries } = segment;
     const pldStart = segment.start.add({ seconds: PLD_LAG_SECONDS });
-    // shortcut: a segment's PLD files all read or none do, which every case holds; count each
-    // file's own records if a case ever damages one half of a split PLD.
+    // shortcut: in every case, ingest reads all of a segment's PLD files or none of them; count
+    // each file's own records if a case ever damages one half of a split PLD.
     const count =
       plds.length === 0 ? 0 : (pldSeries.get(SAMPLE_COLUMNS[0]?.[0] ?? "")?.length ?? 0);
 
@@ -324,8 +326,8 @@ function addNight(
 }
 
 // Builds the event rows that ingest builds from the EVE files that `nightFiles` writes. `nightFiles`
-// writes each onset in whole seconds at the event's end, so an event starts at its EVE file's start
-// plus the rounded onset minus its written duration.
+// writes each event's end, in whole seconds, as the event's onset. An event starts at the start of
+// its EVE file plus the rounded onset minus the event's written duration.
 function eventRows(
   night: SyntheticNight,
   sessions: Parameters<typeof assignEvents>[1],

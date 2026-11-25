@@ -14,8 +14,9 @@ import { APNEAS, type MachineEventType } from "./patients.ts";
 import { renderBrp } from "./signals.ts";
 
 /**
- * One of a night's EDF files, with its start time on the device's clock and the index of the
- * segment it belongs to (null for EVE and CSL).
+ * Describes one of a night's EDF files. `start` is the file's start time on the device's clock.
+ * `segment` is the index of the segment that the file belongs to, and is null for an EVE or CSL
+ * file.
  */
 export type NightFile = {
   kind: "brp" | "pld" | "sad" | "eve" | "csl";
@@ -46,13 +47,13 @@ const RECORDING_STARTS = { onset: 0, duration: 0, label: "Recording starts" };
 /** PLD and SAD files start this long after their BRP file, as on the real machine. */
 export const PLD_LAG_SECONDS = 1;
 const EDF_PATIENT_FIELD = "X X X X";
-/** The invented machine every synthetic file names. */
+/** Every synthetic file names this invented machine. */
 export const DEVICE = { serial: "SYNTHETIC-0001", model: "AirSense_10_AutoSet" };
 
 const MONTHS = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
 
-// EDF+'s recording field: "Startdate", the date as 07-JAN-2030, then hospital code, technician,
-// and equipment, with X for unknown.
+// The EDF+ recording field is "Startdate", the date written as 07-JAN-2030, then the hospital
+// code, the technician, and the equipment. An X stands for an unknown value.
 const header = (start: Temporal.PlainDateTime): PerFileHeader => ({
   start,
   patient: EDF_PATIENT_FIELD,
@@ -62,10 +63,10 @@ const header = (start: Temporal.PlainDateTime): PerFileHeader => ({
 const missing = (length: number): Float64Array => new Float64Array(length).fill(Number.NaN);
 
 /**
- * A night's EDF files: a BRP, PLD, and SAD file for each segment, and an EVE file (plus a CSL
- * file when it has one) for each of `eventFiles`. Each start time is on the device clock, which
- * keeps `zone`'s winter offset.
- * EVE onsets mark each event's end, as the machine writes them.
+ * Returns a night's EDF files. The function writes BRP, PLD, and SAD files for each segment, and
+ * an EVE file for each entry in `eventFiles`. It also writes a CSL file for an entry that sets
+ * `withCsl`. Each start time is on the device clock. Like the machine, this function writes each
+ * event's end as its EVE onset.
  */
 export function nightFiles(
   night: SyntheticNight,
@@ -131,12 +132,18 @@ export function nightFiles(
   return Result.combine([...segmentFiles, ...annotationFiles]).map((files) => files.flat());
 }
 
-/** The EVE file an event goes in: the last one that starts at or before it. */
+/**
+ * Returns the last EVE file that starts at or before an event. `nightFiles` writes the event to
+ * that file.
+ */
 export const eventFileFor = (night: SyntheticNight, at: Temporal.Instant): EventFile | undefined =>
   night.eventFiles.findLast((file) => Temporal.Instant.compare(file.start, at) <= 0) ??
   night.eventFiles[0];
 
-/** An event's EVE onset: whole seconds from its file's start to the event's end. */
+/**
+ * Returns an event's EVE onset, which is the number of whole seconds from the start of its EVE
+ * file to the event's end.
+ */
 export const eventOnset = (file: EventFile, event: MachineEvent): number =>
   Math.round(file.start.until(event.at).total("seconds") + event.duration);
 
@@ -148,7 +155,10 @@ type PldPart = {
 
 const PLD_RECORD_SAMPLES = AIRSENSE.pld.recordSeconds / PLD_SAMPLE_SECONDS;
 
-// The segment's PLD files: none, one, or two halves of its series split at a record.
+// Returns one entry per PLD file, depending on `pldFiles.files`:
+// - `none`: no entries
+// - `one`: the whole series
+// - `split`: the series split in two at record `atRecord`
 function pldParts({ pldSeries, pldFiles }: Segment): PldPart[] {
   if (pldFiles.files === "none") {
     return [];
@@ -175,7 +185,7 @@ const ascii = new TextDecoder();
 const field = (bytes: Uint8Array, { at, width }: typeof RECORDS_FIELD): number =>
   Number(ascii.decode(bytes.subarray(at, at + width)));
 
-// A copy of the file with its header's record count replaced.
+// Returns a copy of the file with `count` as the record count in its header.
 function withCount(bytes: Uint8Array, count: number): Uint8Array {
   const copy = bytes.slice();
 
@@ -187,7 +197,8 @@ function withCount(bytes: Uint8Array, count: number): Uint8Array {
   return copy;
 }
 
-// Damages a whole file the way `damage` says. Each record keeps its Crc16.
+// Returns `bytes` damaged in the way that `damage` names. The damage leaves each record's Crc16
+// unchanged.
 function applyDamage(bytes: Uint8Array, damage: FileDamage): Uint8Array {
   const headerBytes = field(bytes, HEADER_BYTES_FIELD);
   const records = field(bytes, RECORDS_FIELD);
@@ -203,12 +214,12 @@ function applyDamage(bytes: Uint8Array, damage: FileDamage): Uint8Array {
     case "undercounted":
       return withCount(bytes, records - 1);
     case "truncated":
-      // Half its records, then 7 bytes of the next.
+      // Keeps half the file's records, then 7 bytes of the next record.
       return bytes.slice(0, headerBytes + Math.floor(records / 2) * recordSize + 7);
   }
 }
 
-/** How ingest treats a written file: `checkFileSize` over its size and header. */
+/** Runs `checkFileSize` on a written file, with the header's byte and record counts. */
 export function sizeCheck(file: NightFile): FileSizeCheck {
   return checkFileSize({
     size: file.bytes.length,
@@ -221,12 +232,16 @@ export function sizeCheck(file: NightFile): FileSizeCheck {
 const SLOTS = 10;
 const EPOCH = Temporal.PlainDate.from("1970-01-01");
 
-/** STR.edf's MaskOn and MaskOff for a night: whole minutes since noon on the device clock. */
+/**
+ * Lists a night's MaskOn and MaskOff values as STR.edf stores them, in whole minutes since noon
+ * on the device clock.
+ */
 export type MaskSlots = { maskOn: number[]; maskOff: number[] };
 
 /**
- * The night's first 10 mask-on periods as STR.edf records them. A mask-on before the night's noon
- * is in the previous day's record, so its slot has no mask-on (NaN).
+ * Returns the night's first 10 mask-on periods as STR.edf records them. STR.edf puts a mask-on
+ * before the night's noon in the previous day's record, so this function writes NaN for that
+ * mask-on.
  */
 export function maskSlots(night: SyntheticNight, zone: string): MaskSlots {
   const noon = night.night.toPlainDateTime("12:00");
@@ -241,7 +256,7 @@ export function maskSlots(night: SyntheticNight, zone: string): MaskSlots {
 }
 
 /**
- * STR.edf for every day from the earliest night to the latest, one record per day. The nights can
+ * Returns STR.edf with one record for every day from the earliest night to the latest. The nights can
  * come in any order. A day without a night is unused, and every value except its Date is -1. MaskOn and MaskOff are
  * minutes since noon on the device's clock, for up to 10 periods; unused slots are -1.
  */

@@ -14,10 +14,11 @@ const REPO_ROOT = resolve(import.meta.dirname, "../..");
 const SHUTDOWN_TIMEOUT_MS = 10_000;
 
 /**
- * In `vite` (dev) only: builds the server with its own rolldown config, watches its sources, and
- * runs the compiled bundle the way the image does, restarting it after each rebuild. A failed
- * build is logged and the running server keeps going. Settings come from .env.example, and from
- * .env when it exists; later files win.
+ * Runs only in `vite` dev mode. Builds the server with its own rolldown config, watches the
+ * server's sources, and runs the compiled bundle the way the image does, restarting the bundle
+ * after each rebuild. When a build fails, the plugin logs the error and leaves the running server
+ * up. The server reads its settings from .env.example, and from .env when it exists. Values in
+ * .env override .env.example.
  */
 function serverPlugin(): Plugin {
   let server: ChildProcess | undefined = undefined;
@@ -58,7 +59,7 @@ function serverPlugin(): Plugin {
       ],
       { cwd: REPO_ROOT, stdio: ["ignore", "pipe", "inherit"] },
     );
-    // The server logs JSON, as in production; this prints it readably.
+    // The server logs JSON, as in production; pino-pretty formats it for the terminal.
     server.stdout?.pipe(pretty({ colorize: true }));
   }
 
@@ -97,7 +98,7 @@ function serverPlugin(): Plugin {
 export default defineConfig({
   // The React Compiler memoizes components and hooks at build time.
   plugins: [react(), babel({ presets: [reactCompilerPreset()] }), serverPlugin()],
-  // Next to the server's bundle, where main.ts serves it from.
+  // main.ts serves the web build from this folder, next to the server's bundle.
   build: { outDir: "../server/dist/public", emptyOutDir: true },
   server: {
     proxy: { "/healthz": SERVER, "/trpc": SERVER, "/mcp": SERVER },

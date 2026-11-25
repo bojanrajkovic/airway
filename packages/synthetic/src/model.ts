@@ -32,28 +32,28 @@ export type SyntheticOptions = {
   start?: Temporal.PlainDate;
   /** Defaults to `child`. */
   patient?: Patient;
-  /** Where bedtime falls at 20:00 to 22:00. Defaults to `.env.example`'s zone. */
+  /** The zone where bedtime falls between 20:00 and 22:00. Defaults to `.env.example`'s zone. */
   zone?: string;
   /** Edge-case nights to add after the base nights. Defaults to none. */
   cases?: "all" | readonly EdgeCaseName[];
 };
 
-/** A model's nights and its home zone. The files' device clock keeps that zone's winter offset. */
+/** A model's nights and its home zone. */
 export type Synthetic = { nights: SyntheticNight[]; zone: string };
 
-/** A stretch with the mask on: one session. */
+/** One session, which is a stretch of time with the mask on. */
 export type MaskPeriod = { on: Temporal.Instant; off: Temporal.Instant };
 
 /** The labels of PLD's nine 2 s signals, in header order. */
 export const PLD_LABELS = dataSignals(AIRSENSE.pld).map((signal) => signal.label);
 
-/** One BRP file's stretch, a whole number of minutes long. */
+/** The stretch of time that one BRP file covers, a whole number of minutes long. */
 export type Segment = {
   start: Temporal.Instant;
   end: Temporal.Instant;
   /** Seeds the 25 Hz detail, so rendering one segment doesn't depend on any other. */
   seed: number;
-  /** The nine 2 s series by PLD label, one value per 2 s, on each signal's step. */
+  /** The nine 2 s series by PLD label. Each has one value per 2 s, rounded to its signal's step. */
   pldSeries: ReadonlyMap<string, Float64Array>;
   brp: FileDamage;
   pldFiles: PldFiles;
@@ -106,10 +106,7 @@ export type Pause = {
   kind: "machine_apnea" | "pediatric" | "dip";
 };
 
-/**
- * One EVE file: its start, and whether a CSL file starting at the same time comes with it. Each
- * event goes to the last EVE file that starts at or before it.
- */
+/** One EVE file's start, and whether a CSL file with the same start is written with it. */
 export type EventFile = { start: Temporal.Instant; withCsl: boolean };
 
 export type SyntheticNight = {
@@ -121,8 +118,9 @@ export type SyntheticNight = {
   /** The night's EVE files in time order; none when the night has no segments. */
   eventFiles: readonly EventFile[];
   /**
-   * STR.edf's values for the night by label, on each signal's step, NaN where the machine writes
-   * -1. Date, MaskOn, MaskOff, and Crc16 are left out: they depend on the device clock or the file.
+   * STR.edf's values for the night by label, rounded to each signal's step. A value is NaN where
+   * the machine writes -1. The map omits Date, MaskOn, MaskOff, and Crc16, because they depend on
+   * the device clock or the file.
    */
   str: ReadonlyMap<string, number>;
 };
@@ -130,13 +128,14 @@ export type SyntheticNight = {
 const DEFAULT_START = Temporal.PlainDate.from("2030-01-07");
 const DEFAULT_ZONE = "America/Chicago";
 const MACHINE_APNEA_SECONDS = 10;
-// Breaks between mask-on periods: at least 60 s, plus a log-normal draw with a median of 140 s and
-// a p95 near 25 minutes, so the whole break has a median near 200 s. Capped at 3 hours.
+// A break between mask-on periods lasts at least 60 s, plus a log-normal value with a median of
+// 140 s and a p95 near 25 minutes, so the whole break has a median near 200 s. The cap is 3 hours.
 const BREAK_FLOOR_SECONDS = 60;
 const BREAK_MEDIAN_EXTRA_SECONDS = 140;
 const BREAK_SPREAD = 1.42;
 const BREAK_CAP_SECONDS = 3 * 3600;
-// The last mask-off, an hour before the device clock's noon, the boundary between nights.
+// The last mask-off comes an hour before noon on the device clock. Noon is the boundary between
+// nights.
 const LAST_OFF = Temporal.PlainTime.from("11:00");
 // Keeps episodes this far into a segment, so the first breaths have room before a pause.
 const LEAD_SECONDS = 10;
@@ -152,10 +151,10 @@ export type Random = {
   chance: (probability: number) => boolean;
 };
 
-// Every draw comes from one LCG, so one seed reproduces the whole model.
+// Every random value comes from one LCG, so one seed reproduces the whole model.
 export function random(seed: number): Random {
   const source = randomLcg(seed);
-  // Each distribution is built once, because building one per draw made a night of 2 s samples slow.
+  // Each distribution is built once, because building one per value made 2 s series slow.
   const unit = randomUniform.source(source)(0, 1);
   const standardNormal = randomNormal.source(source)(0, 1);
   const uniform = (min: number, max: number): number => min + (max - min) * unit();
@@ -197,10 +196,8 @@ const snapPld = roundToStep(AIRSENSE.pld);
 const snapStr = roundToStep(AIRSENSE.str);
 
 /**
- * Builds a fixed, invented set of nights from a seed, then the edge-case nights `cases` asks for
- * on the dates after them. The same options always give the same nights, and the base nights are
- * the same with or without cases. Unused days are days with no night in the list. Fails when a
- * named case can't be built, such as a DST case in a zone without daylight saving time.
+ * Generates `nights` random nights from `seed`, then appends the nights of each edge case in
+ * `cases`, dated after the random nights. Returns an error when a case can't be built.
  */
 export function syntheticNights(options: SyntheticOptions): Result<Synthetic, EdgeCaseError> {
   const r = random(options.seed);
@@ -247,7 +244,7 @@ export function syntheticNights(options: SyntheticOptions): Result<Synthetic, Ed
 export const evening = (night: Temporal.PlainDate, zone: string): Temporal.ZonedDateTime =>
   night.toZonedDateTime({ timeZone: zone, plainTime: "20:00" });
 
-/** A night drawn the way the base nights are, from 20:00 on `evening`'s date. */
+/** Generates a night with random periods and events, with bedtime up to 2 hours after `evening`. */
 export function randomNight(
   r: Random,
   breathing: Breathing,
@@ -277,7 +274,7 @@ export function randomNight(
 
 /**
  * A night's mask-on periods and BRP file times, set by hand. `randomEvents` adds the model's own
- * events and pauses, which fall inside segments; `extraEvents` go wherever they say.
+ * events and pauses, which fall inside segments; `extraEvents` are added at their own `at` times.
  */
 export type NightLayout = {
   periods: readonly MaskPeriod[];
@@ -287,8 +284,8 @@ export type NightLayout = {
 };
 
 /**
- * A night with the given layout. Events, pauses, 2 s series, and STR.edf values are drawn as for
- * any night, so they agree with the layout.
+ * Builds a night with the given layout. Events, pauses, 2 s series, and STR.edf values are
+ * generated as for any night, so they match the layout.
  */
 export function nightFromLayout(
   r: Random,
@@ -337,8 +334,8 @@ function finishNight(
   };
 }
 
-// One EVE and CSL pair starting 3 to 35 s before the first segment, as on the real card. The lead
-// has its own generator, seeded next to the segment's, so seeded nights keep every other value.
+// Returns one EVE and CSL pair that starts 3 to 35 s before the first segment, as on a real card.
+// The offset uses a generator seeded from the segment's seed, so `r`'s sequence is unchanged.
 function firstEventFile(segments: readonly Segment[]): EventFile[] {
   const [first] = segments;
 
@@ -356,7 +353,7 @@ function firstEventFile(segments: readonly Segment[]): EventFile[] {
 export type Interval = { start: Temporal.Instant; end: Temporal.Instant };
 type PlacedPeriods = { periods: MaskPeriod[]; segmentTimes: Interval[] };
 
-/** A whole number from one of the weighted ranges, picked by weight. */
+/** Picks one of the weighted ranges by weight, then picks a whole number from that range. */
 function pick(r: Random, ranges: WeightedRanges): number {
   let draw = r.uniform(
     0,
@@ -384,8 +381,9 @@ type PeriodInputs = {
 
 const sum = (values: readonly number[]): number => values.reduce((a, b) => a + b, 0);
 
-// Mask-on periods split into BRP files, with the patient's file gaps inside a period and long-tailed
-// breaks between periods. Breaks shrink when needed so the last period ends by `latest`.
+// Places mask-on periods and splits each into BRP files, with the patient's file gaps inside a
+// period and long-tailed breaks between periods. Breaks shrink when needed so the last period ends
+// by `latest`.
 function placePeriods(
   r: Random,
   { breathing, bedtime, latest, usageTarget }: PeriodInputs,
@@ -473,7 +471,7 @@ const EVENT_SECONDS: Readonly<Record<MachineEventType, readonly [number, number]
 
 type Episodes = { events: MachineEvent[]; pauses: Pause[] };
 
-// Events and pauses at the patient's rates, inside segments and apart from each other. A bad
+// Places events and pauses at the patient's rates, inside segments and apart from each other. A bad
 // night has four times the events; on a clustered night most of them bunch up.
 function placeEpisodes(
   r: Random,
@@ -485,7 +483,8 @@ function placeEpisodes(
   const candidates: Episode[] = [];
   const clusters =
     bad || r.chance(1 / 5) ? Array.from({ length: r.int(1, 4) }, () => r.uniform(0, 1)) : [];
-  // A fraction of the way through the night: near a cluster 60% of the time, if there are any.
+  // Returns a fraction of the way through the night. On a night with clusters, 60% of the
+  // fractions fall near a cluster.
   const where = (): number => {
     const center = r.chance(0.6) ? clusters[r.int(0, clusters.length)] : undefined;
 
@@ -508,7 +507,8 @@ function placeEpisodes(
     }
   }
 
-  // At least 2 breaths, but under the machine's 10 s limit. A slow breather may have no room.
+  // A pediatric pause lasts at least 2 breaths, but under the machine's 10 s limit. When 2 breaths
+  // take about 10 s or longer, the night skips pediatric pauses.
   const pediatricMin = 2.2 * breath;
 
   if (pediatricMin < MACHINE_APNEA_SECONDS - 0.5) {
@@ -627,9 +627,10 @@ type SeriesInputs = {
 const seconds = (from: Temporal.Instant, to: Temporal.Instant): number =>
   from.until(to).total("seconds");
 
-// The nine 2 s series of one segment. Breathing drifts slowly around the night's rate, flow
-// stops during apneas and pediatric pauses, and the AutoSet pressure rises after each apnea or
-// hypopnea and eases back toward the minimum.
+// Generates random values for the segment's nine PLD signals, one every 2 s:
+// - The breathing rate drifts slowly around the night's rate.
+// - Flow stops during apneas and pediatric pauses.
+// - The AutoSet pressure rises after each apnea or hypopnea, then decreases toward the minimum.
 function drawPldSeries(r: Random, inputs: SeriesInputs): Map<string, Float64Array> {
   const { breathing, start, end, rate, events, pauses } = inputs;
   const count = Math.round(seconds(start, end) / PLD_SAMPLE_SECONDS);
@@ -710,9 +711,9 @@ type StrInputs = {
   usage: number;
 };
 
-// The night's STR.edf values. Like the real machine's, the medians and leak percentiles come from
-// the 2 s data, while maxima and pressure statistics come from finer data the 2 s file doesn't
-// hold, so they're drawn near the 2 s values instead.
+// Returns the night's STR.edf values. The medians and leak percentiles come from the 2 s series, as
+// on the real machine. The machine computes maxima and pressure statistics from finer data than
+// the 2 s file holds, so the model generates them as random values near the 2 s values.
 function strValues(
   r: Random,
   { breathing, periods, segments, events, usage }: StrInputs,
@@ -769,7 +770,7 @@ function strValues(
     ["HTubeTemp.50", r.normal(27, 1)],
     ["HTubePow.50", r.normal(40, 5)],
     ["HumPow.50", r.normal(35, 5)],
-    // No oximeter: the machine writes -1.
+    // Without an oximeter, the machine writes -1.
     ["SpO2.50", Number.NaN],
     ["SpO2.95", Number.NaN],
     ["SpO2.Max", Number.NaN],

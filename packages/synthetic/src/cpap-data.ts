@@ -3,11 +3,14 @@ import { Result } from "neverthrow";
 import { DEVICE, nightFiles, strFile, type NightFile, type SyntheticFileError } from "./files.ts";
 import type { SyntheticNight } from "./model.ts";
 
-/** One file in the CPAP data folder: its path from the folder's root, and its bytes. */
+/**
+ * A file in the CPAP data folder. `path` starts at the folder's root, and `bytes` is the file's
+ * contents.
+ */
 export type CpapFile = { path: string; bytes: Uint8Array };
 
-// Identification.tgt's keys in the card's order. Ingest reads #SRN and #PNA; the other values are
-// placeholders.
+// An SD card's Identification.tgt lists these keys in this order. Ingest reads only #SRN and #PNA,
+// so the other values are placeholders.
 const IDENTIFICATION: readonly (readonly [string, string])[] = [
   ["IMF", "0001"],
   ["VIR", "0000"],
@@ -42,14 +45,17 @@ const littleEndian = (...values: number[]): Uint8Array => {
 
 const compact = (date: Temporal.PlainDate): string => date.toString().replaceAll("-", "");
 
-// 20300107_213412_BRP.edf, from the file's start on the device clock.
+// Names a file after its start on the device clock and its kind, as in 20300107_213412_BRP.
 const fileName = ({ kind, start }: NightFile): string =>
   `${compact(start.toPlainDate())}_${start.toPlainTime().toString().replaceAll(":", "").slice(0, 6)}_${kind.toUpperCase()}`;
 
-/** A night's EDF file with its path in the folder, without the extension. */
+/**
+ * One of a night's EDF files. `path` starts at the folder's root and leaves off the .edf
+ * extension.
+ */
 export type DatalogFile = NightFile & { path: string };
 
-/** A night's EDF files with their DATALOG paths, in `nightFiles`'s order. */
+/** Returns a night's EDF files in `nightFiles` order and adds each file's DATALOG path. */
 export function datalogFiles(
   night: SyntheticNight,
   zone: string,
@@ -59,7 +65,10 @@ export function datalogFiles(
   );
 }
 
-/** The top-level and per-night files of the folder, with a .crc beside each night file. */
+/**
+ * Returns every file in the folder: Identification.tgt and its .crc, STR.edf, and each night file
+ * with its .crc.
+ */
 export function folderFiles(str: Uint8Array, datalog: readonly DatalogFile[]): CpapFile[] {
   // Each line starts with CRLF and ends with LF, as on the card.
   const identification = encoder.encode(
@@ -68,12 +77,13 @@ export function folderFiles(str: Uint8Array, datalog: readonly DatalogFile[]): C
 
   return [
     { path: "Identification.tgt", bytes: identification },
-    // The top-level .crc covers the whole companion file.
+    // Identification.crc is the CRC-32 of all of Identification.tgt.
     { path: "Identification.crc", bytes: littleEndian(crc32(identification)) },
     { path: "STR.edf", bytes: str },
     ...datalog.flatMap(({ path, bytes }): CpapFile[] => [
       { path: `${path}.edf`, bytes },
-      // A night file's .crc covers its 256-byte fixed header, then the rest.
+      // A night file's .crc has two CRC-32s. The first is of the 256-byte fixed header, and the
+      // second is of the rest of the file.
       {
         path: `${path}.crc`,
         bytes: littleEndian(crc32(bytes.subarray(0, 256)), crc32(bytes.subarray(256))),
@@ -83,9 +93,9 @@ export function folderFiles(str: Uint8Array, datalog: readonly DatalogFile[]): C
 }
 
 /**
- * The whole CPAP data folder for `nights`, as an SD card lays it out: Identification.tgt and its
- * .crc, STR.edf, and a DATALOG folder per night holding each EDF file and its .crc. A night with no
- * segments writes no files, so it has no folder.
+ * Builds the whole CPAP data folder for `nights`, laid out as on an SD card: Identification.tgt and
+ * its .crc, STR.edf, and a DATALOG folder per night that holds the night's EDF files and their
+ * .crc files. `cpapData` creates a DATALOG folder only for nights that have segments.
  */
 export function cpapData(
   nights: readonly SyntheticNight[],
