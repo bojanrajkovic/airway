@@ -3,14 +3,15 @@ import type { Pools } from "../db/pools.ts";
 import type { Logger } from "../logger.ts";
 
 /**
- * The shared context for the entire app. main.ts builds it once and passes it whole; services take
- * it plus their own arguments, and modules log through `logger.child({ module })`.
+ * `AppContext` is the context object that the whole app shares. main.ts builds it once and passes
+ * the whole object to each service, along with the service's own arguments. Each module logs
+ * through `logger.child({ module })`.
  */
 export type AppContext = {
   config: Config;
   logger: Logger;
-  /** The current time, so tests can fix it. */
+  /** Returns the current time. Tests pass a clock that returns a fixed instant. */
   clock: () => Temporal.Instant;
-  /** The owner, API, and agent database pools. */
+  /** `db` has one database pool each for the owner, the API, and the agent. */
   db: Pools;
 };

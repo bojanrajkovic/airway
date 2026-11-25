@@ -69,7 +69,7 @@ describe("scanCpapData", () => {
     expect(skipped.other).toBe(3);
   });
 
-  it("finds no nights before the first DATALOG folder", async () => {
+  it("finds no nights when the DATALOG folder doesn't exist", async () => {
     const root = await writeFolder(
       syntheticFolder(1).filter(({ path }) => !path.startsWith("DATALOG/")),
     );

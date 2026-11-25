@@ -6,7 +6,10 @@ import type { EdfFile, EdfReadError, EdfWarning } from "@airway/edf/header";
 import type { AppContext } from "../runtime/context.ts";
 import { inSpanAsync } from "../telemetry.ts";
 
-/** A header warning's kind and details, for its span event. A new kind won't compile here. */
+/**
+ * Returns a header warning's kind and details as attributes for the warning's span event. The
+ * build fails here when a new warning kind has different fields.
+ */
 function warningAttributes({ kind, headerDate, startdate }: EdfWarning): Attributes {
   return {
     "edf.warning.kind": kind,
@@ -16,10 +19,10 @@ function warningAttributes({ kind, headerDate, startdate }: EdfWarning): Attribu
 }
 
 /**
- * Reads the header of the EDF file at `path`, relative to the CPAP data folder, and checks its
- * size, inside an `edf.read_file` span. The span records the format, the size verdict, the whole
- * records on disk, and the warning count. Each header warning becomes an `edf.warning` span event
- * with its kind and details, and is logged at `warn`.
+ * Reads the header of the EDF file at `path` and checks the file's size, inside an `edf.read_file`
+ * span. `path` is relative to the CPAP data folder. The span records the format, the size verdict,
+ * the number of whole records on disk, and the warning count. Each header warning becomes an
+ * `edf.warning` span event with the warning's kind and details, and is logged at `warn`.
  */
 export function readEdfFile(ctx: AppContext, path: string): ResultAsync<EdfFile, EdfReadError> {
   const logger = ctx.logger.child({ module: "ingest.edf", path });

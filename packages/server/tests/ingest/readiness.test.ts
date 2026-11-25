@@ -11,7 +11,7 @@ import { syntheticFolder } from "../support/cpap-folder.ts";
 const t0 = Temporal.Instant.from("2030-01-08T14:00:00Z");
 const at = (minutes: number): Temporal.Instant => t0.add({ seconds: minutes * 60 });
 
-// The damaged-files case's BRP files: undamaged first, then truncated and the rest.
+// BRP files from the damaged-files case. The undamaged one comes first, then the truncated one.
 const brps = syntheticFolder(0, ["damaged-files"]).filter(({ path }) => path.endsWith("_BRP.edf"));
 const headerOf = (bytes: Uint8Array): HeaderRead => ({
   kind: "read",

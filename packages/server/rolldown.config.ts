@@ -3,7 +3,7 @@ import { defineConfig, type RolldownOptions } from "rolldown";
 import pkg from "./package.json" with { type: "json" };
 
 // Packages in `dependencies` stay external and load from the image's node_modules. Workspace
-// packages are bundled, because the image ships no workspace.
+// packages are bundled, because the image doesn't include the workspace.
 const EXTERNAL = Object.keys(pkg.dependencies).filter((name) => !name.startsWith("@airway/"));
 
 // Paths resolve from this file, so web's Vite plugin can build the server from another directory.

@@ -8,9 +8,9 @@ import type { inferRouterInputs, inferRouterOutputs } from "@trpc/server";
 import { expectTypeOf, test } from "vitest";
 import type { AppRouter } from "../../src/trpc/router.ts";
 
-// These checks are type-level: `tsc --project tests` fails if one doesn't hold.
+// `tsc --project tests` fails when one of these type-level checks is false.
 
-/** The value at a dotted path such as `notes.add`, or never when the path doesn't exist. */
+/** Resolves to the value at a dotted path such as `notes.add`, or to `never` for a missing path. */
 type At<Tree, Path extends string> = Path extends `${infer Head}.${infer Rest}`
   ? Head extends keyof Tree
     ? At<Tree[Head], Rest>
@@ -19,7 +19,8 @@ type At<Tree, Path extends string> = Path extends `${infer Head}.${infer Rest}`
     ? Tree[Path]
     : never;
 
-// Exact type equality. Checking `extends` both ways would treat `any` and optional fields as equal.
+// Resolves to `true` when the two types are exactly equal. Checking `extends` both ways would
+// also accept types that differ by `any` or by an optional field.
 type Same<One, Other> =
   // oxlint-disable-next-line typescript/no-unnecessary-type-parameters -- this exact-equality check needs the otherwise unused parameter
   (<T>() => T extends One ? 1 : 2) extends <T>() => T extends Other ? 1 : 2 ? true : false;
@@ -28,12 +29,12 @@ type Inputs = inferRouterInputs<AppRouter>;
 type Outputs = inferRouterOutputs<AppRouter>;
 type Procedure<Name extends string> = At<AppRouter["_def"]["record"], Name>;
 
-/** Catalog entries the router doesn't serve yet. */
+/** Lists the catalog procedures that the router doesn't serve. */
 type Unserved = {
   [Name in ProcedureName]: [Procedure<Name>] extends [never] ? Name : never;
 }[ProcedureName];
 
-/** Served procedures whose kind, input, or output differs from the catalog's. */
+/** Lists the served procedures whose kind, input, or output differs from the catalog. */
 type Mismatched = {
   [Name in Exclude<ProcedureName, Unserved>]: Same<
     [Procedure<Name>["_def"]["type"], At<Inputs, Name>, At<Outputs, Name>],
@@ -43,10 +44,7 @@ type Mismatched = {
     : Name;
 }[Exclude<ProcedureName, Unserved>];
 
-/**
- * The procedures no PR has served yet. A PR that adds one to the router removes it here, and the
- * check below then holds it to the catalog's shape. The list empties as the API is built.
- */
+/** Remove a procedure from this list when the router starts serving it. */
 type NotYetServed =
   | "query.run"
   | "query.tile"

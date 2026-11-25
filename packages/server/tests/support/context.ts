@@ -3,7 +3,6 @@ import type { Config } from "../../src/config.ts";
 import { createPools } from "../../src/db/pools.ts";
 import type { AppContext } from "../../src/runtime/context.ts";
 
-// Synthetic values only: this is a public repo.
 const CONFIG: Config = {
   databaseUrl: "postgres://airway:secret@db.test:5432/airway",
   readerDatabaseUrl: "postgres://airway_reader:secret@db.test:5432/airway",
@@ -21,8 +20,8 @@ const CONFIG: Config = {
 };
 
 /**
- * An AppContext for tests: synthetic config, a silent logger, a fixed clock, and pools on the
- * synthetic URLs, which never connect unless a test queries them.
+ * Returns an AppContext for tests with synthetic config, a silent logger, a fixed clock, and
+ * database pools. A pool connects to its synthetic URL only when a test runs a query.
  */
 export function testContext(overrides: Partial<AppContext> = {}): AppContext {
   const logger = pino({ level: "silent" });

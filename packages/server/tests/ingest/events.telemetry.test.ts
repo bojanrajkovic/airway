@@ -22,7 +22,7 @@ const eventsSpan = (): FinishedSpan | undefined =>
   spans.getFinishedSpans().find(({ name }) => name === "ingest.events");
 const encoder = new TextEncoder();
 
-// Returns a copy of `bytes` with every `from` replaced by `to`. Both must be the same length.
+// Returns a copy of `bytes` with every `from` replaced by `to`, which must be as long as `from`.
 function replaceText(bytes: Uint8Array, from: string, to: string): Uint8Array {
   const [find, put] = [encoder.encode(from), encoder.encode(to)];
   const copy = bytes.slice();
@@ -51,7 +51,7 @@ describe("scoreNight", () => {
     });
   });
 
-  it("adds one span event and one warn log for each unknown label in each file, with how many times it appears", async () => {
+  it("counts each unknown label in each file, and adds one span event and one warn log with that count", async () => {
     const { logger, lines } = capturingLogger();
     const { input, files } = caseNight("ahi-rounding");
     const edited = editEve(files, (bytes) => replaceText(bytes, "Hypopnea", "Hypopnex"));

@@ -11,7 +11,7 @@ beforeEach(() => {
   spans.reset();
 });
 
-/** The one span the test ended. */
+/** Returns the only ended span. Throws if there isn't exactly one. */
 function onlySpan(): ReadableSpan {
   const [span, ...rest] = spans.getFinishedSpans();
   if (span === undefined || rest.length > 0) {
@@ -21,7 +21,10 @@ function onlySpan(): ReadableSpan {
   return span;
 }
 
-/** The parent span ID of the first span to end, and the span ID of the second. */
+/**
+ * Returns the inner span's parent span ID and the outer span's own span ID. The inner span ends
+ * first.
+ */
 function innerParentAndOuter(): [string | undefined, string | undefined] {
   const finished = spans.getFinishedSpans();
   expect(finished).toHaveLength(2);
@@ -72,7 +75,7 @@ describe("inSpan", () => {
     );
   });
 
-  it("makes its span the parent of spans started inside it", () => {
+  it("makes the span the parent of spans that the work starts", () => {
     inSpan("outer", () => ok(inSpan("inner", () => ok(1))));
 
     const [parent, outer] = innerParentAndOuter();
@@ -81,7 +84,7 @@ describe("inSpan", () => {
 });
 
 describe("inSpanAsync", () => {
-  it("ends the span when the work settles, with the Ok passed through", async () => {
+  it("passes an Ok through and ends the span when the work settles", async () => {
     const result = await inSpanAsync("work", () => okAsync("done"));
 
     expect(result._unsafeUnwrap()).toBe("done");
@@ -95,7 +98,7 @@ describe("inSpanAsync", () => {
     expect(onlySpan().attributes["error.type"]).toBe("timeout");
   });
 
-  it("records a rejection's class and rejects with it", async () => {
+  it("records a thrown error's class and rejects with the error", async () => {
     await expect(
       inSpanAsync("work", () => {
         throw new PoolExhausted("secret");
@@ -116,7 +119,7 @@ describe("inSpanAsync", () => {
 });
 
 describe("untraced", () => {
-  it("records no spans for work inside it", () => {
+  it("runs the work with tracing off", () => {
     untraced(() => {
       trace.getTracer("test").startSpan("idle poll").end();
     });

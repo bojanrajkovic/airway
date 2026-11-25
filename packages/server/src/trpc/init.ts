@@ -1,4 +1,5 @@
-// The tRPC instance every router builds on. docs/server.md (tRPC) describes procedures and errors.
+// Creates the tRPC instance that every router builds on. docs/server.md (tRPC) describes procedures
+// and errors.
 import { transformer } from "@airway/contract/transformer";
 import { metrics, SpanStatusCode, trace, type Histogram } from "@opentelemetry/api";
 import { initTRPC } from "@trpc/server";
@@ -9,8 +10,7 @@ const t = initTRPC.context<TrpcContext>().create({ transformer });
 
 const tracer = trace.getTracer("airway");
 
-// Created on first use, not at module load: the metrics API has no proxy, so an instrument taken
-// before the SDK starts stays a no-op.
+// The histogram is created on first use, because a histogram created before the SDK starts never records.
 let callDuration: Histogram | undefined = undefined;
 
 function recordDuration(seconds: number, attributes: Record<string, string>): void {
@@ -22,9 +22,10 @@ function recordDuration(seconds: number, attributes: Record<string, string>): vo
 }
 
 /**
- * Runs each procedure in a span named `trpc.<path>` and records its duration. A failure records its
- * tRPC code as `error.type`; only a server-side code (a 5xx) marks the span as an error. Inputs are
- * never recorded: they hold queries and note text.
+ * Runs each procedure in a span named `trpc.<path>` and records its duration. When a procedure
+ * fails, the middleware records the tRPC code as `error.type`, and marks the span as an error only
+ * when the code maps to a 5xx status. The middleware never records inputs, because they contain
+ * queries and note text.
  */
 const observed = t.middleware(async ({ path, type, ctx, next }) => {
   const started = performance.now();
@@ -50,5 +51,5 @@ const observed = t.middleware(async ({ path, type, ctx, next }) => {
 
 export const { router } = t;
 
-/** The base for every procedure: traced, measured, and logging under its path. */
+/** Every procedure extends this one, which traces and times each call and logs under its path. */
 export const procedure = t.procedure.use(observed);

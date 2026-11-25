@@ -22,7 +22,10 @@ beforeEach(() => {
   spans.reset();
 });
 
-/** One poll: scan, then sort, with this poll's read and hash span counts. */
+/**
+ * The file states from one poll, and the number of `edf.read_file` and `ingest.hash` spans
+ * recorded during that poll.
+ */
 type Poll = FileStates & { reads: number; hashes: number };
 
 async function poll(
@@ -40,7 +43,7 @@ async function poll(
 }
 
 describe("checkVersions", () => {
-  it("waits on first sight, hashes once ready, and then reopens nothing", async () => {
+  it("makes a new file wait, hashes the file once it's ready, and reuses the hash on later polls", async () => {
     const files = syntheticFolder(1);
     const ctx = folderContext(await writeFolder(files));
     const seen = new Map<string, SeenFile>();
@@ -48,7 +51,8 @@ describe("checkVersions", () => {
     const first = await poll(ctx, seen, at(0));
     const kept = first.waiting.length;
     expect(first).toMatchObject({ ready: [], rejected: [], hashes: 0 });
-    // Identification.tgt and .crc files aren't EDF, so only the rest have headers to read.
+    // Identification.tgt and the .crc files aren't EDF, so `checkVersions` reads a header from
+    // every other file.
     expect(first.reads).toBe(
       first.waiting.filter(({ kind }) => kind !== "identification" && kind !== "crc").length,
     );
@@ -67,7 +71,7 @@ describe("checkVersions", () => {
     expect(third.ready).toHaveLength(kept);
   });
 
-  it("gives a same-size rewrite a new hash after it waits 2 minutes again", async () => {
+  it("makes a file rewritten at the same size wait 2 minutes, then hashes the file again", async () => {
     const files = syntheticFolder(1);
     const root = await writeFolder(files);
     const ctx = folderContext(root);
@@ -88,7 +92,7 @@ describe("checkVersions", () => {
     expect(after?.sha256).not.toBe(before?.sha256);
   });
 
-  it("rejects damaged-files' truncated BRP and logs it once, with its counts", async () => {
+  it("rejects a truncated BRP file and logs one warning with its record counts", async () => {
     const { logger, lines } = capturingLogger();
     const ctx = folderContext(await writeFolder(syntheticFolder(0, ["damaged-files"])), { logger });
     const seen = new Map<string, SeenFile>();
@@ -132,7 +136,7 @@ describe("checkVersions", () => {
     );
   });
 
-  it("forgets a path that leaves the folder", async () => {
+  it("removes a path from `seen` when the folder no longer has that file", async () => {
     const files = syntheticFolder(1);
     const root = await writeFolder(files);
     const ctx = folderContext(root);

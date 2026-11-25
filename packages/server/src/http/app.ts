@@ -9,21 +9,22 @@ import { appRouter } from "../trpc/router.ts";
 
 export type AppOptions = {
   /**
-   * The web build's directory, next to the server bundle. Undefined when there's no build, as in
-   * `pnpm dev`, where Vite serves the web app; the server then serves only the API.
+   * `webRoot` is the directory that holds the web build, next to the server bundle. It's undefined
+   * when there's no web build. Under `pnpm dev`, for example, Vite serves the web app and the
+   * server serves only the API.
    */
   webRoot: string | undefined;
 };
 
 /**
- * airway's HTTP app. Modules that serve HTTP mount their own sub-apps here with
+ * Builds airway's HTTP app. To add a module that serves HTTP, mount its sub-app here with
  * `app.route(path, routes(ctx))`, before the deep-link fallback.
  */
 export function createApp(ctx: AppContext, { webRoot }: AppOptions): Hono {
   const app = new Hono();
   const log = ctx.logger.child({ module: "http" });
 
-  // After the handler, so 404s and errors carry the policy too.
+  // Sets the header after the handler runs, so 404 and error responses include the policy too.
   app.use(async (c, next) => {
     await next();
     c.header("Content-Security-Policy", CSP);
@@ -36,9 +37,8 @@ export function createApp(ctx: AppContext, { webRoot }: AppOptions): Hono {
 
   app.get("/healthz", (c) => c.json({ status: "ok" }));
 
-  // Mounted here rather than in each module, so no route under these paths can skip it. Static
-  // files and /healthz need no author: the bundle holds no data, and the proxy guards both
-  // hostnames anyway.
+  // requireAuthor is mounted here, rather than in each module, so it covers every route under these
+  // paths.
   app.use("/trpc/*", requireAuthor(ctx, "web"));
   app.use("/mcp", requireAuthor(ctx, "mcp"));
 
@@ -54,12 +54,12 @@ export function createApp(ctx: AppContext, { webRoot }: AppOptions): Hono {
   );
 
   if (webRoot !== undefined) {
-    // Built assets have hashed names, so a missing one is a real 404, not a deep link.
+    // Built assets have hashed names, so a request for a missing asset returns 404 instead of the
+    // web app's page.
     app.use("/assets/*", serveStatic({ root: webRoot }));
     app.get("/assets/*", async (c) => await c.notFound());
-    // Any other GET is a client-side route: the web app reads the URL and renders the page. The
-    // page is revalidated on every load, because a cached copy would point at assets a newer
-    // build has replaced.
+    // Any other GET is a client-side route and returns index.html. no-cache makes the browser
+    // revalidate index.html, because a stale copy links to assets that a new build removed.
     app.get("*", async (c, next) => {
       await next();
       c.header("Cache-Control", "no-cache");

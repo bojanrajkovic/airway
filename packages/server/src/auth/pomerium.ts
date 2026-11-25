@@ -1,4 +1,5 @@
-// Identity from Pomerium's signed token. docs/auth.md describes what's checked and why.
+// Reads a request's identity from Pomerium's signed token. docs/auth.md describes what the
+// verifier checks and why.
 import type { Channel } from "@airway/contract/author";
 import { createRemoteJWKSet, errors, jwtVerify } from "jose";
 import { err, errAsync, ok, ResultAsync } from "neverthrow";
@@ -6,12 +7,13 @@ import { z } from "zod";
 import type { AuthConfig } from "../config.ts";
 import type { IdentityFailure, Verifier } from "./identity.ts";
 
-/** The header Pomerium puts its signed identity token in. */
+/** Pomerium sends its signed identity token in this header. */
 const TOKEN_HEADER = "X-Pomerium-Jwt-Assertion";
 
 /**
- * The failure a jose error means. Token problems are the caller's; anything else, such as a JWKS
- * fetch that failed or timed out, is the key server's, so a valid token isn't turned away as bad.
+ * Maps an error from jose to a kind of identity failure. A bad token is the caller's fault. Any
+ * other error, such as a JWKS fetch that failed or timed out, is the key server's fault.
+ * `classify` returns `provider_unavailable` for those errors, because the token may still be valid.
  */
 export function classify(error: unknown): IdentityFailure["kind"] {
   if (error instanceof errors.JWTExpired) {
@@ -41,9 +43,10 @@ export function classify(error: unknown): IdentityFailure["kind"] {
 const Claims = z.object({ email: z.email(), name: z.string().optional() });
 
 /**
- * Verifies the token in `X-Pomerium-Jwt-Assertion` against the JWKS at `jwksUrl`, fetched on first
- * use and cached. It must be ES256, unexpired at `clock()`, carry an email, and name the channel's
- * host as both `aud` and `iss`. Host and X-Forwarded-Host are never read.
+ * Verifies the token in `X-Pomerium-Jwt-Assertion` against the JWKS at `jwksUrl`. The jose library
+ * fetches the JWKS on first use and caches it. The token must be signed with ES256, be unexpired at
+ * `clock()`, contain an email, and name the channel's host as both `aud` and `iss`. The verifier
+ * takes each channel's host from config and ignores the Host and X-Forwarded-Host headers.
  */
 export function pomeriumVerifier(
   auth: Extract<AuthConfig, { mode: "pomerium" }>,

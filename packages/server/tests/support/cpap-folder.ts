@@ -18,7 +18,10 @@ import { createLogger, type Logger } from "../../src/logger.ts";
 import type { AppContext } from "../../src/runtime/context.ts";
 import { testContext } from "./context.ts";
 
-/** A synthetic CPAP data folder's files: `nights` plain nights from seed 3, then `cases`. */
+/**
+ * Returns the files of a synthetic CPAP data folder. The folder has `nights` plain nights from seed 3,
+ * followed by the `cases` edge cases.
+ */
 export function syntheticFolder(nights: number, cases: readonly EdgeCaseName[] = []): CpapFile[] {
   const model = syntheticNights({ seed: 3, nights, cases })._unsafeUnwrap();
 
@@ -28,8 +31,8 @@ export function syntheticFolder(nights: number, cases: readonly EdgeCaseName[] =
 const CTIME = Temporal.Instant.from("2030-03-01T12:00:00Z");
 
 /**
- * The BRP and PLD files of `night`'s folder in `files`, as the readiness check passes them on, each
- * with its header read. It drops the files the check rejects.
+ * Returns the BRP and PLD files in `night`'s DATALOG folder as `SegmentFile`s, with headers read.
+ * Leaves out files that fail the size check.
  */
 export function segmentFiles(files: readonly CpapFile[], night: Temporal.PlainDate): SegmentFile[] {
   const folder = `DATALOG/${night.toString().replaceAll("-", "")}/`;
@@ -96,8 +99,8 @@ export function usedDays(files: readonly CpapFile[]): UsedStrDay[] {
 }
 
 /**
- * A synthetic edge case set up for `scoreNight`. `input` is its first imported night, `files` is its
- * CPAP data folder, and `rows` holds the rows synthetic expects.
+ * A synthetic edge case set up for `scoreNight`. `input` is the case's first imported night,
+ * `files` is its CPAP data folder, and `rows` contains the expected derived rows.
  */
 export type CaseNight = { input: NightEvents; files: CpapFile[]; rows: DerivedRows };
 
@@ -135,7 +138,10 @@ export const editEve = (
 ): CpapFile[] =>
   files.map((f) => (f.path.endsWith("_EVE.edf") ? { ...f, bytes: edit(f.bytes) } : f));
 
-/** Writes `files` under a new temporary folder, removed when the test finishes, and returns it. */
+/**
+ * Writes `files` to a new temporary folder and returns the folder's path. Vitest removes the folder
+ * when the test finishes.
+ */
 export async function writeFolder(files: readonly CpapFile[]): Promise<string> {
   const root = await mkdtemp(join(tmpdir(), "airway-cpap-"));
   onTestFinished(async () => {
@@ -150,19 +156,18 @@ export async function writeFolder(files: readonly CpapFile[]): Promise<string> {
   return root;
 }
 
-/** `testContext(overrides)` with its CPAP data folder at `root`. */
+/** Returns `testContext(overrides)` with `cpapDataPath` set to `root`. */
 export function folderContext(root: string, overrides: Partial<AppContext> = {}): AppContext {
   const ctx = testContext(overrides);
 
   return { ...ctx, config: { ...ctx.config, cpapDataPath: root } };
 }
 
-/** A logger, and each line it has written, parsed. */
+/** A logger and the parsed JSON of each line it has written. */
 export type CapturedLogs = { logger: Logger; lines: Record<string, unknown>[] };
 
 const logLine = z.record(z.string(), z.unknown());
 
-/** A logger that keeps each line it writes. */
 export function capturingLogger(): CapturedLogs {
   const lines: Record<string, unknown>[] = [];
   const sink = new Writable({

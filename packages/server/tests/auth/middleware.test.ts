@@ -20,7 +20,10 @@ afterAll(async () => {
   await rm(webRoot, { recursive: true, force: true });
 });
 
-/** The app with Pomerium checks on, against the test issuer's JWKS, or `jwksUrl` if given. */
+/**
+ * Builds the app with Pomerium checks on. The app fetches its keys from `jwksUrl`, which defaults
+ * to the test issuer's JWKS.
+ */
 function pomeriumApp(jwksUrl = issuer.jwksUrl()): ReturnType<typeof createApp> {
   const base = testContext({ clock: () => NOW });
 
@@ -41,7 +44,12 @@ const mint = async (options: MintOptions): Promise<string> => await issuer.mint(
 describe("requireAuthor with Pomerium", () => {
   // A token for another host has the wrong iss and aud; jose checks iss first.
   it.each<[string, string, () => Promise<Record<string, string>>, string]>([
-    ["no token", "/trpc/ping", async () => await Promise.resolve({}), "missing_identity"],
+    [
+      "a request with no token",
+      "/trpc/ping",
+      async () => await Promise.resolve({}),
+      "missing_identity",
+    ],
     [
       "a token from another key",
       "/trpc/ping",
@@ -84,7 +92,7 @@ describe("requireAuthor with Pomerium", () => {
       }),
       "wrong_issuer",
     ],
-  ])("refuses %s on %s with a 403", async (_, url, headers, kind) => {
+  ])("returns 403 for %s on %s", async (_, url, headers, kind) => {
     const response = await pomeriumApp().request(url, { headers: await headers() });
 
     expect(response.status).toBe(403);
@@ -105,12 +113,12 @@ describe("requireAuthor with Pomerium", () => {
   it.each([
     ["/trpc/ping", UI_HOST],
     ["/mcp", MCP_HOST],
-  ])("lets a valid token for its own host through on %s", async (url, host) => {
+  ])("lets through a valid token issued for the host that serves %s", async (url, host) => {
     const response = await pomeriumApp().request(url, {
       headers: { [TOKEN_HEADER]: await mint({ host }) },
     });
 
-    // Nothing serves these paths yet, so passing the check means not being refused.
+    // These paths have no handler yet, so any status but 403 or 503 shows the token passed.
     expect(response.status).not.toBe(403);
     expect(response.status).not.toBe(503);
   });

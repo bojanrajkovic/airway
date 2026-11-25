@@ -6,18 +6,19 @@ import * as tracing from "@opentelemetry/sdk-trace";
 import { afterAll, beforeAll } from "vitest";
 
 export type TestTelemetry = {
-  /** Every ended span. Call `reset()` to drop what earlier tests recorded. */
+  /** Stores every span that has ended. Call `reset()` to drop what earlier tests recorded. */
   spans: tracing.InMemorySpanExporter;
   /** Exports only on `collect()` or shutdown, because its interval is longer than any test. */
   metricReader: metrics.PeriodicExportingMetricReader;
-  /** What `metricReader` exported. */
+  /** Stores the metrics that `metricReader` exported. */
   metricExporter: metrics.InMemoryMetricExporter;
 };
 
 /**
  * Starts an SDK before the file's tests and shuts it down after them. Call it at the top level of
- * a test file. It samples every span, uses no resource detectors (so tests don't read the host),
- * and records delta metrics, so each `collect()` holds only what was recorded since the last one.
+ * a test file. It samples every span and skips resource detection, so tests don't read the host.
+ * It records delta metrics, so each `collect()` exports only what the SDK recorded since the
+ * previous `collect()`.
  */
 export function inMemoryTelemetry({
   instrumentations = [],
@@ -30,7 +31,7 @@ export function inMemoryTelemetry({
   });
   const sdk = new NodeSDK({
     spanProcessors: [new tracing.SimpleSpanProcessor({ exporter: spans })],
-    // An in-memory reader, or the SDK would start an OTLP exporter and wait for it at shutdown.
+    // Without a reader here, the SDK starts an OTLP exporter and waits for it at shutdown.
     metricReaders: [metricReader],
     instrumentations,
     resourceDetectors: [],

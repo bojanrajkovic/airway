@@ -13,7 +13,7 @@ beforeEach(() => {
   spans.reset();
 });
 
-/** Every rpc.server.call.duration point recorded since the last collect, by its attributes. */
+/** The attributes of every rpc.server.call.duration point recorded since the last collect. */
 async function callDurations(): Promise<Record<string, unknown>[]> {
   const { resourceMetrics } = await metricReader.collect();
 
@@ -24,7 +24,7 @@ async function callDurations(): Promise<Record<string, unknown>[]> {
 }
 
 describe("procedure telemetry", () => {
-  it("records a span and a duration for a successful call, without inputs", async () => {
+  it("records a span and a duration for a successful call, and leaves the input out of the span", async () => {
     await callDurations();
 
     await app.request('/trpc/ping?input={"json":"secret"}');

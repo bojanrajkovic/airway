@@ -26,7 +26,7 @@ describe("createApp", () => {
     ["/assets/app-abc123.js", 200, "export {};"],
     ["/assets/missing.js", 404, undefined],
     ["/healthz", 200, '{"status":"ok"}'],
-  ])("GET %s answers %i with exactly one CSP header", async (url, status, body) => {
+  ])("answers GET %s with status %i and exactly one CSP header", async (url, status, body) => {
     const response = await createApp(testContext(), { webRoot }).request(url);
 
     expect(response.status).toBe(status);

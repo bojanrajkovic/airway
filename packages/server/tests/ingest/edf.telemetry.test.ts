@@ -45,7 +45,7 @@ const brp = (): CpapFile => {
 };
 
 describe("readEdfFile", () => {
-  it("records the file's path, format, verdict, and records on its span", async () => {
+  it("puts the file's path, format, verdict, and record count on its span", async () => {
     const file = brp();
     const { result, span } = await read(file);
 
@@ -75,7 +75,8 @@ describe("readEdfFile", () => {
   it("logs each header warning with the file's path", async () => {
     const file = brp();
     const bytes = file.bytes.slice();
-    // The recording field starts at byte 88; change its Startdate's day so it disagrees.
+    // The recording field starts at byte 88. Change its Startdate's day so it differs from the
+    // header's date.
     const recording = new TextDecoder().decode(bytes.subarray(88, 168));
     const changed = recording.replace(
       /Startdate (\d{2})/v,

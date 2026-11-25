@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { parseConfig } from "../src/config.ts";
 
-// Synthetic values only: this is a public repo.
 const VALID = {
   DATABASE_URL: "postgres://airway:secret@db.test:5432/airway",
   AIRWAY_READER_DATABASE_URL: "postgres://airway_reader:secret@db.test:5432/airway",

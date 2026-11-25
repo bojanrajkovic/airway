@@ -6,5 +6,8 @@ export const appRouter = router({
   ping: procedure.query(({ ctx }) => ({ author: authorLabel(ctx.author) })),
 });
 
-/** The API's shape, for the web app's tRPC client. A type only: the web bundle imports no server code. */
+/**
+ * The API's shape, for the web app's tRPC client. The web app imports it as a type, so server code
+ * stays out of the web bundle.
+ */
 export type AppRouter = typeof appRouter;

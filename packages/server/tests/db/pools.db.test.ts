@@ -1,4 +1,4 @@
-// Starts an OpenTelemetry SDK, which is safe here: the db project isolates each file.
+// This file can start an OpenTelemetry SDK because the db project isolates each test file.
 import { createRequire } from "node:module";
 import { test } from "@airway/testing/postgres";
 import { inMemoryTelemetry } from "@airway/testing/telemetry";
@@ -10,18 +10,15 @@ import { instrumentations } from "../../src/instrument.ts";
 
 const { spans } = inMemoryTelemetry({ instrumentations: await instrumentations() });
 
-// Runs after the helper's beforeAll starts the SDK. As the preload does: the instrumentation
-// patches pg when it's required after the start.
+// Requires pg after the helper's beforeAll starts the SDK, as the preload does.
+// The instrumentation patches pg when pg is required after the SDK starts.
 beforeAll(() => {
   createRequire(import.meta.url)("pg");
 });
 
 let pools: Pools | undefined = undefined;
 
-/**
- * Pools on the test's database, closed after the test. Both reader pools use the same URL here.
- * Clears the spans the database fixture recorded while creating the database.
- */
+/** Clears the spans that creating the test's database recorded, then creates pools on it. */
 function poolsFor(databaseUrl: string): Pools {
   spans.reset();
   pools = createPools({ databaseUrl, readerDatabaseUrl: databaseUrl }, pino({ level: "silent" }));
@@ -57,7 +54,7 @@ describe("createPools", () => {
     );
   });
 
-  test("gives each reader pool its own statement_timeout, and the owner none", async ({
+  test("sets a statement_timeout on each reader pool but not on the owner pool", async ({
     databaseUrl,
   }) => {
     const { owner, api, agent } = poolsFor(databaseUrl);
@@ -80,7 +77,10 @@ describe("createPools", () => {
 });
 
 describe("pg spans", () => {
-  /** The SQL text on every query span the test recorded. Pool connect spans carry none. */
+  /**
+   * Returns the SQL text of each query span that the test recorded. Skips pool connect spans,
+   * which have no SQL text.
+   */
   const recordedText = (): unknown[] =>
     spans
       .getFinishedSpans()

@@ -18,9 +18,9 @@ describe("classify", () => {
     ["a bad signature", new errors.JWSSignatureVerificationFailed(), "invalid_identity"],
     ["a disallowed alg", new errors.JOSEAlgNotAllowed("none"), "invalid_identity"],
     ["a malformed token", new errors.JWSInvalid("bad"), "invalid_identity"],
-    ["a key the JWKS lacks", new errors.JWKSNoMatchingKey(), "invalid_identity"],
+    ["a key that's missing from the JWKS", new errors.JWKSNoMatchingKey(), "invalid_identity"],
     ["a JWKS timeout", new errors.JWKSTimeout(), "provider_unavailable"],
-    ["a JWKS that isn't valid", new errors.JWKSInvalid("bad"), "provider_unavailable"],
+    ["an invalid JWKS", new errors.JWKSInvalid("bad"), "provider_unavailable"],
     ["a failed fetch", new TypeError("fetch failed"), "provider_unavailable"],
   ])("treats %s as %s", (_, error, kind) => {
     expect(classify(error)).toBe(kind);
@@ -41,7 +41,7 @@ describe("pomeriumVerifier", () => {
     expect(result._unsafeUnwrap()).toEqual({ email: "sam@example.test", name: "Sam Rivera" });
   });
 
-  it("refuses a request with no token as missing its identity", async () => {
+  it("returns missing_identity for a request without a token", async () => {
     const result = await verifier()(new Headers(), "web");
 
     expect(result._unsafeUnwrapErr()).toEqual({ kind: "missing_identity" });

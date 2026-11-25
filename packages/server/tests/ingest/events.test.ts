@@ -14,7 +14,7 @@ const file = (
 ): FileAnnotations => ({ path, start: start.add({ seconds: offsetSeconds }), annotations });
 
 describe("toEvents", () => {
-  it("maps labels to event types ignoring case, drops Recording starts, and turns an unknown label into an other event with the label's text", () => {
+  it("ignores case when mapping labels to event types, drops Recording starts, and turns an unknown label into an event of type other that keeps the label's text", () => {
     const placed = toEvents(
       night,
       [
@@ -42,7 +42,7 @@ describe("toEvents", () => {
     expect(placed.unknownLabels).toEqual([{ label: "Snore", path: "a_EVE.edf", count: 1 }]);
   });
 
-  it("starts a timed event at its onset minus its duration, and an untimed one at its onset", () => {
+  it("starts an event with a duration at its onset minus that duration, and starts an event with a duration of 0 at its onset", () => {
     const placed = toEvents(
       night,
       [
@@ -60,14 +60,14 @@ describe("toEvents", () => {
     ]);
   });
 
-  it("merges the night's EVE files in time order and places each event in its session", () => {
+  it("merges the events from the night's EVE files in time order and places each event in its session", () => {
     const placed = toEvents(
       night,
       [
         file("b_EVE.edf", 3600, [{ onset: 10, duration: 0, label: "Hypopnea" }]),
         file("a_EVE.edf", 0, [
           { onset: 10, duration: 0, label: "Hypopnea" },
-          // Five hours in, after the only session ends.
+          // This event starts five hours in, an hour after the only session ends.
           { onset: 18_000, duration: 0, label: "Hypopnea" },
         ]),
       ],
@@ -88,7 +88,7 @@ describe("toEvents", () => {
 });
 
 describe("scoreNight", () => {
-  it("builds the same event rows and night row as synthetic from all three EVE files", async () => {
+  it("reads all three EVE files and builds the event rows and night row that the synthetic case expects", async () => {
     const { input, files, rows } = caseNight("split-files");
     const ctx = folderContext(await writeFolder(files));
 
@@ -115,7 +115,7 @@ describe("scoreNight", () => {
     // Picks an EVE file with events, so emptying it removes events from the night.
     const target = input.files[counts.findIndex((count) => count > 0)];
     const rest = input.files.filter((file) => file !== target);
-    // An empty EVE file on the card holds only its header, with a record count of -1 at byte 236.
+    // An empty EVE file on the card is only a header, and the record count at byte 236 is -1.
     const headerOnly = (bytes: Uint8Array): Uint8Array => {
       const copy = bytes.slice(0, readHeader(bytes)._unsafeUnwrap().header.headerBytes);
 

@@ -16,12 +16,15 @@ describe("toTRPC", () => {
   it.each([
     ["not_found", "NOT_FOUND"],
     ["not_imported", "CONFLICT"],
-  ] as const)("throws %s as a TRPCError with code %s and no details", async (kind, code) => {
-    const thrown = await toTRPC(errAsync<number, NightsError>({ kind }), nightsCode).catch(
-      (error: unknown) => error,
-    );
+  ] as const)(
+    "throws %s as a TRPCError with %s as both its code and its message",
+    async (kind, code) => {
+      const thrown = await toTRPC(errAsync<number, NightsError>({ kind }), nightsCode).catch(
+        (error: unknown) => error,
+      );
 
-    expect(thrown).toBeInstanceOf(TRPCError);
-    expect(thrown).toMatchObject({ code, message: code, cause: undefined });
-  });
+      expect(thrown).toBeInstanceOf(TRPCError);
+      expect(thrown).toMatchObject({ code, message: code, cause: undefined });
+    },
+  );
 });
