@@ -30,6 +30,12 @@ values ('${night}', 1, 1, '${night}T02:00Z', 0.4);
 insert into derived.breaths (night, segment, session, ts, duration, amplitude, inspiratory_volume)
 values ('${night}', 1, 1, '${night}T02:00Z', 3.2, 0.3, 0.25);`;
 
+// The file's tests share one database, so each test that writes to `derived` rebuilds it.
+const freshDerived =
+  "drop schema if exists derived cascade;" +
+  derivedTables("derived") +
+  derivedIndexesAndKeys("derived");
+
 const countsByNight = NIGHT_TABLES.map(
   (table) =>
     `select '${table}' as name, night::text as night, count(*)::int as rows from derived.${table} group by night`,
@@ -64,16 +70,11 @@ test("creates every table in derived_next as an UNLOGGED table", async ({ databa
   expect(tables.filter(({ persistence }) => persistence !== "u")).toEqual([]);
 });
 
-test("deleting a night removes only that night's rows from every table", async ({
-  databaseUrl,
-}) => {
-  const counts = await withClient(databaseUrl, async (client) => {
-    await client.query(derivedTables("derived") + derivedIndexesAndKeys("derived"));
-    await client.query(nightRows("2030-01-01") + nightRows("2030-01-02"));
-    await client.query(
-      `insert into derived.files (path, kind, size, sha256, ctime)
-       values ('STR.edf', 'str', 2048, 'def', '2030-01-02T14:00Z')`,
-    );
+test("foreign keys tie samples and files to segments", async ({ databaseUrl }) => {
+  await withClient(databaseUrl, async (client) => {
+    await client.query(freshDerived);
+    await client.query(nightRows("2030-01-01"));
+
     // Segment 1 belongs to session 1, so Postgres rejects a sample in segment 1 and session 2.
     await expect(
       client.query(
@@ -90,6 +91,19 @@ test("deleting a night removes only that night's rows from every table", async (
         `update derived.files set segment = 9 where path = 'DATALOG/2030-01-01/BRP.edf'`,
       ),
     ).rejects.toThrow(/foreign key/v);
+  });
+});
+
+test("deleting a night removes only that night's rows from every table", async ({
+  databaseUrl,
+}) => {
+  const counts = await withClient(databaseUrl, async (client) => {
+    await client.query(freshDerived);
+    await client.query(nightRows("2030-01-01") + nightRows("2030-01-02"));
+    await client.query(
+      `insert into derived.files (path, kind, size, sha256, ctime)
+       values ('STR.edf', 'str', 2048, 'def', '2030-01-02T14:00Z')`,
+    );
 
     await client.query(`delete from derived.nights where night = '2030-01-01'`);
     const result = await client.query(`${countsByNight} order by name, night`);

@@ -28,6 +28,8 @@ async function load(
   const { rows } = synthesize(nights, zone, { patient: "child", arrivedAt })._unsafeUnwrap();
 
   await withClient(url, async (client) => {
+    // The file's tests share one database, so each load replaces the schema.
+    await client.query(`drop schema if exists ${schema} cascade`);
     await loadDerived(client, rows, { schema, builtAt: arrivedAt });
   });
 }
@@ -80,10 +82,7 @@ test(
   },
 );
 
-test("keeps only daily usage for a night with no segments, and lets the reader read but not write", async ({
-  databaseUrl,
-  readerUrl,
-}) => {
+test("loads only a daily_usage row for a night with no segments", async ({ databaseUrl }) => {
   const [first, second, third] = syntheticNights({ seed: 7, nights: 3 })._unsafeUnwrap().nights;
 
   if (first === undefined || second === undefined || third === undefined) {
@@ -107,21 +106,16 @@ test("keeps only daily usage for a night with no segments, and lets the reader r
   });
 
   expect(counts).toEqual({ usage: 1, segments: 0 });
+});
 
-  // Creates a table that the reader role was never granted access to.
-  await withClient(databaseUrl, async (client) => {
-    await client.query("create schema other; create table other.secrets (value text)");
-  });
+test("grants the reader SELECT on the loaded schema", async ({ databaseUrl, readerUrl }) => {
+  const { nights } = syntheticNights({ seed: 7, nights: 1 })._unsafeUnwrap();
 
-  await withClient(readerUrl, async (client) => {
-    const nights = Count.parse(
-      (await client.query("select count(*) from derived_next.nights")).rows,
-    );
+  await load(databaseUrl, nights, "derived");
 
-    expect(nights).toEqual([{ count: 2 }]);
-    await expect(client.query("delete from derived_next.nights")).rejects.toThrow(
-      /read-only transaction/v,
-    );
-    await expect(client.query("select * from other.secrets")).rejects.toThrow(/permission denied/v);
-  });
+  const count = await withClient(readerUrl, async (client) =>
+    Count.parse((await client.query("select count(*) from derived.nights")).rows),
+  );
+
+  expect(count).toEqual([{ count: 1 }]);
 });

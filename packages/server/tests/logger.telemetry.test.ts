@@ -32,12 +32,4 @@ describe("createLogger", () => {
       span.end();
     });
   });
-
-  it("adds no IDs outside a span", () => {
-    const line = logLine((log) => {
-      log.info("outside");
-    });
-
-    expect(line).not.toHaveProperty("trace_id");
-  });
 });

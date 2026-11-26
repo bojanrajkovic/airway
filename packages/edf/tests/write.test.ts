@@ -1,3 +1,4 @@
+import crc16ccitt from "crc/calculators/crc16ccitt";
 import { describe, expect, it } from "vitest";
 import { AIRSENSE, type EdfFileType } from "../src/airsense.ts";
 import { writeAnnotations, writeSignals, type PerFileHeader } from "../src/write.ts";
@@ -19,20 +20,6 @@ function filled(file: EdfFileType, records: number, value = 1): Map<string, Floa
         new Float64Array(records * signal.samplesPerRecord).fill(value),
       ]),
   );
-}
-
-// CRC-16/CCITT-FALSE, bit by bit, as an independent check on the writer's table-driven one.
-function ccittFalse(bytes: Uint8Array): number {
-  let crc = 0xff_ff;
-
-  for (const byte of bytes) {
-    crc ^= byte << 8;
-    for (let bit = 0; bit < 8; bit += 1) {
-      crc = (crc & 0x80_00) !== 0 ? ((crc << 1) ^ 0x10_21) & 0xff_ff : (crc << 1) & 0xff_ff;
-    }
-  }
-
-  return crc;
 }
 
 const ascii = (bytes: Uint8Array, from: number, width: number): string =>
@@ -111,7 +98,8 @@ describe("writeSignals", () => {
   });
 
   it("ends each record with the CRC-16/CCITT-FALSE of its bytes, as the machine does", () => {
-    expect(ccittFalse(new TextEncoder().encode("123456789"))).toBe(0x29_b1);
+    // 0x29B1 is CRC-16/CCITT-FALSE's standard check value, so this fails for any other CRC-16 variant.
+    expect(crc16ccitt(new TextEncoder().encode("123456789"))).toBe(0x29_b1);
 
     const recordBytes = 2 * (9 * 30 + 1);
 
@@ -120,7 +108,7 @@ describe("writeSignals", () => {
       const body = bytes.subarray(start, start + recordBytes - 2);
       const stored = new DataView(bytes.buffer).getUint16(start + recordBytes - 2, true);
 
-      expect(stored).toBe(ccittFalse(body));
+      expect(stored).toBe(crc16ccitt(body));
     }
   });
 
