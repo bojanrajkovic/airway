@@ -1,4 +1,5 @@
 import { err, ok, Result } from "neverthrow";
+import { isOneOf, valuesOf } from "@airway/contract/enum";
 import { checkFileSize, type FileSizeCheck } from "./size.ts";
 
 /** Describes one signal with the values that its 256-byte signal header declares. */
@@ -16,12 +17,22 @@ export type EdfSignalHeader<L extends string = string> = {
 };
 
 /**
+ * Lists the values that a header's reserved field can contain. The records of an `EDF+C` file are
+ * contiguous in time, and an `EDF+D` file can have gaps between its records.
+ */
+export enum EdfFormat {
+  Edf = "EDF",
+  EdfPlusC = "EDF+C",
+  EdfPlusD = "EDF+D",
+}
+
+/**
  * `readHeader` parses these fields from an EDF or EDF+ header. It skips the transducer and
  * prefiltering fields, which the card leaves blank.
  */
 export type EdfHeader = {
   /** The reserved field reads `EDF` for plain EDF and `EDF+C` or `EDF+D` for EDF+. */
-  format: "EDF" | "EDF+C" | "EDF+D";
+  format: EdfFormat;
   /** The machine writes the start time from the device clock, without a time zone. */
   start: Temporal.PlainDateTime;
   patient: string;
@@ -48,7 +59,7 @@ export type EdfReadError =
   | { kind: "read_failed"; path: string; cause: unknown }
   | { kind: "missing_signal"; label: string }
   /** The file's format differs from the format of the file type that the caller expects. */
-  | { kind: "format_mismatch"; expected: EdfHeader["format"]; got: EdfHeader["format"] }
+  | { kind: "format_mismatch"; expected: EdfFormat; got: EdfFormat }
   /** The file's record length in seconds differs from the file type's. */
   | { kind: "record_length_mismatch"; expected: number; got: number }
   /**
@@ -104,8 +115,7 @@ export const recordBytes = (file: { signals: readonly EdfSignalHeader[] }): numb
 
 const FIXED_BYTES = 256;
 const SIGNAL_BYTES = 256;
-const FORMATS: readonly string[] = ["EDF", "EDF+C", "EDF+D"] satisfies EdfHeader["format"][];
-const isFormat = (value: string): value is EdfHeader["format"] => FORMATS.includes(value);
+const isFormat = (value: string): value is EdfFormat => isOneOf(valuesOf(EdfFormat), value);
 const MONTHS = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
 // The machine writes header text as UTF-8. The decoder replaces a byte that isn't valid UTF-8 with
 // U+FFFD, so a stray byte can't fail the decode.
@@ -300,7 +310,7 @@ export function readHeader(
   return Result.combine([
     reader.readNumber("header bytes", 8),
     // Plain EDF leaves the reserved field blank; the card writes "EDF" there.
-    ok(reader.readString(44).replace(/^$/v, "EDF")),
+    ok(reader.readString(44).replace(/^$/v, EdfFormat.Edf)),
     reader.readNumber("records", 8),
     reader.readNumber("record duration", 8, "decimal"),
     reader.readNumber("signals", 4),
