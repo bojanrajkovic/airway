@@ -52,8 +52,8 @@ catalogs:
       specifier: 6.0.1
       version: 6.0.1
     '@trpc/server':
-      specifier: 11.29.7
-      version: 11.29.7
+      specifier: 11.29.11
+      version: 11.29.11
     '@tsconfig/node':
       specifier: npm:@tsconfig/node26@26.0.2
       version: 26.0.2
@@ -311,7 +311,7 @@ importers:
         version: 2.1.11(hono@4.13.21)
       '@hono/trpc-server':
         specifier: 'catalog:'
-        version: 0.4.2(@trpc/server@11.29.7(typescript@7.0.2))(hono@4.13.21)
+        version: 0.4.2(@trpc/server@11.29.11(typescript@7.0.2))(hono@4.13.21)
       '@opentelemetry/api':
         specifier: 'catalog:'
         version: 1.10.0
@@ -344,7 +344,7 @@ importers:
         version: 3.1.1(@opentelemetry/api@1.10.0)
       '@trpc/server':
         specifier: 'catalog:'
-        version: 11.29.7(typescript@7.0.2)
+        version: 11.29.11(typescript@7.0.2)
       drizzle-orm:
         specifier: 'catalog:'
         version: 0.45.4(@opentelemetry/api@1.10.0)(@types/pg@8.23.1)(pg@8.23.1)
@@ -1947,8 +1947,8 @@ packages:
       oxlint:
         optional: true
 
-  '@trpc/server@11.29.7':
-    resolution: {integrity: sha512-9chUuB0abOfVkCm87lFQ3PTUJzPlErlf5HOBzvwtiGl7B0YdPBul1O597NTzjUcF1XDTsRqdnQfrz7BeptzSXQ==}
+  '@trpc/server@11.29.11':
+    resolution: {integrity: sha512-guaAFs00YhnDXqOPBqPqJDmGOyEn77f3E3qTCmZ6W2txY5zA79VdnWrpldNucLrBIahXzLOdVU6I20KXLBiF4Q==}
     peerDependencies:
       '@types/aws-lambda': '*'
       '@types/express': '*'
@@ -4113,9 +4113,9 @@ snapshots:
     dependencies:
       hono: 4.13.21
 
-  '@hono/trpc-server@0.4.2(@trpc/server@11.29.7(typescript@7.0.2))(hono@4.13.21)':
+  '@hono/trpc-server@0.4.2(@trpc/server@11.29.11(typescript@7.0.2))(hono@4.13.21)':
     dependencies:
-      '@trpc/server': 11.29.7(typescript@7.0.2)
+      '@trpc/server': 11.29.11(typescript@7.0.2)
       hono: 4.13.21
 
   '@humanfs/core@0.19.2':
@@ -4711,7 +4711,7 @@ snapshots:
       eslint: 10.15.0
       oxlint: 1.94.0(oxlint-tsgolint@7.0.2008)
 
-  '@trpc/server@11.29.7(typescript@7.0.2)':
+  '@trpc/server@11.29.11(typescript@7.0.2)':
     optionalDependencies:
       typescript: 7.0.2
 
