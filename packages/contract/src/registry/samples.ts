@@ -3,7 +3,7 @@ import { signal, type Dataset } from "./define.ts";
 
 export const samples: Dataset = {
   name: "samples",
-  description: "One row per 2 seconds of therapy, from the machine's low-rate signals.",
+  description: "The machine's low-rate signals, one row per 2 seconds of therapy.",
   grain: "2s",
   columns: [
     night,
@@ -12,9 +12,9 @@ export const samples: Dataset = {
     segment,
     hourOfNight,
     signal("mask_pressure", "Pressure measured at the mask."),
-    signal("pressure", "Pressure the machine is delivering."),
+    signal("pressure", "Pressure that the machine delivers."),
     signal("epr_pressure", "Pressure after expiratory relief lowers it on the out-breath."),
-    signal("leak", "Unintentional leak, beyond the mask's built-in vent."),
+    signal("leak", "Air that leaks out anywhere other than the mask's built-in vent."),
     signal("respiratory_rate", "Breaths per minute."),
     signal("tidal_volume", "Air moved by one breath."),
     signal("minute_ventilation", "Air moved per minute."),

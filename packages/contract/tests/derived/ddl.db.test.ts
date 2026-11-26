@@ -10,7 +10,7 @@ const Counts = z.array(
   z.object({ name: z.string(), night: z.string().nullable(), rows: z.number() }),
 );
 
-/** One night with a row in every table that holds a night's rows. */
+/** Returns SQL that inserts `night` and one row for it in each table of `NIGHT_TABLES`. */
 const nightRows = (night: string): string => `
 insert into derived.nights (night, sessions, expected_sessions, session_count_approximate,
   longest_stretch, obstructive_apneas, central_apneas, unclassified_apneas, hypopneas, arousals,
@@ -35,7 +35,7 @@ const countsByNight = NIGHT_TABLES.map(
     `select '${table}' as name, night::text as night, count(*)::int as rows from derived.${table} group by night`,
 ).join(" union all ");
 
-test("creates every table UNLOGGED, in derived_next", async ({ databaseUrl }) => {
+test("creates every table in derived_next as an UNLOGGED table", async ({ databaseUrl }) => {
   const tables = await withClient(databaseUrl, async (client) => {
     await client.query(derivedTables("derived_next") + derivedIndexesAndKeys("derived_next"));
     const result = await client.query(
@@ -64,7 +64,7 @@ test("creates every table UNLOGGED, in derived_next", async ({ databaseUrl }) =>
   expect(tables.filter(({ persistence }) => persistence !== "u")).toEqual([]);
 });
 
-test("deleting a night removes its rows from every table, and no other night's", async ({
+test("deleting a night removes only that night's rows from every table", async ({
   databaseUrl,
 }) => {
   const counts = await withClient(databaseUrl, async (client) => {
@@ -74,7 +74,7 @@ test("deleting a night removes its rows from every table, and no other night's",
       `insert into derived.files (path, kind, size, sha256, ctime)
        values ('STR.edf', 'str', 2048, 'def', '2030-01-02T14:00Z')`,
     );
-    // Segment 1 belongs to session 1, so a sample can't put it in session 2.
+    // Segment 1 belongs to session 1, so Postgres rejects a sample in segment 1 and session 2.
     await expect(
       client.query(
         `insert into derived.samples (night, segment, session, ts) values ('2030-01-01', 1, 2, now())`,
@@ -101,7 +101,7 @@ test("deleting a night removes its rows from every table, and no other night's",
     { name: "breaths", night: "2030-01-02", rows: 1 },
     { name: "events", night: "2030-01-02", rows: 2 },
     { name: "files", night: "2030-01-02", rows: 1 },
-    // STR.edf belongs to no night, so no night's delete removes it.
+    // The cascade skips STR.edf's row, whose night is null.
     { name: "files", night: null, rows: 1 },
     { name: "samples", night: "2030-01-02", rows: 1 },
     { name: "segments", night: "2030-01-02", rows: 1 },

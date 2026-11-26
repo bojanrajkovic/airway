@@ -12,16 +12,20 @@ export const events: Dataset = {
     session,
     hourOfNight,
     enumeration("type", EVENT_TYPES, "What kind of event it is."),
-    enumeration("source", EVENT_SOURCES, "Who scored it: the machine (resmed) or airway."),
+    enumeration(
+      "source",
+      EVENT_SOURCES,
+      "Whether the machine (resmed) or airway scored the event.",
+    ),
     dimension(
       "outside_mask_on",
       "boolean",
-      "True when the event falls outside every mask-on period and was given to the nearest one.",
+      "True when the event falls outside every mask-on period and airway assigned it to the nearest period.",
     ),
     metric(
       "duration",
       seconds,
-      "How long the event lasted. Empty for hypopneas and arousals, which the machine doesn't time.",
+      "How long the event lasted. The duration is empty for hypopneas and arousals because the machine doesn't time them.",
     ),
   ],
 };

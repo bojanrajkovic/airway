@@ -1,10 +1,10 @@
 import { z } from "zod";
 
-/** The most rows one agent result carries. */
+/** An agent result has at most this many rows. */
 export const AGENT_ROW_LIMIT = 200;
-/** The most characters one agent result's text runs to, links and all. */
+/** An agent result's text is at most this many characters long, including the links. */
 export const AGENT_CHARACTER_LIMIT = 25_000;
-/** What a cut result tells the agent to do next. */
+/** Tells the agent how to get the rows that a cut result left out. */
 export const AGENT_HINT =
   "The result was cut short. Aggregate, filter, or narrow the night range to get all of it.";
 
@@ -13,14 +13,20 @@ export type AgentCell = z.infer<typeof cell>;
 
 const table = {
   columns: z.array(z.string()),
-  /** Arrays, not objects: the column names appear once, which saves about 40% of the text. */
+  /**
+   * Each row is an array of cells in column order. Naming the columns once makes the text about
+   * 40% shorter than repeating the names in every row.
+   */
   rows: z.array(z.array(cell)),
-  /** The explorer link that opens the same query. */
+  /** Opens this query in the explorer. */
   link: z.string(),
   short_link: z.string(),
 };
 
-/** What a query tool returns to an agent, as compact JSON text. Only a cut result has a hint. */
+/**
+ * Describes the compact JSON text that a query tool returns to an agent. Only a cut result has a
+ * hint.
+ */
 export const agentResult = z.discriminatedUnion("truncated", [
   z.strictObject({ ...table, truncated: z.literal(false) }),
   z.strictObject({ ...table, truncated: z.literal(true), hint: z.string() }),
@@ -33,12 +39,12 @@ type Capped<Row> =
 
 /**
  * Cuts rows down to what fits in one agent result. Keeps rows from the start until it reaches
- * `AGENT_ROW_LIMIT` rows or `budget` characters, counting each row as JSON plus a comma between
- * rows. A row is never cut in half.
+ * `AGENT_ROW_LIMIT` rows or `budget` characters. It counts the length of each row's JSON, plus 1
+ * for the comma before every row after the first. It keeps or drops each row whole.
  *
- * `budget` is the characters left after everything else in the result: the column names, the
- * links, and `AGENT_HINT`. Subtract the hint even if the rows might fit, because a cut result
- * carries it.
+ * `budget` is the number of characters left for rows after the caller subtracts the rest of the
+ * result: the column names, the links, and `AGENT_HINT`. Subtract the hint's length even when all
+ * the rows might fit, because a cut result includes the hint.
  */
 export function capForAgent<Row extends readonly AgentCell[]>(
   rows: readonly Row[],

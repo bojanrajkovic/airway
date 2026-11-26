@@ -19,7 +19,7 @@ const events = (count: number, event: Partial<NightEvent> = {}): NightEvent[] =>
   }));
 
 describe("ahiCheck", () => {
-  it("matches 18 events in 400 minutes to an AHI of 2.7, where 18 / 400 × 60 in floating point gives 2.69999…", () => {
+  it("matches 18 events in 400 minutes to an AHI of 2.7, though 18 / 400 × 60 comes to 2.69999… in floating point", () => {
     expect(ahiCheck(day({ usage: 400, ahi: 2.7 }), events(18))).toEqual({
       outcome: "match",
       tenths: 27,
@@ -103,12 +103,12 @@ describe("nightRow", () => {
     });
   });
 
-  it("returns the AHI check whose outcome fills ahi_check", () => {
+  it("returns the AHI check and writes its outcome to ahi_check", () => {
     // 10 apneas and hypopneas in 240 minutes is an AHI of 2.5.
     expect(ahi).toEqual({ outcome: "match", tenths: 25 });
   });
 
-  it("gives a night with no sessions a longest stretch of 0", () => {
+  it("sets longest_stretch to 0 for a night with no sessions", () => {
     const empty = nightRow({
       day: day({ usage: 0, ahi: 0 }, 0),
       sessions: { sessions: [], approximate: false },

@@ -4,7 +4,7 @@ import { enumeration, metric, sql, time, type Dataset } from "./define.ts";
 
 export const sessions: Dataset = {
   name: "sessions",
-  description: "One row per mask-on period.",
+  description: "Each row is one mask-on period.",
   grain: "2s",
   columns: [
     night,
@@ -14,12 +14,12 @@ export const sessions: Dataset = {
     enumeration(
       "source",
       SESSION_SOURCES,
-      "Where the period comes from: the machine's own mask-on times (str), or airway's reading of the recording files (derived) on a night with more periods than the machine stores.",
+      "The period comes from the machine's stored mask-on times (str) or from the recording files (derived). On a night with more periods than the machine stores, airway reads the periods from the recording files.",
     ),
     metric(
       "duration",
       minutes,
-      "Length of the period.",
+      "How long the mask stayed on.",
       sql`(extract(epoch from ended_at - ts) / 60)::double precision`,
     ),
   ],

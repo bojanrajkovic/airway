@@ -2,9 +2,10 @@ import type { DerivedSchema } from "./ddl.ts";
 import { PERCENTILE_SIGNALS, PERIODS } from "./values.ts";
 
 /**
- * The statement that fills `period_percentiles` from `samples`: the P50 and P95 of each percentile
- * signal for every week (starting Monday) and month that has samples. It uses `percentile_cont`, so
- * the stored values equal a query-time percentile over the same samples. It only inserts, so run
+ * Returns the SQL statement that fills `period_percentiles` from `samples`. The statement computes
+ * the P50 and P95 of each percentile signal for every week and month that has samples. Weeks start
+ * on Monday. The statement uses `percentile_cont`, so
+ * the stored values equal the percentiles that a query computes from the same samples. The statement only inserts rows, so run
  * it on an empty `period_percentiles`.
  */
 export function periodPercentiles(schema: DerivedSchema): string {

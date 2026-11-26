@@ -6,7 +6,8 @@ import { DATASETS } from "../../src/registry/datasets.ts";
 import { render, type Column } from "../../src/registry/define.ts";
 import { withClient } from "../support/postgres.ts";
 
-// The Postgres types a column of each kind may have. A numeric would reach the caller as a string.
+// The Postgres types a column of each kind may have. numeric is left out because pg returns it as
+// a string.
 const { FLOAT8, INT2, INT4, BOOL, TIMESTAMPTZ, DATE, TEXT } = pg.types.builtins;
 const TYPES: Record<Column["kind"], readonly number[]> = {
   number: [FLOAT8, INT4],
@@ -18,10 +19,10 @@ const TYPES: Record<Column["kind"], readonly number[]> = {
 };
 
 test.for(DATASETS)(
-  "every $name column's SQL runs against its table, and gives its kind's type",
+  "every $name column's SQL runs against its table and returns its kind's Postgres type",
   async ({ name, columns }, { databaseUrl }) => {
     await withClient(databaseUrl, async (client) => {
-      // Rolled back, so each dataset's test creates the tables for itself.
+      // The transaction rolls back, so each dataset's test creates the tables for itself.
       await client.query("begin");
       await client.query(derivedTables("derived") + derivedIndexesAndKeys("derived"));
 

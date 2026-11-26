@@ -273,7 +273,7 @@ describe("parseSpec", () => {
       path: "",
       says: '"filter"',
     },
-  ])("rejects $mistake, naming where and what's allowed", ({ input, path, says }) => {
+  ])("rejects $mistake, naming the path and what's allowed", ({ input, path, says }) => {
     const [issue] = parseSpec(input)._unsafeUnwrapErr();
 
     expect(issue?.path).toBe(path);
@@ -332,7 +332,7 @@ describe("granularityOf", () => {
     },
   );
 
-  it("leaves a named step, and no step, as they are", () => {
+  it("returns a named step unchanged, and undefined when there's no step", () => {
     expect(granularityOf(samples, { nights: { last: 1 }, granularity: "2s" })).toBe("2s");
     expect(granularityOf(samples, { nights: { last: 1 } })).toBeUndefined();
   });

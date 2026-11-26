@@ -4,5 +4,5 @@ import { nights } from "./nights.ts";
 import { samples } from "./samples.ts";
 import { sessions } from "./sessions.ts";
 
-/** Every dataset there is to query. */
+/** All queryable datasets. */
 export const DATASETS = [nights, sessions, events, samples, breaths] as const;

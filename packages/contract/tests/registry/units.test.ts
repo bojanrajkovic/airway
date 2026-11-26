@@ -56,10 +56,11 @@ describe("toDisplay and toStored", () => {
     expect(toStored(shown, unit)).toBe(stored);
   });
 
-  it("keeps a value between two device steps where it is", () => {
-    // 25 L/min falls between 0.40 and 0.42 L/s. Snapped to 0.42, `leak > 25` would lose 0.42.
+  it("converts a value between two device steps without snapping it to a step", () => {
+    // 25 L/min falls between 0.40 and 0.42 L/s. If `toStored` snapped 25 to 0.42, `leak > 25`
+    // would exclude values stored as 0.42.
     expect(toStored(25, litresPerSecond)).toBe(0.41666667);
-    // An average isn't on the grid either.
+    // An average also falls between two steps.
     expect(toDisplay(0.355, litresPerSecond)).toBe(21.3);
     expect(toDisplay(2.4, { unit: "sessions", decimals: 0 })).toBe(2.4);
   });

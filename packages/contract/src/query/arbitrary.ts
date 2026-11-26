@@ -1,6 +1,6 @@
-// Random valid specs, generated from the registry. Property tests use them to check something
-// holds for thousands of specs, such as "parsing a parsed spec changes nothing", instead of a
-// few written by hand. A new column or operation reaches the tests with no new test code.
+// Generates random valid specs from the registry. Property tests check a property such as
+// "parsing a parsed spec changes nothing" against thousands of these specs instead of a few
+// written by hand. The tests cover a new column or operation without any new test code.
 import fc from "fast-check";
 import { DATASETS } from "../registry/datasets.ts";
 import {
@@ -33,7 +33,7 @@ const moment = fc.date({
 });
 const instant = moment.map((value) => value.toISOString());
 const date = instant.map((text) => text.slice(0, 10));
-// JSON writes -0 as 0, so a spec holding -0 wouldn't survive a link.
+// JSON writes -0 as 0, so a spec containing -0 would change when it's encoded in a link.
 const number = fc
   .double({ noNaN: true, noDefaultInfinity: true })
   .map((value) => (value === 0 ? 0 : value));
@@ -77,7 +77,7 @@ const direction = fc.option(fc.constantFrom("ascending" as const, "descending" a
   nil: undefined,
 });
 
-/** Orders and havings that name the given calculations and breakdowns. */
+/** Generates orders and havings that refer to the given calculations and breakdowns. */
 function references(
   dataset: Dataset,
   calculations: readonly Calculation[],
@@ -122,7 +122,7 @@ function specOf(dataset: Dataset): fc.Arbitrary<QuerySpecInput> {
     {
       v: fc.constant(1 as const),
       dataset: fc.constant(dataset.name),
-      // Short ranges come up as often as long ones, so the fine steps get used.
+      // Short ranges come up as often as long ones, so the tests also cover the fine granularities.
       nights: fc.oneof(
         fc.record({ last: length }),
         fc.tuple(date, length).map(([from, nights]) => ({
@@ -163,7 +163,7 @@ function specOf(dataset: Dataset): fc.Arbitrary<QuerySpecInput> {
   );
 }
 
-/** A valid spec as a person or an agent might write it, with any optional part left out. */
+/** A valid spec as a person or an agent might write it. Each optional part may be missing. */
 export const specInput: fc.Arbitrary<QuerySpecInput> = fc.oneof(...DATASETS.map(specOf));
 
 /** A valid parsed spec. */

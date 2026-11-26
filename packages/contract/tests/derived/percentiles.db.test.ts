@@ -15,7 +15,7 @@ const Rows = z.array(
   }),
 );
 
-/** A night with one segment and the given leak samples, 2 s apart. */
+/** Returns SQL that inserts a night with one segment and a leak sample every 2 s. */
 const night = (date: string, leaks: readonly number[]): string => `
 insert into derived.nights (night, sessions, expected_sessions, session_count_approximate,
   longest_stretch, obstructive_apneas, central_apneas, unclassified_apneas, hypopneas, arousals,
@@ -30,8 +30,8 @@ values ('${date}/BRP.edf', 'brp', '${date}', 1, 1024, 'abc', '${date}T14:00Z');
 insert into derived.samples (night, segment, session, ts, leak)
 values ${leaks.map((leak, i) => `('${date}', 1, 1, '${date}T02:00Z'::timestamptz + interval '${(2 * i).toString()} seconds', ${leak.toString()})`).join(", ")};`;
 
-// 2030-01-28 is a Monday, so its week holds nights from January and February.
-test("stores each week's and month's P50 and P95, as percentile_cont gives them", async ({
+// The week of Monday 2030-01-28 ends in February, so it includes both nights.
+test("stores the P50 and P95 that percentile_cont computes for each week and month", async ({
   databaseUrl,
 }) => {
   const rows = await withClient(databaseUrl, async (client) => {
@@ -48,7 +48,8 @@ test("stores each week's and month's P50 and P95, as percentile_cont gives them"
     return Rows.parse(result.rows);
   });
 
-  // Rounded past float noise. Mask pressure has no samples, so it has no rows.
+  // The query rounds each percentile to 9 decimal places to remove float noise.
+  // The test inserts only leak samples, so every row's signal is `leak`.
   expect(rows).toEqual([
     {
       period: "month",

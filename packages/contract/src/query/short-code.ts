@@ -8,18 +8,18 @@ declare const crypto: {
 };
 declare const TextEncoder: new () => { encode: (text: string) => Uint8Array };
 
-/** What a short link opens: a builder query or a SQL statement. */
+/** A short link opens either a builder query or a SQL statement. */
 export type ShortLinkTarget = { kind: "spec"; spec: QuerySpec } | { kind: "sql"; text: string };
 
-// Crockford's base32 in lower case. It leaves out i, l, o, and u, which are easy to misread.
+// Codes use Crockford's base32 in lower case. It omits i, l, o, and u, which are easy to misread.
 const ALPHABET = "0123456789abcdefghjkmnpqrstvwxyz";
 const LENGTH = 10;
-// Each character holds 5 bits, so a code needs 50 bits: the first 7 bytes of the hash hold 56.
+// Each character encodes 5 bits, so a code needs 50 bits. The first 7 bytes of the hash have 56.
 const BITS = 5n * BigInt(LENGTH);
 const BYTES = 7;
 
 /**
- * Makes the code in `/s/<code>`: ten characters from the SHA-256 hash of the target. The same
+ * Makes the ten-character code in `/s/<code>` from the SHA-256 hash of the target. The same
  * target always gets the same code. The hash includes the kind, so a spec and a SQL statement
  * with the same text get different codes. A SQL statement is hashed without the white space at
  * its ends.

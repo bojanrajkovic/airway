@@ -10,8 +10,8 @@ type Value = number | string | boolean;
 
 /**
  * Rewrites a timestamp in UTC, so `02:00-04:00` and `06:00Z` become the same text. Any other value
- * comes back unchanged. Dates and enum values never look like timestamps, because they have no
- * time or offset.
+ * comes back unchanged. Only text with a time and an offset parses as a timestamp, so dates and
+ * enum values stay as written.
  */
 const sameInstantInUtc = <Scalar extends Value>(value: Scalar): Scalar | string =>
   typeof value === "string" && instant.safeParse(value).success
@@ -32,8 +32,8 @@ const hasList = (filter: Filter): filter is ListFilter =>
   "value" in filter && Array.isArray(filter.value);
 
 /**
- * Rewrites one filter in canonical form. Its timestamps go to UTC, and an `in` or `not-in` list is
- * sorted and loses its repeats.
+ * Rewrites one filter in canonical form. It writes each timestamp in UTC, and it sorts an `in` or
+ * `not-in` list and drops the repeats.
  */
 function canonicalFilter(filter: Filter): Filter {
   const { column } = filter;
@@ -52,16 +52,15 @@ function canonicalFilter(filter: Filter): Filter {
 }
 
 /**
- * Drops each clause that's the same as an earlier one, keeping the first. A filter or having
- * written twice filters nothing more than it does once.
+ * Drops each clause that's the same as an earlier one, keeping the first. Repeating a filter or
+ * having doesn't change which rows match.
  */
 const distinct = <Clause>(clauses: readonly Clause[]): Clause[] => [
   ...new Map(clauses.map((clause) => [JSON.stringify(clause), clause])).values(),
 ];
 
 /**
- * Rewrites a spec so that two specs asking the same thing come out identical, and so share a link
- * and a short code. The result:
+ * Rewrites a spec so that equivalent specs produce the same JSON. `canonicalize`:
  *
  * - writes keys in a fixed order
  * - leaves out every field that equals its default
@@ -90,7 +89,7 @@ export function canonicalize(spec: QuerySpec): QuerySpecInput {
           ),
         }),
     ...(filters.length === 0 ? {} : { filters }),
-    // OR and AND give the same rows when there are fewer than two filters, so OR is left out too.
+    // With a single filter, OR matches the same rows as AND, so OR is left out too.
     ...(spec.filter_combination === "AND" || filters.length < 2
       ? {}
       : { filter_combination: spec.filter_combination }),
@@ -121,7 +120,10 @@ export function canonicalize(spec: QuerySpec): QuerySpecInput {
   };
 }
 
-/** The canonical spec as compact JSON. Links carry this text, and short codes hash it. */
+/**
+ * Returns the canonical spec as compact JSON. A link contains this text, and a short code is a hash
+ * of it.
+ */
 export function canonicalJson(spec: QuerySpec): string {
   return JSON.stringify(canonicalize(spec));
 }

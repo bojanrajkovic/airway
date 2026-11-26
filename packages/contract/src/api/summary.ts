@@ -3,20 +3,16 @@ import { PlainDate } from "../dates.ts";
 import type { PERCENTILE_SIGNALS } from "../derived/values.ts";
 import type { LastNightStatus } from "./last-night.ts";
 
-/**
- * How nights are grouped: one per night, ISO weeks starting Monday, or calendar months. The trends
- * page's toggle, its links, and `summarize_nights` all use these values; the toggle labels `night`
- * as "Day".
- */
+/** The steps that a summary buckets nights by. A `week` is an ISO week, which starts on Monday. */
 export const SUMMARY_STEPS = ["night", "week", "month"] as const;
 export type SummaryStep = (typeof SUMMARY_STEPS)[number];
 
 const range = { from: PlainDate, to: PlainDate };
 const inOrder = ({ from, to }: { from: Temporal.PlainDate; to: Temporal.PlainDate }): boolean =>
   Temporal.PlainDate.compare(from, to) <= 0;
-const IN_ORDER = { error: "`from` must not be after `to`" };
+const IN_ORDER = { error: "`from` must be on or before `to`" };
 
-/** A night range, first night to last, both included. `summary.settingsChanges` takes one. */
+/** The range of nights that `summary.settingsChanges` takes. It includes both `from` and `to`. */
 export const NightRange = z.strictObject(range).refine(inOrder, IN_ORDER);
 export type NightRange = z.infer<typeof NightRange>;
 
@@ -26,10 +22,7 @@ export const SummaryRange = z
   .refine(inOrder, IN_ORDER);
 export type SummaryRange = z.infer<typeof SummaryRange>;
 
-/**
- * Each nights metric's value, keyed by column name. A bucket with no used nights has nulls, never
- * zeros. How a week or month combines each one is its column's `combine` in the registry.
- */
+/** Maps each `nights` metric's column name to the metric's value. */
 export type MetricValues = Record<string, number | null>;
 
 type PercentileSignal = (typeof PERCENTILE_SIGNALS)[number];
@@ -39,30 +32,27 @@ export type SamplePercentiles = Record<
   { p50: number | null; p95: number | null }
 >;
 
-/** One step of a summary: a night, a week, or a month. */
+/** One step of a summary, which covers a night, a week, or a month. */
 export type SummaryBucket = {
-  /** The bucket's first night: the night itself, a Monday, or the 1st of a month. */
+  /** The bucket's first night. For a week that's a Monday, and for a month it's the 1st. */
   start: Temporal.PlainDate;
-  /** Nights in the bucket that fall in the range. */
+  /** How many of the bucket's nights fall in the range. */
   nights: number;
-  /** How many of those nights STR.edf shows any use on. Only these are combined. */
+  /** How many of those nights have any use recorded in STR.edf. Summaries combine only these. */
   usedNights: number;
   values: MetricValues;
-  /** Set on week and month buckets only. The day view shows only the machine's values. */
+  /** Null on a `night` bucket, whose `values` contain the machine's percentiles. */
   samplePercentiles: SamplePercentiles | null;
 };
 
-/** What `summary.range` returns: a bucket for every step in the range, empty ones included. */
+/** `summary.range` returns a bucket for every step in the range, including the empty buckets. */
 export type RangeSummary = SummaryRange & {
   buckets: SummaryBucket[];
   /** An absolute link to the trends page for the same range and step. */
   link: string;
 };
 
-/**
- * What `summary.lastNight` returns. Only an arrived night has numbers; for the others, the card
- * says why there are none.
- */
+/** `summary.lastNight` returns last night's status. An `arrived` night also includes its values. */
 export type LastNightSummary =
   | {
       night: Temporal.PlainDate;
@@ -73,7 +63,10 @@ export type LastNightSummary =
     }
   | { night: Temporal.PlainDate; status: Exclude<LastNightStatus, "arrived"> };
 
-/** One machine setting that changed on a night, in the device's units, as STR.edf records it. */
+/**
+ * One machine setting that changed on a night. The values are in the device's units, as STR.edf
+ * records them.
+ */
 export type SettingChange = {
   night: Temporal.PlainDate;
   /** The setting's name as ingest spells it. */

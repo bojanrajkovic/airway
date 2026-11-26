@@ -13,15 +13,15 @@ import {
 } from "./values.ts";
 
 /**
- * Covers the derived tables' shapes and the scoring rules. Tables built under another version are
- * out of date. docs/scoring.md records what each version changed.
+ * Goes up when a derived table's shape or a scoring rule changes. Tables built under another
+ * version are out of date. docs/scoring.md records what each version changed.
  */
 export const DERIVED_VERSION = 1;
 
-/** `derived` is the schema queries read. `derived_next` is where a replacement is built. */
+/** Queries read the `derived` schema. A replacement is built in `derived_next`. */
 export type DerivedSchema = "derived" | "derived_next";
 
-// A dataset's machine signals: the columns whose values come straight from the files.
+// Returns the names of the dataset's columns that ingest reads from EDF files.
 const signals = ({ columns }: Dataset): string[] =>
   columns
     .filter((column) => column.role === "metric" && column.unit === "from_header")
@@ -33,8 +33,9 @@ const doubles = (names: readonly string[]): string =>
   names.map((name) => `${name} double precision`).join(",\n  ");
 
 /**
- * The statements that create `schema` and every derived table in it, without the indexes and the
- * two largest tables' foreign keys. This and `derivedIndexesAndKeys` hold all the derived DDL.
+ * Returns the statements that create `schema` and every derived table in it, without the indexes
+ * and the two largest tables' foreign keys. `derivedIndexesAndKeys` returns the rest of the derived
+ * DDL.
  *
  * The tables are UNLOGGED: they're rebuilt from the card's files, so they skip the WAL and
  * backups. Deleting a nights row removes that night from every table that holds a night's rows.
@@ -54,7 +55,7 @@ create unlogged table ${schema}.device (
   model text not null
 );
 
--- Each machine signal's unit and decimals, written from @airway/edf's COLUMN_UNITS.
+-- Stores each machine signal's unit and decimals, copied from @airway/edf's COLUMN_UNITS.
 create unlogged table ${schema}.column_units (
   dataset text not null,
   column_name text not null,
@@ -63,7 +64,8 @@ create unlogged table ${schema}.column_units (
   primary key (dataset, column_name)
 );
 
--- Every day STR.edf covers from the first imported night, used or not.
+-- Has a row for every day that STR.edf covers, starting at the first imported night, whether or
+-- not the machine was used that day.
 create unlogged table ${schema}.daily_usage (
   day date primary key,
   usage double precision not null
@@ -90,7 +92,7 @@ create unlogged table ${schema}.nights (
   night date primary key,
   -- The machine's own numbers, null when STR.edf has no usage for the night.
   ${doubles(signals(nights))},
-  -- airway's.
+  -- The numbers that airway computes.
   sessions integer not null,
   expected_sessions integer not null,
   session_count_approximate boolean not null,
@@ -106,13 +108,12 @@ create unlogged table ${schema}.nights (
   arrived_at timestamptz not null
 );
 
--- STR.edf and Identification.tgt belong to no night.
+-- night is null for STR.edf and Identification.tgt.
 create unlogged table ${schema}.files (
   path text primary key,
   kind text not null ${oneOf("kind", FILE_KINDS)},
   night date references ${schema}.nights on delete cascade,
-  -- The segment a BRP or PLD file's data belongs to: null for any other file, and for a BRP or PLD
-  -- file no segment reads. A split PLD's two files name the same segment.
+  -- The segment that a BRP or PLD file's data belongs to. docs/data-model.md lists when it's null.
   segment smallint,
   size bigint not null,
   sha256 text not null,
@@ -140,7 +141,7 @@ create unlogged table ${schema}.segments (
   foreign key (night, session) references ${schema}.sessions on delete cascade
 );
 
--- A night with no sessions keeps its events, with no session.
+-- session is null only on a night without sessions.
 create unlogged table ${schema}.events (
   night date not null references ${schema}.nights on delete cascade,
   session smallint,
@@ -174,9 +175,10 @@ create unlogged table ${schema}.breaths (
 }
 
 /**
- * The derived tables' indexes, and the foreign keys from `samples` and `breaths` to their segment.
- * A load runs this after its rows are in: building an index once is faster than updating it for
- * every row, and adding a key checks every row in one pass instead of one row at a time.
+ * Returns the statements that add the derived tables' indexes and the foreign keys from `samples`
+ * and `breaths` to their segment. A load runs them after it has inserted its rows, because building
+ * an index once is faster than updating it for every row, and adding a key checks every row in one
+ * pass instead of one row at a time.
  */
 export function derivedIndexesAndKeys(schema: DerivedSchema): string {
   return `
