@@ -21,7 +21,12 @@ Each `ScannedFile` has its path relative to the folder, its kind, its night, and
 
 A `.crc` file holds the checksums of the file it's named after. The scan keeps the `.crc` of each file it lists, so import can verify the checksums. When a `.crc` arrives late, ingest plans that file's night again. The scan skips everything else and counts the skips by reason: SAD and CSL files and their `.crc` files, other entries, and folders whose names aren't real dates. The `ingest.scan` span records the file count and each skip count. The scan finds nights only after the CPAP data folder has a `DATALOG` folder. Any read error fails the scan with `read_failed`, and the next poll tries again.
 
-`readEdfFile(ctx, path)` in `ingest/edf.ts` reads one file's header with `readFileHeader` inside an `edf.read_file` span. The span records the path, the format, the size verdict, the number of whole records on disk, and the warning count. Each warning, such as a `startdate_mismatch`, becomes an `edf.warning` span event with its kind and details, and is logged at `warn` with the file's path.
+`ingest/edf.ts` reads EDF files from disk and runs each read in its own span. `@airway/edf` only parses bytes. Both readers take a path relative to the CPAP data folder, and every error they return includes that path. When the file system can't read a file, the error is `read_failed`, with the file system's error in `cause`.
+
+- `readEdfHeader(ctx, path)` reads only a file's header and checks the file's size against it, in an `edf.read_header` span. A header's length depends on its signal count: a BRP header is 1,024 bytes, and `STR.edf`'s is about 21 KB. `readEdfHeader` reads the first 256 bytes, which include the header's length, and then reads the rest of the header. It skips the records because the readiness check reads every file's header. The span records the path, the format, the size verdict, the number of whole records on disk, and the warning count.
+- `readEdfFile(ctx, path, type)` reads a whole file and parses it with `readEdf`, in an `edf.read_file` span. The span records the path, the format, the number of whole records on disk, and the warning count. The EVE reader uses it.
+
+`readEdfHeader` turns each header warning, such as a `startdate_mismatch`, into an `edf.warning` span event with the warning's kind and details, and logs the warning at `warn` with the file's path. `readEdfFile` only counts the warnings, because `readEdfHeader` logged them when the readiness check read the header.
 
 ## Readiness
 
@@ -38,7 +43,7 @@ stateDiagram-v2
 ```
 
 - A file waits until its size and ctime have held for 2 minutes, measured on airway's clock. `checkReadiness`, a pure function in `ingest/readiness.ts`, decides whether a file has waited long enough.
-- `checkVersions` reads a file's header through `readEdfFile` only when the file's size or ctime changed, and the size check then decides whether the file is ready or rejected. Identification.tgt and `.crc` files aren't EDF, so `checkVersions` skips the header read, and they're ready once their size and ctime have held for 2 minutes.
+- `checkVersions` reads a file's header through `readEdfHeader` only when the file's size or ctime changed, and the size check then decides whether the file is ready or rejected. Identification.tgt and `.crc` files aren't EDF, so `checkVersions` skips the header read, and they're ready once their size and ctime have held for 2 minutes.
 - When an I/O error (`read_failed`) stops a header read, `checkVersions` logs the error and reads the header again on the next poll, and the 2-minute wait keeps running. A file whose header won't parse is rejected as `unreadable` until the file changes, because parsing the same bytes would fail the same way.
 - A rejected file is logged once per version at `warn`, with its path, reason, size, declared records, and records on disk.
 - `checkVersions` hashes a ready file once per version. It streams the file from disk through SHA-256 inside an `ingest.hash` span. Its version is its path, size, and hash.
@@ -80,9 +85,7 @@ readEdf(bytes, AIRSENSE.brp).map(({ header, signals, records, samples }) => {
 - `readEdf` returns `format_mismatch` when the file's format differs from the type's, `record_length_mismatch` when the record length differs, and `missing_signal` when the file lacks one of the type's signals. A file may declare signals that the type doesn't list.
 - `readEdf` returns `size_rejected` for a file that `checkFileSize` rejects. `readEdf` reads a file that holds only a header as a file with no records.
 
-`readEdfFile(path, type)` in `@airway/edf/file-header` reads a file from disk and passes its bytes to `readEdf`. It returns `read_failed` for a file it can't read. A `read_failed` error stores the error that the file system threw in `cause`.
-
-`readStr` uses `readEdf`, and the EVE reader uses `readEdfFile`. Each function in the next sections reads one part of a file. The scan uses them to read a header without its records.
+`readStr` and the server's `readEdfFile` call `readEdf`. Each function in the next sections reads one part of a file.
 
 ### Headers
 
@@ -93,8 +96,6 @@ An EDF file starts with a 256-byte main header, followed by a 256-byte signal he
 - `size` is `checkFileSize`'s verdict for the file's size on disk: `read`, `skip`, or `reject`. `readSignals` and `readAnnotations` take a `ReadableEdfFileHeaders`, which is a file whose verdict is `read`. The `isReadable(file)` type guard narrows an `EdfFileHeaders` to a `ReadableEdfFileHeaders`.
 - `readHeader` decodes header text as UTF-8, which is how the machine writes it, and replaces an invalid byte with U+FFFD.
 - `warnings` lists each inconsistency that `readHeader` found in the header and read past. A `startdate_mismatch` means the recording field's `Startdate` names a different day from the header's start date.
-
-`readFileHeader(path)` reads only a file's header from disk and checks the file's size against it. The scan calls `readFileHeader` on every poll, so `readFileHeader` never reads records. A header's length depends on its signal count. A BRP header is 1,024 bytes, and `STR.edf`'s is about 21 KB. `readFileHeader` reads the first 256 bytes, which say how long the header is, and then reads the rest of the header. `readFileHeader` returns `read_failed` for a file it can't open.
 
 `readHeader(bytes, size)` parses bytes already in memory. `bytes` must hold the whole header, and `size` defaults to `bytes.length`. When `bytes` ends inside the header, `readHeader` returns `header_too_short`, with `headerBytes` set to the header's length.
 

@@ -25,7 +25,7 @@ beforeEach(() => {
 });
 
 /**
- * Describes one poll's file states, and the number of `edf.read_file` and `ingest.hash` spans
+ * Describes one poll's file states, and the number of `edf.read_header` and `ingest.hash` spans
  * that the poll recorded.
  */
 type Poll = FileStates & { reads: number; hashes: number };
@@ -41,7 +41,7 @@ async function poll(
   const count = (name: string): number =>
     spans.getFinishedSpans().filter((span) => span.name === name).length;
 
-  return { ...states, reads: count("edf.read_file"), hashes: count("ingest.hash") };
+  return { ...states, reads: count("edf.read_header"), hashes: count("ingest.hash") };
 }
 
 describe("checkVersions", () => {

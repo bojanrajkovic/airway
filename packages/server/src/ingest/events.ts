@@ -1,4 +1,3 @@
-import { join } from "node:path";
 import type { Span as OtelSpan } from "@opentelemetry/api";
 import { errAsync, ResultAsync } from "neverthrow";
 import { toInstant } from "@airway/contract/clock";
@@ -11,11 +10,11 @@ import { valuesOf } from "@airway/contract/enum";
 import { ruleSetFor } from "@airway/contract/profile";
 import { AIRSENSE, EVENT_LABELS } from "@airway/edf/airsense";
 import type { EdfAnnotation } from "@airway/edf/annotations";
-import { readEdfFile } from "@airway/edf/file-header";
-import type { EdfFileHeaders, EdfReadError } from "@airway/edf/header";
+import type { EdfFileHeaders } from "@airway/edf/header";
 import type { Logger } from "../logger.ts";
 import type { AppContext } from "../runtime/context.ts";
 import { inSpanAsync } from "../telemetry.ts";
+import { readEdfFile, type EdfFileError } from "./edf.ts";
 import type { ReadyFile } from "./versions.ts";
 
 /**
@@ -33,9 +32,6 @@ export type NightEvents = {
   files: readonly EveFile[];
   sessions: Pick<Sessions, "sessions" | "approximate">;
 };
-
-/** Adds the file's path to the error from reading or parsing an EVE file. */
-export type EventFileError = EdfReadError & { path: string };
 
 /** Adds the night's event rows to the result of `nightRow`. */
 export type ScoredEvents = ScoredNight & { events: EventRow[] };
@@ -125,20 +121,17 @@ export function toEvents(
 
 // Reads one EVE file's annotations. `readEdf` returns an empty list for a header-only file.
 function readEve(
-  root: string,
+  ctx: Pick<AppContext, "config" | "logger">,
   zone: string,
   file: EveFile,
-): ResultAsync<FileAnnotations, EventFileError> {
+): ResultAsync<FileAnnotations, EdfFileError> {
   const { path } = file;
 
-  // Sets each error's path to the file's path relative to the CPAP data folder.
-  return readEdfFile(join(root, path), AIRSENSE.eve)
-    .map(({ header, annotations }) => ({
-      path,
-      start: toInstant(header.start, zone),
-      annotations,
-    }))
-    .mapErr((error): EventFileError => ({ ...error, path }));
+  return readEdfFile(ctx, path, AIRSENSE.eve).map(({ header, annotations }) => ({
+    path,
+    start: toInstant(header.start, zone),
+    annotations,
+  }));
 }
 
 // Adds a span event and logs a warning for each unknown label and for an AHI mismatch.
@@ -168,20 +161,20 @@ function report(span: OtelSpan, logger: Logger, placed: PlacedEvents, scored: Sc
  * row, all inside an `ingest.events` span. The span records the night, the number of EVE files, the
  * number of events, and the result of the AHI check. `scoreNight` adds a span event and logs a
  * warning for each unknown label and for an AHI mismatch. If an EVE file fails to read or parse,
- * `scoreNight` returns an `EventFileError`, adds an `ingest.event_file_failed` span event, and logs
+ * `scoreNight` returns an `EdfFileError`, adds an `ingest.event_file_failed` span event, and logs
  * the error.
  */
 export function scoreNight(
   ctx: AppContext,
   input: NightEvents,
-): ResultAsync<ScoredEvents, EventFileError> {
+): ResultAsync<ScoredEvents, EdfFileError> {
   const { night, zone, day, files, sessions } = input;
   const logger = ctx.logger.child({ module: "ingest.events", night: night.toString() });
 
   return inSpanAsync("ingest.events", (span) => {
     span.setAttributes({ "airway.night": night.toString(), "airway.event_files": files.length });
 
-    return ResultAsync.combine(files.map((file) => readEve(ctx.config.cpapDataPath, zone, file)))
+    return ResultAsync.combine(files.map((file) => readEve(ctx, zone, file)))
       .orElse((error) => {
         span.addEvent("ingest.event_file_failed", {
           "airway.file.path": error.path,
