@@ -167,9 +167,8 @@ The rows follow ingest's rules:
 - `synthesize` computes event starts as ingest does ([Ingest](ingest.md#events)) and rounds each onset to a whole second, because EVE stores whole seconds.
 - The first sample is at the PLD file's start, which is 1 s after the segment's start. The rest follow every 2 s.
 - The breath rows are the breaths that the model laid out. `amplitude` is the in-breath's peak flow, and `duration` covers the in-breath and out-breath, so a pause is a gap between breaths.
-- `synthesize` reads the header of each file it writes with `readHeader`, as ingest does, and uses the header's `checkFileSize` verdict. `synthesize` builds segments, samples, and the `segment` column of `files` by the rules in [Ingest](ingest.md#segments), which has a diagram of how BRP and PLD files map to segments.
+- `synthesize` reads the header of each file it writes with `readHeader`, as ingest does, and uses the size check that `readHeader` returns. `synthesize` builds segments, samples, and the `segment` column of `files` by the rules in [Ingest](ingest.md#segments), which has a diagram of how BRP and PLD files map to segments.
 - `files` lists Identification.tgt, STR.edf, and each BRP, PLD, and EVE file that `checkFileSize` reads or skips, with its size and SHA-256. It also lists Identification.crc and the `.crc` of each BRP, PLD, and EVE file, rejected ones included, because ingest imports `.crc` files by size alone. Ingest skips SAD and CSL files and their `.crc` files.
-- `column_units` is `@airway/edf`'s `COLUMN_UNITS`, which [Units](data-model.md#units) describes.
 - `daily_usage` covers every day from the first night to the last, with 0 on a day with no night.
 - `settings_changes` comes from the contract's `settingsChanges`, called with every STR.edf day and the first night that has a folder. A change made on a night with no folder is recorded on that night.
 - A night with no segments has no folder, so ingest never sees it. Ingest writes only a `daily_usage` row for that night.

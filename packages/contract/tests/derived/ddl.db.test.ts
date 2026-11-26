@@ -30,7 +30,7 @@ values ('${night}', 1, 1, '${night}T02:00Z', 0.4);
 insert into derived.breaths (night, segment, session, ts, duration, amplitude, inspiratory_volume)
 values ('${night}', 1, 1, '${night}T02:00Z', 3.2, 0.3, 0.25);`;
 
-// The file's tests share one database, so each test that writes to `derived` rebuilds it.
+// The file's tests share one database, so each test that writes to `derived` recreates the schema.
 const freshDerived =
   "drop schema if exists derived cascade;" +
   derivedTables("derived") +
@@ -54,7 +54,6 @@ test("creates every table in derived_next as an UNLOGGED table", async ({ databa
 
   expect(tables.map(({ name }) => name)).toEqual([
     "breaths",
-    "column_units",
     "daily_usage",
     "device",
     "events",
@@ -70,7 +69,9 @@ test("creates every table in derived_next as an UNLOGGED table", async ({ databa
   expect(tables.filter(({ persistence }) => persistence !== "u")).toEqual([]);
 });
 
-test("foreign keys tie samples and files to segments", async ({ databaseUrl }) => {
+test("foreign keys reject samples and files that don't match an existing segment", async ({
+  databaseUrl,
+}) => {
   await withClient(databaseUrl, async (client) => {
     await client.query(freshDerived);
     await client.query(nightRows("2030-01-01"));

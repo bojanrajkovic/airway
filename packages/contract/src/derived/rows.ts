@@ -18,13 +18,6 @@ export type SignalValues = Readonly<Record<string, number | null>>;
 
 export type DeviceRow = { serial: string; model: string };
 
-export type ColumnUnitRow = {
-  dataset: string;
-  column_name: string;
-  unit: string;
-  decimals: number;
-};
-
 export type DailyUsageRow = { day: Temporal.PlainDate; usage: number };
 
 export type SettingsChangeRow = {
@@ -117,7 +110,6 @@ export type BreathRow = {
  */
 export type DerivedRows = {
   device: DeviceRow[];
-  column_units: ColumnUnitRow[];
   daily_usage: DailyUsageRow[];
   settings_changes: SettingsChangeRow[];
   nights: NightRow[];

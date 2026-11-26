@@ -62,7 +62,7 @@ render(hour, { homeZone: 3 });
 
 A stored value keeps the machine's unit. The app converts some units for display: L/s becomes L/min, and L becomes mL.
 
-A machine signal's unit and decimals come from `@airway/edf`'s AirSense table, which copies each signal's unit and its physical and digital ranges from the real headers. The ranges give the step between two values, and `decimalsForStep(step)` turns the step into the decimals needed to write every value. For example, leak is in L/s with a step of 0.02, so it has 2 decimals. airway computes a breath's amplitude (L/s) and inspiratory volume (L) from the 25 Hz flow signal, so both use the flow signal's decimals. `COLUMN_UNITS` lists these units and decimals. Only the synthetic loader writes them to the `column_units` table.
+A machine signal's unit and decimals come from `@airway/edf`'s AirSense table, which copies each signal's unit and its physical and digital ranges from the real headers. The ranges give the step between two values, and `decimalsForStep(step)` turns the step into the decimals needed to write every value. For example, leak is in L/s with a step of 0.02, so it has 2 decimals. airway computes a breath's amplitude (L/s) and inspiratory volume (L) from the 25 Hz flow signal, so both use the flow signal's decimals. `@airway/edf`'s `COLUMN_UNITS` lists the unit and decimals of every machine signal column and of the two breath columns.
 
 The units are fixed in code because ResMed hasn't changed them: OSCAR hard-codes the same units for the S9, AirSense 10, and AirSense 11. Decoding still uses each file's own step, so a file with a different step decodes correctly. A column that airway computes declares its unit and decimals in the registry.
 
@@ -109,7 +109,6 @@ erDiagram
 | `settings_changes` | Setting that changed on a used day, compared with the previous used day | `night, setting` |
 | `daily_usage` | Day `STR.edf` covers, used or not | `day` |
 | `period_percentiles` | Week or month, and signal (leak or mask pressure): the P50 and P95 of its samples | `period, period_start, signal` |
-| `column_units` | Machine signal, with its unit and decimals from the AirSense table ([Units](#units)) | `dataset, column_name` |
 | `meta` | The schema: its `derived_version` and when it was built | one row |
 
 ### Keys
@@ -118,7 +117,7 @@ Deleting a `nights` row deletes that night's rows from `files`, `sessions`, `seg
 
 A sample or breath references its segment together with the segment's session, so its `session` can't disagree with the segment's.
 
-`settings_changes`, `daily_usage`, `period_percentiles`, and `column_units` don't reference `nights`, because they cover days and periods that have no `nights` row.
+`settings_changes`, `daily_usage`, and `period_percentiles` don't reference `nights`, because they cover days and periods that have no `nights` row.
 
 ### Values
 

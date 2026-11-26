@@ -55,15 +55,6 @@ create unlogged table ${schema}.device (
   model text not null
 );
 
--- Stores each machine signal's unit and decimals, copied from @airway/edf's COLUMN_UNITS.
-create unlogged table ${schema}.column_units (
-  dataset text not null,
-  column_name text not null,
-  unit text not null,
-  decimals smallint not null check (decimals between 0 and 6),
-  primary key (dataset, column_name)
-);
-
 -- Has a row for every day that STR.edf covers, starting at the first imported night, whether or
 -- not the machine was used that day.
 create unlogged table ${schema}.daily_usage (
