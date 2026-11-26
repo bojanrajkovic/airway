@@ -42,7 +42,7 @@ export type SynthesizeOptions = {
   arrivedAt: Temporal.Instant;
 };
 
-/** A CPAP data folder and the rows that ingest should derive from it. */
+/** Contains a CPAP data folder and the rows that ingest should derive from it. */
 export type Synthesized = { files: CpapFile[]; rows: DerivedRows };
 
 const RULE_SETS: Readonly<Record<Patient, RuleSet>> = { child: "pediatric", adult: "adult" };
@@ -182,7 +182,7 @@ function emptyRows(days: readonly StrDay[]): DerivedRows {
 }
 
 type FileSpec = Pick<FileRow, "path" | "kind" | "night" | "segment">;
-/** A night's file that ingest imports. */
+/** Adds the file kind and size-check verdict to a night's file that ingest imports. */
 type ImportedFile = DatalogFile & {
   kind: "brp" | "pld" | "eve";
   verdict: Exclude<FileSizeCheck["verdict"], "reject">;

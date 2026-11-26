@@ -29,7 +29,7 @@ function readable(bytes: Uint8Array): ReadableEdfFileHeaders {
 const tenSlots = (slots: readonly number[]): number[] =>
   Array.from({ length: 10 }, (_, i) => slots[i] ?? Number.NaN);
 
-// One edge case's STR.edf, and the rows synthetic expects ingest to derive from it.
+// Describes one edge case's STR.edf, and the rows that synthetic expects ingest to derive from it.
 type Case = Synthetic & { bytes: Uint8Array; rows: DerivedRows };
 
 function edgeCase(name: EdgeCaseName): Case {

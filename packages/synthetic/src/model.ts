@@ -30,20 +30,22 @@ import {
 export type SyntheticOptions = {
   seed: number;
   nights: number;
-  /** The first night. Defaults to an invented date. */
+  /** Sets the first night's date. Defaults to an invented date. */
   start?: Temporal.PlainDate;
   /** Defaults to `child`. */
   patient?: Patient;
-  /** The zone where bedtime falls between 20:00 and 22:00. Defaults to `.env.example`'s zone. */
+  /**
+   * Sets the zone where bedtime falls between 20:00 and 22:00. Defaults to `.env.example`'s zone.
+   */
   zone?: string;
-  /** Edge-case nights to add after the base nights. Defaults to none. */
+  /** Selects the edge cases whose nights follow the base nights. Defaults to none. */
   cases?: "all" | readonly EdgeCaseName[];
 };
 
-/** A model's nights and its home zone. */
+/** Contains a model's nights and its home zone. */
 export type Synthetic = { nights: SyntheticNight[]; zone: string };
 
-/** One session, which is a stretch of time with the mask on. */
+/** Describes one session, which is a stretch of time with the mask on. */
 export type MaskPeriod = { on: Temporal.Instant; off: Temporal.Instant };
 
 /** Maps each PLD label to its 2 s series. */
@@ -58,7 +60,7 @@ export type NightStr = Readonly<Record<NightStrLabel, number>>;
 export const isNightStrLabel = (label: DataLabel<typeof AIRSENSE.str>): label is NightStrLabel =>
   !(CLOCK_LABELS as readonly string[]).includes(label);
 
-/** The stretch of time that one BRP file covers, a whole number of minutes long. */
+/** Describes the stretch of time that one BRP file covers, which lasts whole minutes. */
 export type Segment = {
   start: Temporal.Instant;
   end: Temporal.Instant;
@@ -72,7 +74,7 @@ export type Segment = {
 };
 
 /**
- * How a file is written: whole, or damaged the way real cards damage files.
+ * Sets how `nightFiles` writes a file: whole, or damaged the way real cards damage files.
  *
  * - `empty`: the header, with a record count of -1, and no records
  * - `truncated`: cut partway through a record, before the count its header declares
@@ -81,31 +83,31 @@ export type Segment = {
  */
 export type FileDamage = "none" | "empty" | "truncated" | "unknown_length" | "undercounted";
 
-/** How a segment's files are written. */
+/** Sets how `nightFiles` writes a segment's BRP, PLD, and SAD files. */
 export type SegmentFiles = Pick<Segment, "brp" | "pldFiles" | "sad">;
 
-/** Every file whole, as base nights write them. */
+/** Marks every file of a segment as undamaged, as in base nights. */
 export const UNDAMAGED_FILES: SegmentFiles = {
   brp: "none",
   pldFiles: { files: "one", damage: "none" },
   sad: "none",
 };
 
-/** A segment's PLD files: none, one, or two split at a record while the BRP file keeps going. */
+/** Sets a segment's PLD files: none, one, or two split at a record while the BRP file continues. */
 export type PldFiles =
   | { files: "none" }
   | { files: "one"; damage: FileDamage }
   | { files: "split"; atRecord: number };
 
 /**
- * An event the machine scores and writes to EVE. `at` is its start, and `duration` is its length in
- * seconds. The duration shapes the flow and pressure, but the machine writes it to EVE only for
- * apneas.
+ * Describes an event that the machine scores and writes to EVE. `at` is its start, and `duration`
+ * is its length in seconds. The duration shapes the flow and pressure, but the machine writes it to
+ * EVE only for apneas.
  */
 export type MachineEvent = { at: Temporal.Instant; duration: number; type: MachineEventType };
 
 /**
- * A gap in breathing that the flow signal shows.
+ * Describes a gap in breathing that appears in the flow signal.
  *
  * - `machine_apnea`: 10 to 30 s, and also a machine event
  * - `pediatric`: at least 2 breaths but under 10 s, which only airway's pediatric step finds
@@ -117,7 +119,7 @@ export type Pause = {
   kind: "machine_apnea" | "pediatric" | "dip";
 };
 
-/** One EVE file's start, and whether a CSL file with the same start is written with it. */
+/** Sets one EVE file's start, and whether `nightFiles` writes a CSL file with the same start. */
 export type EventFile = { start: Temporal.Instant; withCsl: boolean };
 
 export type SyntheticNight = {
@@ -126,7 +128,7 @@ export type SyntheticNight = {
   segments: readonly Segment[];
   events: readonly MachineEvent[];
   pauses: readonly Pause[];
-  /** The night's EVE files in time order; none when the night has no segments. */
+  /** Contains the night's EVE files in time order, and is empty when the night has no segments. */
   eventFiles: readonly EventFile[];
   /**
    * Maps each STR.edf label to the night's value, rounded to the signal's step. A value is NaN where
@@ -154,7 +156,7 @@ const EPISODE_SPACING_SECONDS = 30;
 
 export type Random = {
   uniform: (min: number, max: number) => number;
-  /** An integer from `min` up to, but not including, `max`. */
+  /** Returns an integer from `min` up to, but not including, `max`. */
   int: (min: number, max: number) => number;
   normal: (mean: number, sd: number) => number;
   poisson: (mean: number) => number;
@@ -237,7 +239,7 @@ export function syntheticNights(options: SyntheticOptions): Result<Synthetic, Ed
     next = (built.nights.at(-1)?.night ?? next).add({ days: 1 });
   }
 
-  // The machine's running total of hours used, starting from an invented number.
+  // Accumulates the machine's total hours of use, starting from an invented number.
   let patientHours = 100;
 
   return ok({
@@ -250,7 +252,7 @@ export function syntheticNights(options: SyntheticOptions): Result<Synthetic, Ed
   });
 }
 
-/** 20:00 on a night's date in the home time zone. */
+/** Returns 20:00 on a night's date in the home time zone. */
 export const evening = (night: Temporal.PlainDate, zone: string): Temporal.ZonedDateTime =>
   night.toZonedDateTime({ timeZone: zone, plainTime: "20:00" });
 
@@ -283,7 +285,7 @@ export function randomNight(
 }
 
 /**
- * A night's mask-on periods and BRP file times, set by hand. `randomEvents` adds the model's own
+ * Sets a night's mask-on periods and BRP file times by hand. `randomEvents` adds the model's own
  * events and pauses, which fall inside segments; `extraEvents` are added at their own `at` times.
  */
 export type NightLayout = {
@@ -359,7 +361,6 @@ function firstEventFile(segments: readonly Segment[]): EventFile[] {
       ];
 }
 
-/** A stretch of time between two instants. */
 export type Interval = { start: Temporal.Instant; end: Temporal.Instant };
 type PlacedPeriods = { periods: MaskPeriod[]; segmentTimes: Interval[] };
 
@@ -462,8 +463,8 @@ type EpisodeInputs = {
   rate: number;
 };
 
-// Something placed in the night: a scored event, an apnea that is both a scored event and a gap
-// in flow, or a gap in flow the machine doesn't score.
+// Describes something placed in the night: a scored event, an apnea that is both a scored event
+// and a gap in flow, or a gap in flow that the machine doesn't score.
 type EpisodeBody = { duration: number } & (
   | { kind: "event"; event: MachineEventType }
   | { kind: "apnea"; event: MachineEventType }
@@ -655,7 +656,7 @@ function generatePldSeries(r: Random, inputs: SeriesInputs): PldSeries {
 
     return { from: at, to: at + r.int(30, 151), height: r.uniform(0.2, 0.6) };
   });
-  // When each stop in flow and each pressure rise happens, in sample numbers.
+  // Converts an instant to a sample number, for placing each stop in flow and each pressure rise.
   const toSample = (at: Temporal.Instant): number => seconds(start, at) / PLD_SAMPLE_SECONDS;
   const stops = pauses
     .filter((pause) => pause.kind !== "dip")
@@ -703,7 +704,7 @@ function generatePldSeries(r: Random, inputs: SeriesInputs): PldSeries {
   return series;
 }
 
-/** The `q` quantile of sorted values, interpolating between neighbors. */
+/** Returns the `q` quantile of sorted values, interpolating between neighbors. */
 function quantile(sorted: Float64Array, q: number): number {
   const position = (sorted.length - 1) * q;
   const below = Math.floor(position);
@@ -751,7 +752,7 @@ function strValues(
   const { epr } = breathing;
   const count = (types: readonly MachineEventType[]): number =>
     events.filter((event) => types.includes(event.type)).length;
-  // The machine's index in tenths: (600 × events) div minutes.
+  // Computes the machine's index in tenths as (600 × events) div minutes.
   const index = (n: number): number => (usage > 0 ? Math.floor((600 * n) / usage) / 10 : 0);
   const apneas = count(["obstructive_apnea", "central_apnea", "unclassified_apnea"]);
   const hypopneas = count(["hypopnea"]);
