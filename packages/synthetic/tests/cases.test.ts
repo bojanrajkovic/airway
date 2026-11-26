@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { FileKind } from "@airway/contract/derived/values";
-import { edgeCaseNames, type EdgeCaseName } from "../src/cases.ts";
+import { EdgeCaseName, edgeCaseNames } from "../src/cases.ts";
+import { Patient } from "../src/patients.ts";
 import { annotationsOf } from "./edf.ts";
 import { maskSlots, nightFiles, sizeCheck, type MaskSlots, type NightFile } from "../src/files.ts";
 import { syntheticNights, type Synthetic, type SyntheticNight } from "../src/model.ts";
@@ -19,7 +20,7 @@ function edgeCase(name: EdgeCaseName, zone = "America/Chicago"): Built {
   }
 
   const synthesized = synthesize(model.nights, model.zone, {
-    patient: "child",
+    patient: Patient.Child,
     arrivedAt,
   })._unsafeUnwrap();
 
@@ -46,7 +47,7 @@ describe("edge cases", () => {
   });
 
   describe("many-periods", () => {
-    const { night, rows } = edgeCase("many-periods");
+    const { night, rows } = edgeCase(EdgeCaseName.ManyPeriods);
 
     it("has 10 slot sessions and 3 derived sessions, and the total matches MaskEvents", () => {
       expect(night.periods).toHaveLength(13);
@@ -81,7 +82,7 @@ describe("edge cases", () => {
   });
 
   describe("noon-edge", () => {
-    const { night, rows } = edgeCase("noon-edge");
+    const { night, rows } = edgeCase(EdgeCaseName.NoonEdge);
 
     it("leaves slot 0 without a mask-on", () => {
       expect(slots(night).maskOn[0]).toBeNaN();
@@ -97,7 +98,7 @@ describe("edge cases", () => {
   });
 
   describe("sub-minute-period", () => {
-    const { night, rows } = edgeCase("sub-minute-period");
+    const { night, rows } = edgeCase(EdgeCaseName.SubMinutePeriod);
 
     it("records the pair's mask-on and mask-off in the same minute, with no BRP file", () => {
       const { maskOn, maskOff } = slots(night);
@@ -114,7 +115,7 @@ describe("edge cases", () => {
   });
 
   describe("folderless-day", () => {
-    const { night, files, rows } = edgeCase("folderless-day");
+    const { night, files, rows } = edgeCase(EdgeCaseName.FolderlessDay);
 
     it("records the day's usage in STR.edf, with no DATALOG folder", () => {
       expect(files.some((file) => file.path.startsWith("DATALOG/"))).toBe(false);
@@ -124,7 +125,7 @@ describe("edge cases", () => {
   });
 
   describe("unused-days", () => {
-    const { nights, rows } = edgeCase("unused-days");
+    const { nights, rows } = edgeCase(EdgeCaseName.UnusedDays);
 
     it("leaves two days between its nights unused", () => {
       expect(rows.daily_usage.map(({ usage }) => usage > 0)).toEqual([true, false, false, true]);
@@ -135,7 +136,7 @@ describe("edge cases", () => {
   });
 
   describe("settings-change", () => {
-    const { nights, rows } = edgeCase("settings-change");
+    const { nights, rows } = edgeCase(EdgeCaseName.SettingsChange);
 
     it("changes one setting on its second night", () => {
       expect(rows.settings_changes).toEqual([
@@ -150,7 +151,7 @@ describe("edge cases", () => {
   });
 
   describe("ahi-rounding", () => {
-    const { rows } = edgeCase("ahi-rounding");
+    const { rows } = edgeCase(EdgeCaseName.AhiRounding);
 
     it("has an AHI of 2.7 that airway's integer count matches", () => {
       // Floating point puts 18 / 400 * 60 just under 2.7, so ingest counts in integers.
@@ -162,7 +163,7 @@ describe("edge cases", () => {
   });
 
   describe("damaged-files", () => {
-    const { night, zone, rows } = edgeCase("damaged-files");
+    const { night, zone, rows } = edgeCase(EdgeCaseName.DamagedFiles);
     const written = nightFiles(night, zone)._unsafeUnwrap();
     const verdicts = (kind: NightFile["kind"]): string[] =>
       written
@@ -203,7 +204,7 @@ describe("edge cases", () => {
   });
 
   describe("split-files", () => {
-    const { night, zone, rows } = edgeCase("split-files");
+    const { night, zone, rows } = edgeCase(EdgeCaseName.SplitFiles);
     const written = nightFiles(night, zone)._unsafeUnwrap();
 
     const pldsOf = (segment: number): string[] =>
@@ -242,8 +243,8 @@ describe("edge cases", () => {
   });
 
   describe.each([
-    ["fall-back", 25],
-    ["spring-forward", 23],
+    [EdgeCaseName.FallBack, 25],
+    [EdgeCaseName.SpringForward, 23],
   ] as const)("%s", (name, hours) => {
     it(`spans the zone's ${hours.toString()}-hour day`, () => {
       const { night } = edgeCase(name);

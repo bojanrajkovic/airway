@@ -1,12 +1,13 @@
 import { describe, expect, it } from "vitest";
 import { AIRSENSE, step, type EdfFileType } from "@airway/edf/airsense";
 import { syntheticNights, type NightStrLabel, type SyntheticNight } from "../src/model.ts";
+import { Patient } from "../src/patients.ts";
 
 const { nights } = syntheticNights({ seed: 7, nights: 30 })._unsafeUnwrap();
 const { nights: adults } = syntheticNights({
   seed: 7,
   nights: 30,
-  patient: "adult",
+  patient: Patient.Adult,
 })._unsafeUnwrap();
 
 const seconds = (from: Temporal.Instant, to: Temporal.Instant): number =>
@@ -156,8 +157,11 @@ describe("syntheticNights", () => {
 
   describe("mask-on periods", () => {
     const children = syntheticNights({ seed: 3, nights: 120 })._unsafeUnwrap().nights;
-    const grownUps = syntheticNights({ seed: 3, nights: 120, patient: "adult" })._unsafeUnwrap()
-      .nights;
+    const grownUps = syntheticNights({
+      seed: 3,
+      nights: 120,
+      patient: Patient.Adult,
+    })._unsafeUnwrap().nights;
 
     // Returns the seconds between consecutive BRP files inside each period.
     const gaps = (list: SyntheticNight[]): number[] =>

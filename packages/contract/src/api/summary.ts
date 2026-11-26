@@ -4,11 +4,14 @@ import type { PercentileSignal } from "../derived/values.ts";
 import type { LastNightStatus } from "./last-night.ts";
 
 /**
- * A summary buckets nights by one of these steps. A `week` is an ISO week, which starts on
+ * Lists the steps that a summary can bucket nights by. A `week` is an ISO week, which starts on
  * Monday.
  */
-export const SUMMARY_STEPS = ["night", "week", "month"] as const;
-export type SummaryStep = (typeof SUMMARY_STEPS)[number];
+export enum SummaryStep {
+  Night = "night",
+  Week = "week",
+  Month = "month",
+}
 
 const range = { from: PlainDate, to: PlainDate };
 const inOrder = ({ from, to }: { from: Temporal.PlainDate; to: Temporal.PlainDate }): boolean =>
@@ -24,7 +27,7 @@ export type NightRange = z.infer<typeof NightRange>;
 
 /** Validates the input of `summary.range` and `summarize_nights`. */
 export const SummaryRange = z
-  .strictObject({ ...range, step: z.enum(SUMMARY_STEPS) })
+  .strictObject({ ...range, step: z.enum(SummaryStep) })
   .refine(inOrder, IN_ORDER);
 export type SummaryRange = z.infer<typeof SummaryRange>;
 

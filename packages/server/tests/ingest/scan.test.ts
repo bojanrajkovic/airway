@@ -2,7 +2,7 @@ import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { FileKind } from "@airway/contract/derived/values";
-import { scanCpapData, type Scan } from "../../src/ingest/scan.ts";
+import { scanCpapData, type Scan, SkipReason } from "../../src/ingest/scan.ts";
 import { folderContext, syntheticFolder, writeFolder } from "../support/cpap-folder.ts";
 
 const byText = (a: string, b: string): number => a.localeCompare(b);
@@ -66,8 +66,8 @@ describe("scanCpapData", () => {
 
     const { skipped } = await scan(root);
 
-    expect(skipped.folder).toBe(3);
-    expect(skipped.other).toBe(3);
+    expect(skipped[SkipReason.Folder]).toBe(3);
+    expect(skipped[SkipReason.Other]).toBe(3);
   });
 
   it("finds no nights when the DATALOG folder doesn't exist", async () => {

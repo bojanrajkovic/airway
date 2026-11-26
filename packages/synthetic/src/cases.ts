@@ -1,6 +1,7 @@
 import { err, ok, type Result } from "neverthrow";
 import { winterOffset } from "@airway/contract/clock";
 import { EventType } from "@airway/contract/derived/values";
+import { valuesOf } from "@airway/contract/enum";
 import {
   randomNight,
   UNDAMAGED_FILES,
@@ -264,7 +265,7 @@ function splitFiles(context: EdgeCaseContext): Built {
 function transitionNight(
   first: Temporal.PlainDate,
   zone: string,
-  direction: "fall-back" | "spring-forward",
+  direction: EdgeCaseName.FallBack | EdgeCaseName.SpringForward,
 ): Temporal.PlainDate | undefined {
   let at: Temporal.ZonedDateTime | null = first.toZonedDateTime({ timeZone: zone });
 
@@ -276,7 +277,7 @@ function transitionNight(
     if (at !== null) {
       const fallsBack = at.offsetNanoseconds < at.subtract({ nanoseconds: 1 }).offsetNanoseconds;
 
-      if (fallsBack === (direction === "fall-back")) {
+      if (fallsBack === (direction === EdgeCaseName.FallBack)) {
         return at.toPlainDate().subtract({ days: 1 });
       }
     }
@@ -288,7 +289,7 @@ function transitionNight(
 // Builds a night from 21:00 to about 05:00 that crosses the zone's next fall-back or
 // spring-forward. A fall-back night has 01:00 twice, and a spring-forward night skips 02:00.
 const dstCase =
-  (name: "fall-back" | "spring-forward"): EdgeCase =>
+  (name: EdgeCaseName.FallBack | EdgeCaseName.SpringForward): EdgeCase =>
   ({ random, breathing, first, zone }) => {
     const night = transitionNight(first, zone, name);
 
@@ -305,46 +306,50 @@ const dstCase =
     );
   };
 
-/** Defines every edge case's name. `'all'` builds them in this order, leaving out the DST cases. */
-export const EDGE_CASE_NAMES = [
-  "many-periods",
-  "noon-edge",
-  "sub-minute-period",
-  "folderless-day",
-  "unused-days",
-  "settings-change",
-  "ahi-rounding",
-  "damaged-files",
-  "split-files",
-  "fall-back",
-  "spring-forward",
-] as const;
-export type EdgeCaseName = (typeof EDGE_CASE_NAMES)[number];
+/** Defines every edge case's name. `'all'` builds the cases in this order, leaving out the DST cases. */
+export enum EdgeCaseName {
+  ManyPeriods = "many-periods",
+  NoonEdge = "noon-edge",
+  SubMinutePeriod = "sub-minute-period",
+  FolderlessDay = "folderless-day",
+  UnusedDays = "unused-days",
+  SettingsChange = "settings-change",
+  AhiRounding = "ahi-rounding",
+  DamagedFiles = "damaged-files",
+  SplitFiles = "split-files",
+  FallBack = "fall-back",
+  SpringForward = "spring-forward",
+}
 
 // `'all'` skips the DST cases, so a caller has to name them. Their dates depend on the zone, and
 // a zone without DST can't build them.
-const DST_CASES: ReadonlySet<EdgeCaseName> = new Set(["fall-back", "spring-forward"]);
+const DST_CASES: ReadonlySet<EdgeCaseName> = new Set([
+  EdgeCaseName.FallBack,
+  EdgeCaseName.SpringForward,
+]);
 
 export const EDGE_CASES: Readonly<Record<EdgeCaseName, EdgeCase>> = {
-  "many-periods": manyPeriods,
-  "noon-edge": noonEdge,
-  "sub-minute-period": subMinutePeriod,
-  "folderless-day": folderlessDay,
-  "unused-days": unusedDays,
-  "settings-change": settingsChange,
-  "ahi-rounding": ahiRounding,
-  "damaged-files": damagedFiles,
-  "split-files": splitFiles,
-  "fall-back": dstCase("fall-back"),
-  "spring-forward": dstCase("spring-forward"),
+  [EdgeCaseName.ManyPeriods]: manyPeriods,
+  [EdgeCaseName.NoonEdge]: noonEdge,
+  [EdgeCaseName.SubMinutePeriod]: subMinutePeriod,
+  [EdgeCaseName.FolderlessDay]: folderlessDay,
+  [EdgeCaseName.UnusedDays]: unusedDays,
+  [EdgeCaseName.SettingsChange]: settingsChange,
+  [EdgeCaseName.AhiRounding]: ahiRounding,
+  [EdgeCaseName.DamagedFiles]: damagedFiles,
+  [EdgeCaseName.SplitFiles]: splitFiles,
+  [EdgeCaseName.FallBack]: dstCase(EdgeCaseName.FallBack),
+  [EdgeCaseName.SpringForward]: dstCase(EdgeCaseName.SpringForward),
 };
 
 /**
- * Returns the cases that `cases` selects, in `EDGE_CASE_NAMES` order. `'all'` leaves out the DST
- * cases.
+ * Returns the cases that `cases` selects, in the order that `EdgeCaseName` declares them. `'all'`
+ * leaves out the DST cases.
  */
 export const edgeCaseNames = (cases: "all" | readonly EdgeCaseName[]): EdgeCaseName[] =>
-  EDGE_CASE_NAMES.filter((name) => (cases === "all" ? !DST_CASES.has(name) : cases.includes(name)));
+  valuesOf(EdgeCaseName).filter((name) =>
+    cases === "all" ? !DST_CASES.has(name) : cases.includes(name),
+  );
 
 /** Returns a case's seed, which mixes the model's seed with the case's name. */
 export function edgeCaseSeed(seed: number, name: EdgeCaseName): number {

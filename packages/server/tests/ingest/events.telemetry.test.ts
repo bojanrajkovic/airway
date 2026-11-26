@@ -1,3 +1,4 @@
+import { EdgeCaseName } from "@airway/synthetic/cases";
 import { inMemoryTelemetry } from "@airway/testing/telemetry";
 import { SpanStatusCode } from "@opentelemetry/api";
 import { beforeEach, describe, expect, it } from "vitest";
@@ -38,7 +39,7 @@ function replaceText(bytes: Uint8Array, from: string, to: string): Uint8Array {
 
 describe("scoreNight", () => {
   it("records the night, its file and event counts, and the AHI check on an ingest.events span", async () => {
-    const { input, files } = caseNight("split-files");
+    const { input, files } = caseNight(EdgeCaseName.SplitFiles);
     const scored = (
       await scoreNight(folderContext(await writeFolder(files)), input)
     )._unsafeUnwrap();
@@ -53,7 +54,7 @@ describe("scoreNight", () => {
 
   it("counts each unknown label in each file, and adds one span event and one warn log with that count", async () => {
     const { logger, lines } = capturingLogger();
-    const { input, files } = caseNight("ahi-rounding");
+    const { input, files } = caseNight(EdgeCaseName.AhiRounding);
     const edited = editEve(files, (bytes) => replaceText(bytes, "Hypopnea", "Hypopnex"));
 
     await scoreNight(folderContext(await writeFolder(edited), { logger }), input);
@@ -79,7 +80,7 @@ describe("scoreNight", () => {
 
   it("adds a span event and a warn log with both AHIs when they disagree", async () => {
     const { logger, lines } = capturingLogger();
-    const { input, files } = caseNight("ahi-rounding");
+    const { input, files } = caseNight(EdgeCaseName.AhiRounding);
     const day = { ...input.day, signals: { ...input.day.signals, ahi: 2.8 } };
 
     await scoreNight(folderContext(await writeFolder(files), { logger }), { ...input, day });
@@ -97,7 +98,7 @@ describe("scoreNight", () => {
 
   it("fails the span, and adds a span event and an error log, when an EVE file can't be read", async () => {
     const { logger, lines } = capturingLogger();
-    const { input, files } = caseNight("split-files");
+    const { input, files } = caseNight(EdgeCaseName.SplitFiles);
     const ctx = folderContext(
       await writeFolder(files.filter((f) => !f.path.endsWith("_EVE.edf"))),
       {

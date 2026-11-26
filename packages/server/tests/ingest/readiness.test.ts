@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { readHeader } from "@airway/edf/header";
+import { EdgeCaseName } from "@airway/synthetic/cases";
 import {
   checkReadiness,
   type HeaderRead,
@@ -12,7 +13,9 @@ const t0 = Temporal.Instant.from("2030-01-08T14:00:00Z");
 const at = (minutes: number): Temporal.Instant => t0.add({ seconds: minutes * 60 });
 
 // The damaged-files case has two BRP files. The undamaged one comes first, then the truncated one.
-const brps = syntheticFolder(0, ["damaged-files"]).filter(({ path }) => path.endsWith("_BRP.edf"));
+const brps = syntheticFolder(0, [EdgeCaseName.DamagedFiles]).filter(({ path }) =>
+  path.endsWith("_BRP.edf"),
+);
 const headerOf = (bytes: Uint8Array): HeaderRead => ({
   kind: "read",
   file: readHeader(bytes)._unsafeUnwrap(),

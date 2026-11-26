@@ -4,6 +4,7 @@ import { z } from "zod";
 import { test } from "@airway/testing/postgres";
 import { loadDerived } from "../src/load.ts";
 import { syntheticNights, type SyntheticNight } from "../src/model.ts";
+import { Patient } from "../src/patients.ts";
 import { synthesize } from "../src/synthesize.ts";
 
 const zone = "America/New_York";
@@ -25,7 +26,7 @@ async function load(
   nights: readonly SyntheticNight[],
   schema: "derived" | "derived_next",
 ): Promise<void> {
-  const { rows } = synthesize(nights, zone, { patient: "child", arrivedAt })._unsafeUnwrap();
+  const { rows } = synthesize(nights, zone, { patient: Patient.Child, arrivedAt })._unsafeUnwrap();
 
   await withClient(url, async (client) => {
     // The file's tests share one database, so each load replaces the schema.

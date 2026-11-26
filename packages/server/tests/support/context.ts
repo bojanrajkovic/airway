@@ -1,5 +1,5 @@
 import { pino } from "pino";
-import type { Config } from "../../src/config.ts";
+import { LogLevel, type Config } from "../../src/config.ts";
 import { createPools } from "../../src/db/pools.ts";
 import type { AppContext } from "../../src/runtime/context.ts";
 
@@ -15,7 +15,7 @@ const CONFIG: Config = {
   cpapDataPath: "/cpap-data",
   dataMissingCutoff: Temporal.PlainTime.from("15:00"),
   port: 3000,
-  logLevel: "info",
+  logLevel: LogLevel.Info,
   auth: { mode: "none", author: { name: "Sam Rivera", email: "sam@example.test" } },
 };
 

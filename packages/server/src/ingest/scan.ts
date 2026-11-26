@@ -2,6 +2,7 @@ import { readdir, stat } from "node:fs/promises";
 import { join } from "node:path";
 import { ResultAsync } from "neverthrow";
 import { FileKind } from "@airway/contract/derived/values";
+import { valuesOf } from "@airway/contract/enum";
 import type { AppContext } from "../runtime/context.ts";
 import { inSpanAsync } from "../telemetry.ts";
 
@@ -21,12 +22,18 @@ export type ScannedFile = {
   ctime: Temporal.Instant;
 };
 
-export const SKIP_REASONS = ["sad", "csl", "crc", "other", "folder"] as const;
+export enum SkipReason {
+  Sad = "sad",
+  Csl = "csl",
+  Crc = "crc",
+  Other = "other",
+  Folder = "folder",
+}
 
 /** Lists the files that a scan found, and counts the entries that it skipped for each reason. */
 export type Scan = {
   files: ScannedFile[];
-  skipped: Record<(typeof SKIP_REASONS)[number], number>;
+  skipped: Record<SkipReason, number>;
 };
 
 export type ScanError = { kind: "read_failed"; path: string; cause: unknown };
@@ -42,11 +49,11 @@ const NIGHT_FILES: Readonly<Record<string, ScannedFile["kind"]>> = {
   "_PLD.crc": FileKind.Crc,
   "_EVE.crc": FileKind.Crc,
 };
-const SKIPPED_NIGHT_FILES: Readonly<Record<string, (typeof SKIP_REASONS)[number]>> = {
-  "_SAD.edf": "sad",
-  "_CSL.edf": "csl",
-  "_SAD.crc": "crc",
-  "_CSL.crc": "crc",
+const SKIPPED_NIGHT_FILES: Readonly<Record<string, SkipReason>> = {
+  "_SAD.edf": SkipReason.Sad,
+  "_CSL.edf": SkipReason.Csl,
+  "_SAD.crc": SkipReason.Crc,
+  "_CSL.crc": SkipReason.Crc,
 };
 const ROOT_FILES: Readonly<Record<string, ScannedFile["kind"]>> = {
   "STR.edf": FileKind.Str,
@@ -93,7 +100,7 @@ export function scanCpapData(ctx: AppContext): ResultAsync<Scan, ScanError> {
       cause,
     })).map((scan) => {
       span.setAttribute("airway.files", scan.files.length);
-      for (const reason of SKIP_REASONS) {
+      for (const reason of valuesOf(SkipReason)) {
         span.setAttribute(`airway.skipped.${reason}`, scan.skipped[reason]);
       }
 
@@ -103,7 +110,16 @@ export function scanCpapData(ctx: AppContext): ResultAsync<Scan, ScanError> {
 }
 
 async function walk(root: string): Promise<Scan> {
-  const scan: Scan = { files: [], skipped: { sad: 0, csl: 0, crc: 0, other: 0, folder: 0 } };
+  const scan: Scan = {
+    files: [],
+    skipped: {
+      [SkipReason.Sad]: 0,
+      [SkipReason.Csl]: 0,
+      [SkipReason.Crc]: 0,
+      [SkipReason.Other]: 0,
+      [SkipReason.Folder]: 0,
+    },
+  };
   let hasDatalog = false;
 
   async function add(
@@ -130,7 +146,7 @@ async function walk(root: string): Promise<Scan> {
     } else if (entry.name === "DATALOG" && entry.isDirectory()) {
       hasDatalog = true;
     } else {
-      scan.skipped.other++;
+      scan.skipped[SkipReason.Other]++;
     }
   }
 
@@ -141,7 +157,7 @@ async function walk(root: string): Promise<Scan> {
     const night = folder.isDirectory() ? nightOf(folder.name) : null;
 
     if (night === null) {
-      scan.skipped.folder++;
+      scan.skipped[SkipReason.Folder]++;
       continue;
     }
 
@@ -157,7 +173,7 @@ async function walk(root: string): Promise<Scan> {
       } else if (skip !== undefined) {
         scan.skipped[skip]++;
       } else {
-        scan.skipped.other++;
+        scan.skipped[SkipReason.Other]++;
       }
     }
   }

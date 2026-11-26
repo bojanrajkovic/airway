@@ -15,9 +15,9 @@ import {
   APNEAS,
   BREATHING,
   MACHINE_EVENT_TYPES,
+  Patient,
   type Breathing,
   type MachineEventType,
-  type Patient,
   type WeightedRanges,
 } from "./patients.ts";
 import {
@@ -214,7 +214,7 @@ const snapStr = roundToStep(AIRSENSE.str);
  */
 export function syntheticNights(options: SyntheticOptions): Result<Synthetic, EdgeCaseError> {
   const r = random(options.seed);
-  const breathing = BREATHING[options.patient ?? "child"];
+  const breathing = BREATHING[options.patient ?? Patient.Child];
   const start = options.start ?? DEFAULT_START;
   const zone = options.zone ?? DEFAULT_ZONE;
   const nights = Array.from({ length: options.nights }, (_, i) =>

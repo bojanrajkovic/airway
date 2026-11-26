@@ -4,6 +4,7 @@ import { z } from "zod";
 import { derivedTables } from "@airway/contract/derived/ddl";
 import { test } from "@airway/testing/postgres";
 import { syntheticNights } from "../src/model.ts";
+import { Patient } from "../src/patients.ts";
 import { synthesize } from "../src/synthesize.ts";
 
 const zone = "America/New_York";
@@ -26,7 +27,7 @@ test("builds rows with exactly the columns of each derived table", async ({ data
   // Changes a setting on the second night so that synthesize builds a settings_changes row.
   const raised = { ...second, str: { ...second.str, "S.AS.MaxPress": 14 } };
   const { rows } = synthesize([first, raised], zone, {
-    patient: "child",
+    patient: Patient.Child,
     arrivedAt: Temporal.Instant.from("2030-03-01T12:00:00Z"),
   })._unsafeUnwrap();
 

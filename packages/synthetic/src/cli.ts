@@ -2,10 +2,11 @@
 import { mkdir, readdir, writeFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { parseArgs } from "node:util";
-import { EDGE_CASE_NAMES, type EdgeCaseName } from "./cases.ts";
+import { isOneOf, valuesOf } from "@airway/contract/enum";
+import { EdgeCaseName } from "./cases.ts";
 import { cpapData } from "./cpap-data.ts";
 import { syntheticNights } from "./model.ts";
-import { PATIENTS, type Patient } from "./patients.ts";
+import { Patient } from "./patients.ts";
 
 const USAGE =
   "Usage: pnpm synth --out <dir> [--seed 1] [--nights 10] [--patient child|adult]\n" +
@@ -24,10 +25,9 @@ const wholeNumber = (flag: string, text: string, min: number): number => {
     : fail(`--${flag} must be a whole number, ${min.toString()} or more.`);
 };
 
-const isPatient = (text: string): text is Patient => PATIENTS.some((patient) => patient === text);
+const isPatient = (text: string): text is Patient => isOneOf(valuesOf(Patient), text);
 
-const isCase = (text: string): text is EdgeCaseName =>
-  EDGE_CASE_NAMES.some((name) => name === text);
+const isCase = (text: string): text is EdgeCaseName => isOneOf(valuesOf(EdgeCaseName), text);
 
 function cases(text: string): "all" | EdgeCaseName[] {
   if (text === "all" || text === "none") {
@@ -40,7 +40,7 @@ function cases(text: string): "all" | EdgeCaseName[] {
   return unknown.length === 0
     ? names.filter(isCase)
     : fail(
-        `These --cases names are unknown: ${unknown.join(", ")}. The known names are ${EDGE_CASE_NAMES.join(", ")}.`,
+        `These --cases names are unknown: ${unknown.join(", ")}. The known names are ${valuesOf(EdgeCaseName).join(", ")}.`,
       );
 }
 

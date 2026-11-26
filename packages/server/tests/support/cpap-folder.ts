@@ -11,7 +11,9 @@ import { readHeader } from "@airway/edf/header";
 import type { EdgeCaseName } from "@airway/synthetic/cases";
 import { cpapData, type CpapFile } from "@airway/synthetic/cpap-data";
 import { syntheticNights } from "@airway/synthetic/model";
+import { Patient } from "@airway/synthetic/patients";
 import { synthesize } from "@airway/synthetic/synthesize";
+import { LogLevel } from "../../src/config.ts";
 import type { EveFile, NightEvents } from "../../src/ingest/events.ts";
 import { planSegments, type SegmentFile } from "../../src/ingest/segments.ts";
 import { readStr } from "../../src/ingest/str.ts";
@@ -108,7 +110,7 @@ export type CaseNight = { input: NightEvents; files: CpapFile[]; rows: DerivedRo
 export function caseNight(name: EdgeCaseName): CaseNight {
   const { nights, zone } = syntheticNights({ seed: 7, nights: 0, cases: [name] })._unsafeUnwrap();
   const { files, rows } = synthesize(nights, zone, {
-    patient: "child",
+    patient: Patient.Child,
     arrivedAt: CTIME,
   })._unsafeUnwrap();
   const day = usedDays(files).find((used) =>
@@ -177,5 +179,5 @@ export function capturingLogger(): CapturedLogs {
     },
   });
 
-  return { logger: createLogger("info", sink), lines };
+  return { logger: createLogger(LogLevel.Info, sink), lines };
 }

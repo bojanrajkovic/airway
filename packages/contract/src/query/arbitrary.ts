@@ -2,7 +2,7 @@
 // "parsing a parsed spec changes nothing" against thousands of these specs instead of a few
 // written by hand. The tests cover a new column or operation without any new test code.
 import fc from "fast-check";
-import { valuesOf } from "../enum.ts";
+import { isOneOf, valuesOf } from "../enum.ts";
 import { DATASETS } from "../registry/datasets.ts";
 import {
   Comparison,
@@ -18,7 +18,6 @@ import {
   CalculationOp,
   columnsFor,
   granularitiesFor,
-  isOneOf,
   LIMITS,
   parseSpec,
   type Calculation,
