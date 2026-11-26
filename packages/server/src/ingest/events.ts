@@ -1,4 +1,3 @@
-import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { Span as OtelSpan } from "@opentelemetry/api";
 import { errAsync, ResultAsync } from "neverthrow";
@@ -11,7 +10,7 @@ import { EVENT_TYPES } from "@airway/contract/derived/values";
 import { ruleSetFor } from "@airway/contract/profile";
 import { AIRSENSE, EVENT_LABELS } from "@airway/edf/airsense";
 import type { EdfAnnotation } from "@airway/edf/annotations";
-import { readEdf } from "@airway/edf/file";
+import { readEdfFile } from "@airway/edf/file-header";
 import type { EdfFileHeaders, EdfReadError } from "@airway/edf/header";
 import type { Logger } from "../logger.ts";
 import type { AppContext } from "../runtime/context.ts";
@@ -133,19 +132,14 @@ function readEve(
 ): ResultAsync<FileAnnotations, EventFileError> {
   const { path } = file;
 
-  return ResultAsync.fromPromise(readFile(join(root, path)), (cause): EventFileError => ({
-    kind: "read_failed",
-    path,
-    message: cause instanceof Error ? cause.message : String(cause),
-  })).andThen((bytes) =>
-    readEdf(bytes, AIRSENSE.eve)
-      .map(({ header, annotations }) => ({
-        path,
-        start: toInstant(header.start, zone),
-        annotations,
-      }))
-      .mapErr((error): EventFileError => ({ ...error, path })),
-  );
+  // Sets each error's path to the file's path relative to the CPAP data folder.
+  return readEdfFile(join(root, path), AIRSENSE.eve)
+    .map(({ header, annotations }) => ({
+      path,
+      start: toInstant(header.start, zone),
+      annotations,
+    }))
+    .mapErr((error): EventFileError => ({ ...error, path }));
 }
 
 // Adds a span event and logs a warning for each unknown label and for an AHI mismatch.

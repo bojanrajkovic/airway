@@ -91,6 +91,10 @@ export function readEdf<F extends EdfAnnotationFileType>(
 export function readEdf(
   bytes: Uint8Array,
   type: EdfFileType,
+): Result<EdfSignalFile<string> | EdfAnnotationFile, EdfReadError>;
+export function readEdf(
+  bytes: Uint8Array,
+  type: EdfFileType,
 ): Result<EdfSignalFile<string> | EdfAnnotationFile, EdfReadError> {
   return readHeader(bytes).andThen((headers) =>
     checkType(headers, type).andThen(() => {

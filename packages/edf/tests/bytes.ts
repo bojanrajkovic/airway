@@ -1,5 +1,8 @@
 // Builds EDF bytes from literal field text, so the reader's tests never depend on the writer.
 
+import type { EdfAnnotationFileType, EdfSignalFileType } from "../src/airsense.ts";
+import type { EdfSignalHeader } from "../src/header.ts";
+
 /** Describes one signal's header fields as text. */
 export type SignalFields = {
   label: string;
@@ -170,3 +173,28 @@ export function withTals(fields: HeaderFields, records: string[]): Uint8Array {
 
   return bytes;
 }
+
+// These types declare what plain() and annotated() write. readEdf checks only the format, the
+// record length, and the labels, so each signal's ranges are left at placeholder values.
+const signal = <const L extends string>(
+  label: L,
+  samplesPerRecord: number,
+): EdfSignalHeader<L> => ({
+  label,
+  unit: "",
+  physicalMin: "0",
+  physicalMax: "1",
+  digitalMin: 0,
+  digitalMax: 1,
+  samplesPerRecord,
+});
+/** Declares the file type of the files that plain() writes. */
+export const flowFile = {
+  header: { format: "EDF", recordSeconds: 60 },
+  signals: [signal("Flow.40ms", 2), signal("Crc16", 1)],
+} satisfies EdfSignalFileType;
+/** Declares the file type of the files that annotated() writes. */
+export const annotationFile = {
+  header: { format: "EDF+D", recordSeconds: 0 },
+  signals: [signal("EDF Annotations", 32), signal("Crc16", 1)],
+} satisfies EdfAnnotationFileType;

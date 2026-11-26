@@ -2,8 +2,8 @@ import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { readFileHeader } from "../src/file-header.ts";
-import { crc16, file, flow, plain } from "./bytes.ts";
+import { readEdfFile, readFileHeader } from "../src/file-header.ts";
+import { crc16, file, flow, flowFile, plain, withSamples } from "./bytes.ts";
 
 let dir = "";
 
@@ -55,5 +55,32 @@ describe("readFileHeader", () => {
       kind: "read_failed",
       path,
     });
+  });
+});
+
+describe("readEdfFile", () => {
+  it("reads a whole file from disk", async () => {
+    const path = await saved("whole.edf", withSamples(plain({ records: "1" }), [[1, -50, 0]]));
+    const read = (await readEdfFile(path, flowFile))._unsafeUnwrap();
+
+    expect(read.records).toBe(1);
+    expect(read.samples["Flow.40ms"]).toHaveLength(2);
+  });
+
+  it("returns read_failed with the path for a file it can't read", async () => {
+    const path = join(dir, "absent.edf");
+
+    expect((await readEdfFile(path, flowFile))._unsafeUnwrapErr()).toMatchObject({
+      kind: "read_failed",
+      path,
+    });
+  });
+
+  it("returns readEdf's error for a file that doesn't match the file type", async () => {
+    const path = await saved("short.edf", withSamples(plain({ recordSeconds: "30.00" }), []));
+
+    expect((await readEdfFile(path, flowFile))._unsafeUnwrapErr().kind).toBe(
+      "record_length_mismatch",
+    );
   });
 });

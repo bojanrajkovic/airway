@@ -1,31 +1,16 @@
 import { describe, expect, it } from "vitest";
-import type { EdfAnnotationFileType, EdfSignalFileType } from "../src/airsense.ts";
-import type { EdfSignalHeader } from "../src/header.ts";
 import { readEdf } from "../src/file.ts";
-import { annotated, crc16, file, flow, plain, withSamples, withTals } from "./bytes.ts";
-
-// These types declare what plain() and annotated() write. readEdf checks only the format, the
-// record length, and the labels, so each signal's ranges are left at placeholder values.
-const signal = <const L extends string>(
-  label: L,
-  samplesPerRecord: number,
-): EdfSignalHeader<L> => ({
-  label,
-  unit: "",
-  physicalMin: "0",
-  physicalMax: "1",
-  digitalMin: 0,
-  digitalMax: 1,
-  samplesPerRecord,
-});
-const flowFile = {
-  header: { format: "EDF", recordSeconds: 60 },
-  signals: [signal("Flow.40ms", 2), signal("Crc16", 1)],
-} satisfies EdfSignalFileType;
-const annotationFile = {
-  header: { format: "EDF+D", recordSeconds: 0 },
-  signals: [signal("EDF Annotations", 32), signal("Crc16", 1)],
-} satisfies EdfAnnotationFileType;
+import {
+  annotated,
+  annotationFile,
+  crc16,
+  file,
+  flow,
+  flowFile,
+  plain,
+  withSamples,
+  withTals,
+} from "./bytes.ts";
 
 const TIMEKEEPING = "+0\x14\x14\0";
 

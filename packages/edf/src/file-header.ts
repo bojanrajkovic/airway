@@ -1,20 +1,26 @@
-import { open, type FileHandle } from "node:fs/promises";
+import { open, readFile, type FileHandle } from "node:fs/promises";
 import { errAsync, ResultAsync } from "neverthrow";
+import type { EdfAnnotationFileType, EdfFileType, EdfSignalFileType } from "./airsense.ts";
+import { readEdf, type EdfAnnotationFile, type EdfFile, type EdfSignalFile } from "./file.ts";
 import { readHeader, type EdfFileHeaders, type EdfReadError } from "./header.ts";
 
 // Every header starts with 256 fixed bytes, which say how long the whole header is.
 const FIXED_BYTES = 256;
+
+const readFailed =
+  (path: string) =>
+  (cause: unknown): EdfReadError => ({
+    kind: "read_failed",
+    path,
+    message: cause instanceof Error ? cause.message : String(cause),
+  });
 
 /**
  * Reads a file's header from disk, without reading its records, and checks the file's size
  * against the header. It reads the first 256 bytes, then the rest of the header if there's more.
  */
 export function readFileHeader(path: string): ResultAsync<EdfFileHeaders, EdfReadError> {
-  const failed = (cause: unknown): EdfReadError => ({
-    kind: "read_failed",
-    path,
-    message: cause instanceof Error ? cause.message : String(cause),
-  });
+  const failed = readFailed(path);
 
   return ResultAsync.fromPromise(open(path, "r"), failed).andThen((handle) =>
     closeAfter(handle, readHeaderFromHandle(handle, failed)),
@@ -57,5 +63,26 @@ function closeAfter<T>(
         await handle.close();
       }
     })(),
+  );
+}
+
+/**
+ * Reads the file at `path` and passes its bytes to `readEdf`. Returns `read_failed` for a file it
+ * can't read, and returns `readEdf`'s error for a file that doesn't match `type`.
+ */
+export function readEdfFile<F extends EdfSignalFileType>(
+  path: string,
+  type: F,
+): ResultAsync<EdfFile<F>, EdfReadError>;
+export function readEdfFile<F extends EdfAnnotationFileType>(
+  path: string,
+  type: F,
+): ResultAsync<EdfFile<F>, EdfReadError>;
+export function readEdfFile(
+  path: string,
+  type: EdfFileType,
+): ResultAsync<EdfSignalFile<string> | EdfAnnotationFile, EdfReadError> {
+  return ResultAsync.fromPromise(readFile(path), readFailed(path)).andThen((bytes) =>
+    readEdf(bytes, type),
   );
 }
