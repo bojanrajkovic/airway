@@ -1,7 +1,9 @@
 import {
   CalculationOp,
   DEFAULT_LIMIT,
+  FilterCombination,
   instant,
+  SortOrder,
   type Filter,
   type QuerySpec,
   type QuerySpecInput,
@@ -91,7 +93,7 @@ export function canonicalize(spec: QuerySpec): QuerySpecInput {
         }),
     ...(filters.length === 0 ? {} : { filters }),
     // With a single filter, OR matches the same rows as AND, so OR is left out too.
-    ...(spec.filter_combination === "AND" || filters.length < 2
+    ...(spec.filter_combination === FilterCombination.And || filters.length < 2
       ? {}
       : { filter_combination: spec.filter_combination }),
     ...(breakdowns.length === 0 ? {} : { breakdowns: [...breakdowns] }),
@@ -101,7 +103,7 @@ export function canonicalize(spec: QuerySpec): QuerySpecInput {
           orders: orders.map(({ op, column, order }) => ({
             ...(op === undefined ? {} : { op }),
             ...(column === undefined ? {} : { column }),
-            ...(order === "descending" ? {} : { order }),
+            ...(order === SortOrder.Descending ? {} : { order }),
           })),
         }),
     ...(havings.length === 0

@@ -1,12 +1,12 @@
 import { valuesOf } from "../enum.ts";
 import { EventSource, EventType } from "../derived/values.ts";
 import { hourOfNight, night, seconds, session, ts } from "./columns.ts";
-import { dimension, enumeration, metric, type Dataset } from "./define.ts";
+import { dimension, enumeration, Granularity, metric, type Dataset } from "./define.ts";
 
 export const events: Dataset = {
   name: "events",
   description: "One row per breathing event the machine flagged.",
-  grain: "2s",
+  grain: Granularity.TwoSeconds,
   columns: [
     night,
     ts("When the machine marked the event."),

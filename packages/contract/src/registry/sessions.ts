@@ -1,12 +1,12 @@
 import { valuesOf } from "../enum.ts";
 import { SessionSource } from "../derived/values.ts";
 import { minutes, night, session, ts } from "./columns.ts";
-import { enumeration, metric, sql, time, type Dataset } from "./define.ts";
+import { enumeration, Granularity, metric, sql, time, type Dataset } from "./define.ts";
 
 export const sessions: Dataset = {
   name: "sessions",
   description: "Each row is one mask-on period.",
-  grain: "2s",
+  grain: Granularity.TwoSeconds,
   columns: [
     night,
     ts("When the mask went on."),

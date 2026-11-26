@@ -4,6 +4,7 @@ import { isOneOf, valuesOf } from "../enum.ts";
 import { DATASETS } from "../registry/datasets.ts";
 import {
   Comparison,
+  Granularity,
   Membership,
   NullCheck,
   operationsFor,
@@ -11,19 +12,17 @@ import {
   type Dataset,
 } from "../registry/define.ts";
 
-/** Orders the time steps that a query can bucket by, shortest first. */
-export const GRANULARITIES = [
-  "2s",
-  "30s",
-  "1m",
-  "5m",
-  "15m",
-  "1h",
-  "night",
-  "week",
-  "month",
-] as const;
-export type Granularity = (typeof GRANULARITIES)[number];
+/** Lists the ways that a query can combine its filters. */
+export enum FilterCombination {
+  And = "AND",
+  Or = "OR",
+}
+
+/** Lists the directions that a query can order its results in. */
+export enum SortOrder {
+  Ascending = "ascending",
+  Descending = "descending",
+}
 
 /**
  * Sets the most nights that a query can cover at each step: a night, a week, a fortnight, a
@@ -33,15 +32,15 @@ export type Granularity = (typeof GRANULARITIES)[number];
  * a step within them.
  */
 export const MAX_NIGHTS: Record<Granularity, number> = {
-  "2s": 1,
-  "30s": 7,
-  "1m": 14,
-  "5m": 31,
-  "15m": 92,
-  "1h": 366,
-  night: 3660,
-  week: 3660,
-  month: 3660,
+  [Granularity.TwoSeconds]: 1,
+  [Granularity.ThirtySeconds]: 7,
+  [Granularity.OneMinute]: 14,
+  [Granularity.FiveMinutes]: 31,
+  [Granularity.FifteenMinutes]: 92,
+  [Granularity.OneHour]: 366,
+  [Granularity.Night]: 3660,
+  [Granularity.Week]: 3660,
+  [Granularity.Month]: 3660,
 };
 
 /** A query covers the most recent n nights, or the nights between two dates, both included. */
@@ -59,7 +58,8 @@ export function nightCount(nights: Nights): number {
  * range, it returns only the steps that can cover that many nights.
  */
 export function granularitiesFor(dataset: Dataset, nights?: Nights): readonly Granularity[] {
-  const steps = GRANULARITIES.slice(GRANULARITIES.indexOf(dataset.grain));
+  const all = valuesOf(Granularity);
+  const steps = all.slice(all.indexOf(dataset.grain));
 
   return nights === undefined
     ? steps
@@ -286,15 +286,15 @@ export function calculationKind(
 
 /** Maps each step to its length in seconds. A month counts as 30 days. */
 export const STEP_SECONDS: Record<Granularity, number> = {
-  "2s": 2,
-  "30s": 30,
-  "1m": 60,
-  "5m": 300,
-  "15m": 900,
-  "1h": 3600,
-  night: 86_400,
-  week: 7 * 86_400,
-  month: 30 * 86_400,
+  [Granularity.TwoSeconds]: 2,
+  [Granularity.ThirtySeconds]: 30,
+  [Granularity.OneMinute]: 60,
+  [Granularity.FiveMinutes]: 300,
+  [Granularity.FifteenMinutes]: 900,
+  [Granularity.OneHour]: 3600,
+  [Granularity.Night]: 86_400,
+  [Granularity.Week]: 7 * 86_400,
+  [Granularity.Month]: 30 * 86_400,
 };
 /** `auto` puts at most this many buckets in one group, about as many as a chart can show. */
 export const AUTO_BUCKETS = 300;
@@ -304,7 +304,7 @@ export const AUTO_BUCKETS = 300;
  * noon to noon, though a real night has data only while the mask is on.
  */
 export const bucketCount = (nights: Nights, step: Granularity): number =>
-  (nightCount(nights) * STEP_SECONDS.night) / STEP_SECONDS[step];
+  (nightCount(nights) * STEP_SECONDS[Granularity.Night]) / STEP_SECONDS[step];
 
 /** Describes the fields of a spec that decide how it's bucketed. */
 type Bucketing = { nights: Nights; granularity?: Granularity | "auto" | undefined };
@@ -326,7 +326,7 @@ export function granularityOf(
   // drops below that.
   return (
     granularitiesFor(dataset, nights).find((step) => bucketCount(nights, step) <= AUTO_BUCKETS) ??
-    "month"
+    Granularity.Month
   );
 }
 
@@ -359,7 +359,7 @@ function fieldsSchema(dataset: Dataset) {
       .array(z.discriminatedUnion("column", mapNonEmpty(dataset.columns, filterSchema)))
       .max(LIMITS.filters)
       .default([]),
-    filter_combination: z.enum(["AND", "OR"]).default("AND"),
+    filter_combination: z.enum(FilterCombination).default(FilterCombination.And),
     breakdowns: z
       .array(z.enum(namesOf(dataset.columns.filter(({ role }) => role !== "metric"))))
       .max(LIMITS.breakdowns)
@@ -370,7 +370,7 @@ function fieldsSchema(dataset: Dataset) {
         z.strictObject({
           op: z.enum(CalculationOp).optional(),
           column: columns.optional(),
-          order: z.enum(["ascending", "descending"]).default("descending"),
+          order: z.enum(SortOrder).default(SortOrder.Descending),
         }),
       )
       .max(LIMITS.calculations + LIMITS.breakdowns)

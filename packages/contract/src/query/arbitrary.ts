@@ -17,9 +17,11 @@ import {
   calculationLabel,
   CalculationOp,
   columnsFor,
+  FilterCombination,
   granularitiesFor,
   LIMITS,
   parseSpec,
+  SortOrder,
   type Calculation,
   type Filter,
   type QuerySpec,
@@ -73,7 +75,7 @@ function calculationOf(dataset: Dataset): fc.Arbitrary<Calculation> {
     );
 }
 
-const direction = fc.option(fc.constantFrom("ascending" as const, "descending" as const), {
+const direction = fc.option(fc.constantFrom(...valuesOf(SortOrder)), {
   nil: undefined,
 });
 
@@ -141,7 +143,7 @@ function specOf(dataset: Dataset): fc.Arbitrary<QuerySpecInput> {
         selector: calculationLabel,
       }),
       filters: fc.array(filter, { maxLength: LIMITS.filters }),
-      filter_combination: fc.constantFrom("AND" as const, "OR" as const),
+      filter_combination: fc.constantFrom(...valuesOf(FilterCombination)),
       breakdowns: fc.shuffledSubarray(groupable, { maxLength: LIMITS.breakdowns }),
       limit: fc.integer({ min: 1, max: LIMITS.limit }),
     },

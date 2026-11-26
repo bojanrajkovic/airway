@@ -6,6 +6,7 @@ import {
   Combine,
   dimension,
   enumeration,
+  Granularity,
   metric,
   signal,
   time,
@@ -63,7 +64,7 @@ export const nights: Omit<Dataset, "columns"> & {
   name: "nights",
   description:
     "Each row is one night. The machine's statistics come first, then airway's derived numbers.",
-  grain: "night",
+  grain: Granularity.Night,
   columns: [
     night,
 
