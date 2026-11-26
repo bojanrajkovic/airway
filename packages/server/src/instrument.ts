@@ -8,7 +8,15 @@ import { HttpInstrumentation } from "@opentelemetry/instrumentation-http";
 import { PgInstrumentation } from "@opentelemetry/instrumentation-pg";
 import { RuntimeNodeInstrumentation } from "@opentelemetry/instrumentation-runtime-node";
 import { UndiciInstrumentation } from "@opentelemetry/instrumentation-undici";
-import { resourceFromAttributes } from "@opentelemetry/resources";
+import {
+  hostDetector,
+  osDetector,
+  processDetector,
+  resourceAttributesEnvDetector,
+  resourceFromAttributes,
+  serviceNameEnvDetector,
+  type ResourceDetector,
+} from "@opentelemetry/resources";
 import * as sdkMetrics from "@opentelemetry/sdk-metrics";
 import { NodeSDK } from "@opentelemetry/sdk-node";
 import { loadModule, normalizeSync } from "libpg-query";
@@ -70,6 +78,20 @@ export function serviceInstanceId(thread = { isMainThread, threadId }): string {
   return thread.isMainThread ? hostname() : `${hostname()}/worker-${String(thread.threadId)}`;
 }
 
+/**
+ * Lists NodeSDK's default resource detectors minus `serviceInstanceIdDetector`. That detector sets
+ * `service.instance.id` to a random UUID. Detected attributes override the resource passed to
+ * NodeSDK, so the UUID would replace `serviceInstanceId()`, and every restart would start new
+ * series. The two env detectors read `OTEL_RESOURCE_ATTRIBUTES` and `OTEL_SERVICE_NAME`.
+ */
+export const resourceDetectors: ResourceDetector[] = [
+  processDetector,
+  hostDetector,
+  osDetector,
+  resourceAttributesEnvDetector,
+  serviceNameEnvDetector,
+];
+
 async function startSdk(): Promise<void> {
   // airway logs to stdout, not over OTLP.
   process.env["OTEL_LOGS_EXPORTER"] ??= "none";
@@ -77,6 +99,7 @@ async function startSdk(): Promise<void> {
   process.env["OTEL_PROPAGATORS"] ??= "none";
   const started = new NodeSDK({
     serviceName: "airway",
+    resourceDetectors,
     // The image sets both variables. A deployment's OTEL_RESOURCE_ATTRIBUTES overrides them.
     resource: resourceFromAttributes({
       "service.version": process.env["AIRWAY_VERSION"] ?? "dev",

@@ -5,7 +5,8 @@ import { SpanKind } from "@opentelemetry/api";
 import type { ReadableSpan } from "@opentelemetry/sdk-trace";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { hostname } from "node:os";
-import { instrumentations, serviceInstanceId } from "../src/instrument.ts";
+import { detectResources } from "@opentelemetry/resources";
+import { instrumentations, resourceDetectors, serviceInstanceId } from "../src/instrument.ts";
 
 const { spans } = inMemoryTelemetry({ instrumentations: await instrumentations() });
 
@@ -62,5 +63,14 @@ describe("serviceInstanceId", () => {
 
   it("adds the thread's ID in a worker", () => {
     expect(serviceInstanceId({ isMainThread: false, threadId: 3 })).toBe(`${hostname()}/worker-3`);
+  });
+});
+
+describe("resourceDetectors", () => {
+  it("detects the host and leaves service.instance.id unset", () => {
+    const { attributes } = detectResources({ detectors: resourceDetectors });
+
+    expect(attributes["service.instance.id"]).toBeUndefined();
+    expect(attributes["host.name"]).toBe(hostname());
   });
 });
