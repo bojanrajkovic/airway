@@ -16,7 +16,7 @@ RUN pnpm --filter @airway/server deploy --prod --offline /out
 # The container runs as UID 65532.
 # The image name includes the Node major version.
 # When that version changes, scripts/renovate/distroless-node.sh updates the image name.
-FROM gcr.io/distroless/nodejs26-debian13:nonroot@sha256:ffa8a7545403036c94ec76674b5dbac2d425af2d679147cdf3e30180071487b7
+FROM gcr.io/distroless/nodejs26-debian13:nonroot@sha256:a84242e747fbb5aaaa0180c273b6f7130ca34b3300082192ef58eea96089eb3c
 ENV NODE_ENV=production PORT=3000
 WORKDIR /app
 COPY --from=build /out/package.json ./
