@@ -103,7 +103,7 @@ erDiagram
 | `segments` | BRP file with data | `night, segment` |
 | `events` | Machine event. `ts` is the event's start. When the machine writes a duration of 0, `duration` is null and `ts` is the event's end. `session` is null when the night has no sessions | none |
 | `samples` | 2 seconds of therapy: the nine PLD signals | none |
-| `breaths` | Breath detected in the flow signal. `amplitude` is the in-breath's peak flow, and `duration` ends when the out-breath does, so a pause is a gap between breaths | none |
+| `breaths` | Breath detected in the flow signal. `amplitude` is the breath's peak-to-trough flow, and `duration` runs to the next breath's start, so a pause belongs to the breath before it | none |
 | `files` | Imported file, with its size, SHA-256, and ctime. `night` is null for `STR.edf` and `Identification.tgt`. `segment` names the segment a BRP or PLD file's data belongs to, so a segment's files are one join away, including both halves of a split PLD. `segment` is null for every other file, for a header-only BRP or PLD file, and for a PLD file that doesn't overlap any segment | `path` |
 | `device` | Machine: serial and model | `serial` |
 | `settings_changes` | Setting that changed on a used day, compared with the previous used day | `night, setting` |

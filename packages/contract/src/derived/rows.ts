@@ -93,7 +93,7 @@ export type BreathRow = {
   session: number;
   ts: Temporal.Instant;
   duration: number;
-  /** `amplitude` is the peak flow during the in-breath. */
+  /** `amplitude` is the breath's peak-to-trough flow. */
   amplitude: number;
   inspiratory_volume: number;
 };

@@ -11,8 +11,12 @@ export const breaths: Dataset = {
     session,
     segment,
     hourOfNight,
-    metric("duration", seconds, "Length of the breath, in-breath and out-breath together."),
-    signal("amplitude", "Peak flow of the in-breath, in the flow signal's unit."),
+    metric(
+      "duration",
+      seconds,
+      "Time from this breath's start to the next breath's start. A pause belongs to the breath before it.",
+    ),
+    signal("amplitude", "Peak-to-trough flow over the breath, in the flow signal's unit."),
     signal("inspiratory_volume", "Air breathed in, summed from the in-breath's flow over time."),
   ],
 };

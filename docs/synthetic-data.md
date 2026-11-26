@@ -168,7 +168,7 @@ The rows follow ingest's rules:
 - `buildSessions` builds the sessions and `assignEvents` assigns each event to a session. Ingest calls the same two functions ([Ingest](ingest.md#sessions)).
 - `synthesize` computes event starts as ingest does ([Ingest](ingest.md#events)) and rounds each onset to a whole second, because EVE stores whole seconds.
 - The first sample is at the PLD file's start, which is 1 s after the segment's start. The rest follow every 2 s.
-- The breath rows are the breaths that the model laid out. `amplitude` is the in-breath's peak flow, and `duration` covers the in-breath and out-breath, so a pause is a gap between breaths.
+- The breath rows list the model's breaths, measured the way ingest's detector measures them. The detector skips a segment's first and last breaths, so `synthesize` skips them too. `duration` runs to the next breath's start, so a pause belongs to the breath before it. `amplitude` is the in-breath's peak plus the out-breath's peak.
 - `synthesize` reads the header of each file it writes with `readHeader`, as ingest does, and uses the size check that `readHeader` returns. `synthesize` builds segments, samples, and the `segment` column of `files` by the rules in [Ingest](ingest.md#segments), which has a diagram of how BRP and PLD files map to segments.
 - `files` lists Identification.tgt, STR.edf, and each BRP, PLD, and EVE file that `checkFileSize` reads or skips, with its size and SHA-256. It also lists Identification.crc and the `.crc` of each BRP, PLD, and EVE file, rejected ones included, because ingest imports `.crc` files by size alone. Ingest skips SAD and CSL files and their `.crc` files.
 - `daily_usage` covers every day from the first night to the last, with 0 on a day with no night.

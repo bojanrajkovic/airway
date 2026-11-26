@@ -230,3 +230,24 @@ The samples table stores the PLD signals listed in `PLD_SAMPLE_COLUMNS`, one row
 A block stores its rows as columns, so a worker can transfer the arrays to the main thread without copying them. `readSamples` returns one block for each half of a split PLD file, both in the same segment. The second block's first row is 2 s after the first block's last row.
 
 `readSamples` runs in an `ingest.samples` span that records the night, the number of PLD files, and the number of rows. `readEdfFile` reads each file in its own `edf.read_file` span. If any PLD file fails to read, the night fails. The error includes that file's path.
+
+## Breaths
+
+`readBreaths(ctx, { night, zone, segments })` in `packages/server/src/ingest/breaths.ts` detects the breaths in each segment's BRP flow and returns one `BreathBlock` per file. The filter, thresholds, and detector come from a breath-detection prototype. In the prototype, they produced a breath rate that matched the machine's respiratory rate. `readBreaths` detects the breaths in each BRP file separately.
+
+```mermaid
+stateDiagram-v2
+  [*] --> None
+  None --> In: flow ≥ +0.01 L/s
+  None --> Out: flow ≤ −0.01 L/s
+  Out --> In: flow ≥ +0.01 L/s / onset at the zero crossing, if ≥ 1.0 s after the last onset
+  In --> Out: flow ≤ −0.01 L/s / out-breath starts at the zero crossing
+```
+
+- `filterFlow` smooths flow with a centered 5-sample moving average. It averages the digital values and then converts the average to L/s, as the prototype does. At a file's ends, the window shrinks to the samples that exist.
+- `detectBreaths` starts a breath at the zero crossing where flow rises from below −0.01 L/s to above +0.01 L/s. `detectBreaths` skips an onset that comes less than 1.0 s after the previous accepted onset, so the earlier breath continues through it.
+- A breath lasts until the next one starts, so a pause belongs to the breath before it. `detectBreaths` drops the flow before a file's first onset. It also drops the file's last breath, because that breath has no end.
+- `amplitude` is the breath's peak-to-trough flow in L/s. `inspiratory_volume` is the trapezoid integral of positive flow from the onset to the out-breath's zero crossing, in litres. Both are rounded to the flow signal's decimals.
+- `ts` stores each onset in milliseconds since the Unix epoch, and `duration` stores each breath's length in seconds.
+
+A block stores its rows as columns, like a `SampleBlock`. `readBreaths` runs in an `ingest.breaths` span that records the night, the number of BRP files, and the number of breaths. If any BRP file fails to read, the night fails, and the error includes that file's path.
