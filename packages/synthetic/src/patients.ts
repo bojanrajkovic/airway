@@ -1,4 +1,4 @@
-import type { EVENT_TYPES } from "@airway/contract/derived/values";
+import { EventType } from "@airway/contract/derived/values";
 import type { StrSetting } from "@airway/edf/columns";
 
 // These round numbers are invented. They resemble how a child and an adult breathe on an AutoSet
@@ -9,19 +9,19 @@ export type Patient = (typeof PATIENTS)[number];
 
 /** Lists the event types that the machine scores. */
 export const MACHINE_EVENT_TYPES = [
-  "obstructive_apnea",
-  "central_apnea",
-  "unclassified_apnea",
-  "hypopnea",
-  "arousal",
-] as const satisfies readonly (typeof EVENT_TYPES)[number][];
+  EventType.ObstructiveApnea,
+  EventType.CentralApnea,
+  EventType.UnclassifiedApnea,
+  EventType.Hypopnea,
+  EventType.Arousal,
+] as const;
 export type MachineEventType = (typeof MACHINE_EVENT_TYPES)[number];
 
 /** Lists the machine's apnea types. Each apnea also appears as a gap in the flow signal. */
-export const APNEAS: ReadonlySet<(typeof EVENT_TYPES)[number]> = new Set<MachineEventType>([
-  "obstructive_apnea",
-  "central_apnea",
-  "unclassified_apnea",
+export const APNEAS: ReadonlySet<EventType> = new Set<MachineEventType>([
+  EventType.ObstructiveApnea,
+  EventType.CentralApnea,
+  EventType.UnclassifiedApnea,
 ]);
 
 /**
@@ -118,11 +118,11 @@ export const BREATHING: Readonly<Record<Patient, Breathing>> = {
     rate: { mean: 22, sd: 1.5 },
     tidalVolume: { mean: 0.22, sd: 0.02 },
     eventsPerHour: {
-      obstructive_apnea: 0.6,
-      central_apnea: 0.4,
-      unclassified_apnea: 0.1,
-      hypopnea: 0.8,
-      arousal: 0.5,
+      [EventType.ObstructiveApnea]: 0.6,
+      [EventType.CentralApnea]: 0.4,
+      [EventType.UnclassifiedApnea]: 0.1,
+      [EventType.Hypopnea]: 0.8,
+      [EventType.Arousal]: 0.5,
     },
     pediatricPausesPerHour: 2,
     dipsPerHour: 4,
@@ -139,11 +139,11 @@ export const BREATHING: Readonly<Record<Patient, Breathing>> = {
     rate: { mean: 14, sd: 1 },
     tidalVolume: { mean: 0.5, sd: 0.04 },
     eventsPerHour: {
-      obstructive_apnea: 1.5,
-      central_apnea: 0.6,
-      unclassified_apnea: 0.2,
-      hypopnea: 2,
-      arousal: 1,
+      [EventType.ObstructiveApnea]: 1.5,
+      [EventType.CentralApnea]: 0.6,
+      [EventType.UnclassifiedApnea]: 0.2,
+      [EventType.Hypopnea]: 2,
+      [EventType.Arousal]: 1,
     },
     pediatricPausesPerHour: 0.3,
     dipsPerHour: 3,

@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { FileKind } from "@airway/contract/derived/values";
 import { readHeader } from "@airway/edf/header";
 import { strFile } from "@airway/synthetic/files";
 import { syntheticNights } from "@airway/synthetic/model";
@@ -14,7 +15,7 @@ const afterStr = model.nights.at(-1)?.night.add({ days: 1 });
 
 const scanned = (path: string, night: Temporal.PlainDate | null): ScannedFile => ({
   path,
-  kind: night === null ? "str" : "brp",
+  kind: night === null ? FileKind.Str : FileKind.Brp,
   night,
   size: 100,
   ctime: Temporal.Instant.from("2030-01-08T14:00:00Z"),
@@ -81,7 +82,7 @@ describe("planNights", () => {
   });
 
   it("re-plans an imported night when a .crc file arrives after the import, and leaves rewriteStrTables false", () => {
-    const crc: ReadyFile = { ...brp(first, 1), path: "DATALOG/x/1_BRP.crc", kind: "crc" };
+    const crc: ReadyFile = { ...brp(first, 1), path: "DATALOG/x/1_BRP.crc", kind: FileKind.Crc };
     const imported = [str, brp(first, 1)].map(version);
     const plan = planNights(states({ ready: [str, brp(first, 1), crc] }), imported);
 
@@ -116,7 +117,7 @@ describe("planNights", () => {
   it("sets rewriteStrTables when STR.edf or Identification.tgt has a new version", () => {
     const identification: ReadyFile = {
       ...ready("Identification.tgt", null),
-      kind: "identification",
+      kind: FileKind.Identification,
     };
     const imported = [str, identification].map(version);
 

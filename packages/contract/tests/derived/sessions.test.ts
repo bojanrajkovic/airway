@@ -5,6 +5,7 @@ import {
   type SessionInputs,
   type Span,
 } from "../../src/derived/sessions.ts";
+import { SessionSource } from "../../src/derived/values.ts";
 
 const night = Temporal.PlainDate.from("2030-01-07");
 const zone = "America/New_York";
@@ -128,8 +129,8 @@ describe("buildSessions", () => {
 
 describe("assignEvents", () => {
   const sessions = [
-    { session: 1, start: at(540), end: at(600), source: "str" as const },
-    { session: 2, start: at(700), end: at(760), source: "str" as const },
+    { session: 1, start: at(540), end: at(600), source: SessionSource.Str },
+    { session: 2, start: at(700), end: at(760), source: SessionSource.Str },
   ];
 
   it("puts an event in the session that contains it, with 60 s of slack at either end", () => {

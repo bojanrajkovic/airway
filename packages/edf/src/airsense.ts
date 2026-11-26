@@ -1,4 +1,4 @@
-import type { EVENT_TYPES } from "@airway/contract/derived/values";
+import { EventType } from "@airway/contract/derived/values";
 import type { EdfSignalHeader } from "./header.ts";
 
 /**
@@ -236,12 +236,10 @@ export const PLD_SAMPLE_SECONDS =
   pld.header.recordSeconds / (pld.signals[0]?.samplesPerRecord ?? 1);
 
 /** Maps each event type that the machine scores to the label that it writes in EVE files. */
-export const EVENT_LABELS: Readonly<
-  Record<Exclude<(typeof EVENT_TYPES)[number], "other">, string>
-> = {
-  obstructive_apnea: "Obstructive Apnea",
-  central_apnea: "Central Apnea",
-  unclassified_apnea: "Apnea",
-  hypopnea: "Hypopnea",
-  arousal: "Arousal",
+export const EVENT_LABELS: Readonly<Record<Exclude<EventType, EventType.Other>, string>> = {
+  [EventType.ObstructiveApnea]: "Obstructive Apnea",
+  [EventType.CentralApnea]: "Central Apnea",
+  [EventType.UnclassifiedApnea]: "Apnea",
+  [EventType.Hypopnea]: "Hypopnea",
+  [EventType.Arousal]: "Arousal",
 };

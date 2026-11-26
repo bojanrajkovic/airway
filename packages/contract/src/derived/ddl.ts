@@ -1,15 +1,16 @@
+import { valuesOf } from "../enum.ts";
 import { RULE_SETS } from "../profile.ts";
 import type { Dataset } from "../registry/define.ts";
 import { nights } from "../registry/nights.ts";
 import { samples } from "../registry/samples.ts";
 import {
-  AHI_CHECKS,
-  EVENT_SOURCES,
-  EVENT_TYPES,
-  FILE_KINDS,
-  PERCENTILE_SIGNALS,
-  PERIODS,
-  SESSION_SOURCES,
+  AhiOutcome,
+  EventSource,
+  EventType,
+  FileKind,
+  PercentileSignal,
+  Period,
+  SessionSource,
 } from "./values.ts";
 
 /**
@@ -71,9 +72,9 @@ create unlogged table ${schema}.settings_changes (
 );
 
 create unlogged table ${schema}.period_percentiles (
-  period text not null ${oneOf("period", PERIODS)},
+  period text not null ${oneOf("period", valuesOf(Period))},
   period_start date not null,
-  signal text not null ${oneOf("signal", PERCENTILE_SIGNALS)},
+  signal text not null ${oneOf("signal", valuesOf(PercentileSignal))},
   p50 double precision,
   p95 double precision,
   primary key (period, period_start, signal)
@@ -94,7 +95,7 @@ create unlogged table ${schema}.nights (
   hypopneas integer not null,
   arousals integer not null,
   events_outside_mask_on integer not null,
-  ahi_check text not null ${oneOf("ahi_check", AHI_CHECKS)},
+  ahi_check text not null ${oneOf("ahi_check", valuesOf(AhiOutcome))},
   rule_set text not null ${oneOf("rule_set", RULE_SETS)},
   arrived_at timestamptz not null
 );
@@ -102,7 +103,7 @@ create unlogged table ${schema}.nights (
 -- night is null for STR.edf and Identification.tgt.
 create unlogged table ${schema}.files (
   path text primary key,
-  kind text not null ${oneOf("kind", FILE_KINDS)},
+  kind text not null ${oneOf("kind", valuesOf(FileKind))},
   night date references ${schema}.nights on delete cascade,
   -- The segment that a BRP or PLD file's data belongs to. docs/data-model.md lists when it's null.
   segment smallint,
@@ -116,7 +117,7 @@ create unlogged table ${schema}.sessions (
   session smallint not null,
   ts timestamptz not null,
   ended_at timestamptz not null,
-  source text not null ${oneOf("source", SESSION_SOURCES)},
+  source text not null ${oneOf("source", valuesOf(SessionSource))},
   primary key (night, session)
 );
 
@@ -138,9 +139,9 @@ create unlogged table ${schema}.events (
   session smallint,
   ts timestamptz not null,
   duration double precision,
-  type text not null ${oneOf("type", EVENT_TYPES)},
+  type text not null ${oneOf("type", valuesOf(EventType))},
   label text,
-  source text not null ${oneOf("source", EVENT_SOURCES)},
+  source text not null ${oneOf("source", valuesOf(EventSource))},
   outside_mask_on boolean not null,
   foreign key (night, session) references ${schema}.sessions on delete cascade
 );
@@ -181,7 +182,9 @@ create index samples_night_ts on ${schema}.samples (night, ts);
 -- "Latest samples" queries would otherwise scan the table.
 create index samples_ts on ${schema}.samples (ts);
 -- Feeds percentile_cont sorted values, one night at a time.
-${PERCENTILE_SIGNALS.map((signal) => `create index samples_night_${signal} on ${schema}.samples (night, ${signal});`).join("\n")}
+${valuesOf(PercentileSignal)
+  .map((signal) => `create index samples_night_${signal} on ${schema}.samples (night, ${signal});`)
+  .join("\n")}
 create index breaths_night_ts on ${schema}.breaths (night, ts);
 `;
 }

@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { FileKind } from "@airway/contract/derived/values";
 import { edgeCaseNames, type EdgeCaseName } from "../src/cases.ts";
 import { annotationsOf } from "./edf.ts";
 import { maskSlots, nightFiles, sizeCheck, type MaskSlots, type NightFile } from "../src/files.ts";
@@ -194,10 +195,10 @@ describe("edge cases", () => {
     });
 
     it("lists every file but the rejected one", () => {
-      const brps = rows.files.filter(({ kind }) => kind === "brp");
+      const brps = rows.files.filter(({ kind }) => kind === FileKind.Brp);
 
       expect(brps).toHaveLength(5);
-      expect(rows.files.filter(({ kind }) => kind === "pld")).toHaveLength(6);
+      expect(rows.files.filter(({ kind }) => kind === FileKind.Pld)).toHaveLength(6);
     });
   });
 
@@ -207,7 +208,7 @@ describe("edge cases", () => {
 
     const pldsOf = (segment: number): string[] =>
       rows.files
-        .filter((file) => file.kind === "pld" && file.segment === segment)
+        .filter((file) => file.kind === FileKind.Pld && file.segment === segment)
         .map(({ path }) => path);
 
     it("makes a segment without samples for a BRP that has no PLD", () => {

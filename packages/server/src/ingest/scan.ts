@@ -1,7 +1,7 @@
 import { readdir, stat } from "node:fs/promises";
 import { join } from "node:path";
 import { ResultAsync } from "neverthrow";
-import type { FILE_KINDS } from "@airway/contract/derived/values";
+import { FileKind } from "@airway/contract/derived/values";
 import type { AppContext } from "../runtime/context.ts";
 import { inSpanAsync } from "../telemetry.ts";
 
@@ -11,7 +11,7 @@ import { inSpanAsync } from "../telemetry.ts";
  */
 export type ScannedFile = {
   path: string;
-  kind: (typeof FILE_KINDS)[number];
+  kind: FileKind;
   /**
    * `night` is the date of the file's DATALOG folder. It's null for STR.edf and
    * Identification.tgt.
@@ -35,12 +35,12 @@ export type ScanError = { kind: "read_failed"; path: string; cause: unknown };
 // reason. The scan also lists the .crc file of each file that ingest reads, so that import can
 // verify the checksum.
 const NIGHT_FILES: Readonly<Record<string, ScannedFile["kind"]>> = {
-  "_BRP.edf": "brp",
-  "_PLD.edf": "pld",
-  "_EVE.edf": "eve",
-  "_BRP.crc": "crc",
-  "_PLD.crc": "crc",
-  "_EVE.crc": "crc",
+  "_BRP.edf": FileKind.Brp,
+  "_PLD.edf": FileKind.Pld,
+  "_EVE.edf": FileKind.Eve,
+  "_BRP.crc": FileKind.Crc,
+  "_PLD.crc": FileKind.Crc,
+  "_EVE.crc": FileKind.Crc,
 };
 const SKIPPED_NIGHT_FILES: Readonly<Record<string, (typeof SKIP_REASONS)[number]>> = {
   "_SAD.edf": "sad",
@@ -49,9 +49,9 @@ const SKIPPED_NIGHT_FILES: Readonly<Record<string, (typeof SKIP_REASONS)[number]
   "_CSL.crc": "crc",
 };
 const ROOT_FILES: Readonly<Record<string, ScannedFile["kind"]>> = {
-  "STR.edf": "str",
-  "Identification.tgt": "identification",
-  "Identification.crc": "crc",
+  "STR.edf": FileKind.Str,
+  "Identification.tgt": FileKind.Identification,
+  "Identification.crc": FileKind.Crc,
 };
 
 /** Parses a DATALOG folder name as a night. Returns null when the name isn't a YYYYMMDD date. */

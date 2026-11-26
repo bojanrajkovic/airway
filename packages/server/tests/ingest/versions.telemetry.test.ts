@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import { chmod, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
+import { FileKind } from "@airway/contract/derived/values";
 import { inMemoryTelemetry } from "@airway/testing/telemetry";
 import { beforeEach, describe, expect, it } from "vitest";
 import type { SeenFile } from "../../src/ingest/readiness.ts";
@@ -54,7 +55,8 @@ describe("checkVersions", () => {
     // Identification.tgt and the .crc files aren't EDF, so `checkVersions` reads a header from
     // every other file.
     expect(first.reads).toBe(
-      first.waiting.filter(({ kind }) => kind !== "identification" && kind !== "crc").length,
+      first.waiting.filter(({ kind }) => kind !== FileKind.Identification && kind !== FileKind.Crc)
+        .length,
     );
 
     const second = await poll(ctx, seen, at(2));

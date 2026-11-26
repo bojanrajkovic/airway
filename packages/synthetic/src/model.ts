@@ -1,6 +1,7 @@
 import { randomLcg, randomNormal, randomPoisson, randomUniform } from "d3-random";
 import { err, ok, type Result } from "neverthrow";
 import { winterOffset } from "@airway/contract/clock";
+import { EventType } from "@airway/contract/derived/values";
 import {
   AIRSENSE,
   PLD_SAMPLE_SECONDS,
@@ -473,11 +474,11 @@ type EpisodeBody = { duration: number } & (
 type Episode = EpisodeBody & { at: Temporal.Instant };
 
 const EVENT_SECONDS: Readonly<Record<MachineEventType, readonly [number, number]>> = {
-  obstructive_apnea: [MACHINE_APNEA_SECONDS, 31],
-  central_apnea: [MACHINE_APNEA_SECONDS, 31],
-  unclassified_apnea: [MACHINE_APNEA_SECONDS, 31],
-  hypopnea: [10, 41],
-  arousal: [3, 16],
+  [EventType.ObstructiveApnea]: [MACHINE_APNEA_SECONDS, 31],
+  [EventType.CentralApnea]: [MACHINE_APNEA_SECONDS, 31],
+  [EventType.UnclassifiedApnea]: [MACHINE_APNEA_SECONDS, 31],
+  [EventType.Hypopnea]: [10, 41],
+  [EventType.Arousal]: [3, 16],
 };
 
 type Episodes = { events: MachineEvent[]; pauses: Pause[] };
@@ -666,7 +667,7 @@ function generatePldSeries(r: Random, inputs: SeriesInputs): PldSeries {
     }));
   const rises = new Set(
     events
-      .filter((event) => event.type !== "arousal")
+      .filter((event) => event.type !== EventType.Arousal)
       .map((event) => Math.round(toSample(event.at) + event.duration / PLD_SAMPLE_SECONDS)),
   );
   let rateDrift = 0;
@@ -754,8 +755,12 @@ function strValues(
     events.filter((event) => types.includes(event.type)).length;
   // Computes the machine's index in tenths as (600 × events) div minutes.
   const index = (n: number): number => (usage > 0 ? Math.floor((600 * n) / usage) / 10 : 0);
-  const apneas = count(["obstructive_apnea", "central_apnea", "unclassified_apnea"]);
-  const hypopneas = count(["hypopnea"]);
+  const apneas = count([
+    EventType.ObstructiveApnea,
+    EventType.CentralApnea,
+    EventType.UnclassifiedApnea,
+  ]);
+  const hypopneas = count([EventType.Hypopnea]);
   const ipap50 = quantile(press, 0.5) + r.uniform(-0.2, 0.2);
   const ipap95 = quantile(press, 0.95) + r.uniform(-0.2, 0.2);
   const ipapMax = max(press) + r.uniform(0.2, 1);
@@ -811,10 +816,10 @@ function strValues(
     AHI: index(apneas + hypopneas),
     HI: index(hypopneas),
     AI: index(apneas),
-    OAI: index(count(["obstructive_apnea"])),
-    CAI: index(count(["central_apnea"])),
-    UAI: index(count(["unclassified_apnea"])),
-    RIN: index(count(["arousal"])),
+    OAI: index(count([EventType.ObstructiveApnea])),
+    CAI: index(count([EventType.CentralApnea])),
+    UAI: index(count([EventType.UnclassifiedApnea])),
+    RIN: index(count([EventType.Arousal])),
     CSR: 0,
     "Fault.Device": 0,
     "Fault.Alarm": 0,

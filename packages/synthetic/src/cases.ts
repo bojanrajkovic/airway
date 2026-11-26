@@ -1,5 +1,6 @@
 import { err, ok, type Result } from "neverthrow";
 import { winterOffset } from "@airway/contract/clock";
+import { EventType } from "@airway/contract/derived/values";
 import {
   randomNight,
   UNDAMAGED_FILES,
@@ -63,7 +64,11 @@ function layPeriods(
   return layout;
 }
 
-const hypopnea = (at: Temporal.Instant): MachineEvent => ({ at, duration: 15, type: "hypopnea" });
+const hypopnea = (at: Temporal.Instant): MachineEvent => ({
+  at,
+  duration: 15,
+  type: EventType.Hypopnea,
+});
 const only = (night: SyntheticNight): Built => ok({ nights: [night] });
 // Returns 21:00 on the night's date in the home time zone.
 const nineOClock = (night: Temporal.PlainDate, zone: string): Temporal.Instant =>

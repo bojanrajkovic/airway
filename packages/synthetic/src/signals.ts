@@ -1,3 +1,4 @@
+import { EventType } from "@airway/contract/derived/values";
 import { PLD_SAMPLE_SECONDS } from "@airway/edf/airsense";
 import { random, type Segment, type SyntheticNight } from "./model.ts";
 
@@ -47,7 +48,7 @@ function pauseRanges(
       .filter(inside)
       .sort((a, b) => a.from - b.from),
     hypopneas: night.events
-      .filter((event) => event.type === "hypopnea")
+      .filter((event) => event.type === EventType.Hypopnea)
       .map(toRange)
       .filter(inside),
   };

@@ -1,23 +1,52 @@
-// Each list names the values that one text column accepts. `ddl.ts` builds the tables' CHECK
-// constraints from these lists.
+// Each enum lists the values that one text column accepts. `ddl.ts` builds the tables' CHECK
+// constraints from these enums.
 
-/** Each value is a result of comparing a night's event count with the machine's AHI. */
-export const AHI_CHECKS = ["match", "mismatch", "no_usage"] as const;
+/** Lists the outcomes of comparing a night's event count with the machine's AHI. */
+export enum AhiOutcome {
+  Match = "match",
+  Mismatch = "mismatch",
+  NoUsage = "no_usage",
+}
+
 /**
- * A `str` session comes from a mask-on and mask-off pair in STR.edf. A `derived` session comes from
- * BRP files.
+ * Lists the sources that a session can come from. A `str` session comes from a mask-on and mask-off pair in
+ * STR.edf. A `derived` session comes from BRP files.
  */
-export const SESSION_SOURCES = ["str", "derived"] as const;
-export const EVENT_TYPES = [
-  "obstructive_apnea",
-  "central_apnea",
-  "unclassified_apnea",
-  "hypopnea",
-  "arousal",
-  "other",
-] as const;
-export const EVENT_SOURCES = ["resmed", "airway_candidate"] as const;
-export const FILE_KINDS = ["brp", "pld", "eve", "str", "identification", "crc"] as const;
-export const PERIODS = ["week", "month"] as const;
-/** airway stores weekly and monthly percentiles for these sample signals. */
-export const PERCENTILE_SIGNALS = ["leak", "mask_pressure"] as const;
+export enum SessionSource {
+  Str = "str",
+  Derived = "derived",
+}
+
+export enum EventType {
+  ObstructiveApnea = "obstructive_apnea",
+  CentralApnea = "central_apnea",
+  UnclassifiedApnea = "unclassified_apnea",
+  Hypopnea = "hypopnea",
+  Arousal = "arousal",
+  Other = "other",
+}
+
+export enum EventSource {
+  Resmed = "resmed",
+  AirwayCandidate = "airway_candidate",
+}
+
+export enum FileKind {
+  Brp = "brp",
+  Pld = "pld",
+  Eve = "eve",
+  Str = "str",
+  Identification = "identification",
+  Crc = "crc",
+}
+
+export enum Period {
+  Week = "week",
+  Month = "month",
+}
+
+/** Lists the sample signals that airway stores weekly and monthly percentiles for. */
+export enum PercentileSignal {
+  Leak = "leak",
+  MaskPressure = "mask_pressure",
+}

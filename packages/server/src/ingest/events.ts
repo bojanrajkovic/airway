@@ -6,7 +6,8 @@ import { nightRow, type ScoredNight } from "@airway/contract/derived/nights";
 import type { EventRow } from "@airway/contract/derived/rows";
 import { assignEvents, type Session, type Sessions } from "@airway/contract/derived/sessions";
 import type { UsedStrDay } from "@airway/contract/derived/str";
-import { EVENT_TYPES } from "@airway/contract/derived/values";
+import { AhiOutcome, EventSource, EventType, type FileKind } from "@airway/contract/derived/values";
+import { valuesOf } from "@airway/contract/enum";
 import { ruleSetFor } from "@airway/contract/profile";
 import { AIRSENSE, EVENT_LABELS } from "@airway/edf/airsense";
 import type { EdfAnnotation } from "@airway/edf/annotations";
@@ -21,7 +22,7 @@ import type { ReadyFile } from "./versions.ts";
  * Describes an EVE file that passed the readiness check. `edf` is the header that the check
  * read.
  */
-export type EveFile = ReadyFile & { kind: "eve"; edf: EdfFileHeaders };
+export type EveFile = ReadyFile & { kind: FileKind.Eve; edf: EdfFileHeaders };
 
 /** Describes one night's input to `scoreNight`. `buildNight` produces `sessions`. */
 export type NightEvents = {
@@ -56,12 +57,10 @@ export type UnknownLabel = { label: string; path: string; count: number };
 
 export type PlacedEvents = { events: EventRow[]; unknownLabels: UnknownLabel[] };
 
-type EventType = (typeof EVENT_TYPES)[number];
-
 /** Maps each EVE label, in lowercase, to its event type. */
 const EVENT_TYPE_OF: ReadonlyMap<string, EventType> = new Map(
-  EVENT_TYPES.flatMap((type) =>
-    type === "other" ? [] : [[EVENT_LABELS[type].toLowerCase(), type] as const],
+  valuesOf(EventType).flatMap((type) =>
+    type === EventType.Other ? [] : [[EVENT_LABELS[type].toLowerCase(), type] as const],
   ),
 );
 
@@ -89,9 +88,9 @@ export function toEvents(
           return [];
         }
 
-        const type = EVENT_TYPE_OF.get(label.toLowerCase()) ?? "other";
+        const type = EVENT_TYPE_OF.get(label.toLowerCase()) ?? EventType.Other;
 
-        if (type === "other") {
+        if (type === EventType.Other) {
           const key = JSON.stringify([path, label]);
           const seen = unknown.get(key);
 
@@ -117,7 +116,7 @@ export function toEvents(
       night,
       session: places[i]?.session ?? null,
       ...event,
-      source: "resmed",
+      source: EventSource.Resmed,
       outside_mask_on: places[i]?.outsideMaskOn ?? true,
     })),
     unknownLabels: [...unknown.values()],
@@ -153,7 +152,7 @@ function report(span: OtelSpan, logger: Logger, placed: PlacedEvents, scored: Sc
     logger.warn({ label, path, count }, "Unknown event label");
   }
 
-  if (scored.ahi.outcome === "mismatch") {
+  if (scored.ahi.outcome === AhiOutcome.Mismatch) {
     const { computed, machine } = scored.ahi;
 
     span.addEvent("ingest.ahi_mismatch", {

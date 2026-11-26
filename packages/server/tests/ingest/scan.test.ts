@@ -1,6 +1,7 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
+import { FileKind } from "@airway/contract/derived/values";
 import { scanCpapData, type Scan } from "../../src/ingest/scan.ts";
 import { folderContext, syntheticFolder, writeFolder } from "../support/cpap-folder.ts";
 
@@ -21,7 +22,7 @@ describe("scanCpapData", () => {
     expect(scanned.map(({ path }) => path).toSorted(byText)).toEqual(
       kept.map(({ path }) => path).toSorted(byText),
     );
-    expect(scanned.filter(({ kind }) => kind === "crc")).not.toHaveLength(0);
+    expect(scanned.filter(({ kind }) => kind === FileKind.Crc)).not.toHaveLength(0);
     expect(skipped).toEqual({
       sad: files.filter(({ path }) => path.endsWith("_SAD.edf")).length,
       csl: files.filter(({ path }) => path.endsWith("_CSL.edf")).length,
