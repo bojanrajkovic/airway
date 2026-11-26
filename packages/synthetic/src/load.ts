@@ -10,6 +10,7 @@ import {
 } from "@airway/contract/derived/ddl";
 import { periodPercentiles } from "@airway/contract/derived/percentiles";
 import type { DerivedRows, SignalValues } from "@airway/contract/derived/rows";
+import { COLUMN_UNITS } from "@airway/edf/airsense";
 
 export type LoadOptions = {
   /** Defaults to `derived`, the schema that queries read. */
@@ -23,10 +24,13 @@ const READER = "airway_reader";
 
 const BATCH_ROWS = 5000;
 
+const DECIMALS: ReadonlyMap<string, number> = new Map(
+  COLUMN_UNITS.map((unit) => [`${unit.dataset}.${unit.column_name}`, unit.decimals]),
+);
+
 // Parent tables load first, so each foreign key references an existing row.
 const ORDER = [
   "device",
-  "column_units",
   "daily_usage",
   "settings_changes",
   "nights",
@@ -83,11 +87,7 @@ function cells(row: Row): [string, Cell][] {
 
 type Target = { schema: DerivedSchema; table: string; rows: readonly Row[] };
 
-async function copy(
-  client: pg.Client,
-  { schema, table, rows }: Target,
-  decimals: ReadonlyMap<string, number>,
-): Promise<void> {
+async function copy(client: pg.Client, { schema, table, rows }: Target): Promise<void> {
   const [first] = rows;
 
   if (first === undefined) {
@@ -95,7 +95,7 @@ async function copy(
   }
 
   const columns = cells(first).map(([column]) => column);
-  const places = columns.map((column) => decimals.get(`${table}.${column}`));
+  const places = columns.map((column) => DECIMALS.get(`${table}.${column}`));
   // Rows go out in batches, because a stream chunk per row costs more than the row itself.
   const batches = function* (): Generator<string> {
     for (let start = 0; start < rows.length; start += BATCH_ROWS) {
@@ -123,17 +123,13 @@ export async function loadDerived(
   rows: DerivedRows,
   { schema = "derived", builtAt }: LoadOptions,
 ): Promise<void> {
-  const decimals = new Map(
-    rows.column_units.map((unit) => [`${unit.dataset}.${unit.column_name}`, unit.decimals]),
-  );
-
   await client.query("begin");
 
   try {
     await client.query(derivedTables(schema));
 
     for (const table of ORDER) {
-      await copy(client, { schema, table, rows: rows[table] }, decimals);
+      await copy(client, { schema, table, rows: rows[table] });
     }
 
     await client.query(derivedIndexesAndKeys(schema));

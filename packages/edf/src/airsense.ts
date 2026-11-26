@@ -1,6 +1,5 @@
-import type { ColumnUnitRow } from "@airway/contract/derived/rows";
 import type { EVENT_TYPES } from "@airway/contract/derived/values";
-import { decimalsForStep } from "@airway/contract/registry/units";
+import { decimalsForStep, type ColumnUnit } from "@airway/contract/registry/units";
 import type { EdfHeader, SignalHeader } from "./header.ts";
 
 /**
@@ -274,8 +273,11 @@ export const EVENT_LABELS: Readonly<
   arousal: "Arousal",
 };
 
-// Returns the column_units rows for the signals of `file` that are stored in the `dataset` table.
-const unitRows = (file: EdfFileType, dataset: "nights" | "samples"): ColumnUnitRow[] =>
+/** The unit and decimals of a dataset column that holds a machine signal. */
+export type SignalColumnUnit = ColumnUnit & { dataset: string; column_name: string };
+
+// Returns the unit and decimals of each signal in `file` that's stored in the `dataset` table.
+const unitRows = (file: EdfFileType, dataset: "nights" | "samples"): SignalColumnUnit[] =>
   dataSignals(file).flatMap((signal) =>
     signal.target.table === dataset
       ? [
@@ -290,8 +292,11 @@ const unitRows = (file: EdfFileType, dataset: "nights" | "samples"): ColumnUnitR
   );
 const flowDecimals = decimalsForStep(step(flow));
 
-/** The rows of the `column_units` table. docs/data-model.md#units explains the decimals. */
-export const COLUMN_UNITS: readonly ColumnUnitRow[] = [
+/**
+ * Lists the unit and decimals of each column that stores a machine signal.
+ * docs/data-model.md#units explains the decimals.
+ */
+export const COLUMN_UNITS: readonly SignalColumnUnit[] = [
   ...unitRows(str, "nights"),
   ...unitRows(pld, "samples"),
   { dataset: "breaths", column_name: "amplitude", unit: flow.unit, decimals: flowDecimals },

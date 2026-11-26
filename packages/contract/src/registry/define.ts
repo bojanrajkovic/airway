@@ -98,8 +98,8 @@ export type Dataset = {
 };
 
 /**
- * Builds a metric column for a value that the machine recorded. Ingest looks up the value's unit in
- * `@airway/edf`'s AirSense table and writes the unit to `column_units`.
+ * Builds a metric column for a value that the machine recorded. Its unit comes from `@airway/edf`'s
+ * `COLUMN_UNITS`.
  */
 export function signal(name: string, description: string): MetricColumn {
   return {

@@ -18,7 +18,6 @@ import { settingsChanges } from "@airway/contract/derived/settings";
 import type { StrDay, UsedStrDay } from "@airway/contract/derived/str";
 import {
   AIRSENSE,
-  COLUMN_UNITS,
   dataSignals,
   EVENT_LABELS,
   PLD_SAMPLE_SECONDS,
@@ -183,7 +182,6 @@ function strDays(used: readonly UsedStrDay[]): StrDay[] {
 function emptyRows(days: readonly StrDay[]): DerivedRows {
   return {
     device: [{ serial: DEVICE.serial, model: DEVICE.model }],
-    column_units: [...COLUMN_UNITS],
     daily_usage: days.map(({ day, ...record }) => ({
       day,
       usage: record.used ? (record.signals["usage"] ?? 0) : 0,
