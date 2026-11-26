@@ -1,9 +1,10 @@
 import { describe, expect, it } from "vitest";
+import { ShortLinkKind } from "../../src/notes/values.ts";
 import { shortCode, type ShortLinkTarget } from "../../src/query/short-code.ts";
 import { parseSpec } from "../../src/query/spec.ts";
 
 const spec = (input: unknown): ShortLinkTarget => ({
-  kind: "spec",
+  kind: ShortLinkKind.Spec,
   spec: parseSpec(input)._unsafeUnwrap(),
 });
 const events = { v: 1, dataset: "events", nights: { last: 7 } };
@@ -35,7 +36,10 @@ describe("shortCode", () => {
       code: "2hrnw64mrp",
     },
     {
-      target: { kind: "sql", text: "select count(*) from nights" } satisfies ShortLinkTarget,
+      target: {
+        kind: ShortLinkKind.Sql,
+        text: "select count(*) from nights",
+      } satisfies ShortLinkTarget,
       code: "twzsvpdnh7",
     },
   ])("still gives $code", async ({ target, code }) => {
@@ -51,12 +55,14 @@ describe("shortCode", () => {
   it("gives different codes to a spec and to SQL with the same text", async () => {
     const text = '{"v":1,"dataset":"events","nights":{"last":7}}';
 
-    await expect(shortCode({ kind: "sql", text })).resolves.not.toBe(await shortCode(spec(events)));
+    await expect(shortCode({ kind: ShortLinkKind.Sql, text })).resolves.not.toBe(
+      await shortCode(spec(events)),
+    );
   });
 
   it("ignores white space around a SQL statement", async () => {
-    await expect(shortCode({ kind: "sql", text: "\n  select 1\n" })).resolves.toBe(
-      await shortCode({ kind: "sql", text: "select 1" }),
+    await expect(shortCode({ kind: ShortLinkKind.Sql, text: "\n  select 1\n" })).resolves.toBe(
+      await shortCode({ kind: ShortLinkKind.Sql, text: "select 1" }),
     );
   });
 });

@@ -1,3 +1,4 @@
+import { ShortLinkKind } from "../notes/values.ts";
 import { canonicalJson } from "./canonical.ts";
 import type { QuerySpec } from "./spec.ts";
 
@@ -9,7 +10,9 @@ declare const crypto: {
 declare const TextEncoder: new () => { encode: (text: string) => Uint8Array };
 
 /** A short link opens either a builder query or a SQL statement. */
-export type ShortLinkTarget = { kind: "spec"; spec: QuerySpec } | { kind: "sql"; text: string };
+export type ShortLinkTarget =
+  | { kind: ShortLinkKind.Spec; spec: QuerySpec }
+  | { kind: ShortLinkKind.Sql; text: string };
 
 // Codes use Crockford's base32 in lower case. It omits i, l, o, and u, which are easy to misread.
 const ALPHABET = "0123456789abcdefghjkmnpqrstvwxyz";
@@ -25,7 +28,7 @@ const BYTES = 7;
  * its ends.
  */
 export async function shortCode(target: ShortLinkTarget): Promise<string> {
-  const text = target.kind === "spec" ? canonicalJson(target.spec) : target.text.trim();
+  const text = target.kind === ShortLinkKind.Spec ? canonicalJson(target.spec) : target.text.trim();
   const hash = await crypto.subtle.digest(
     "SHA-256",
     new TextEncoder().encode(`${target.kind}\n${text}`),

@@ -11,29 +11,12 @@ import {
   text,
   unique,
 } from "drizzle-orm/pg-core";
+import { valuesOf } from "../enum.ts";
 import type { AgentResult } from "../api/agent.ts";
-import { CHANNELS } from "../author.ts";
+import { Channel } from "../author.ts";
 import type { QuerySpecInput } from "../query/spec.ts";
 import { instant, plainDate } from "./columns.ts";
-
-/** Lists the categories that a note can be in. A `finding` note also has a row in `findings`. */
-export const NOTE_CATEGORIES = [
-  "procedure",
-  "study",
-  "medication",
-  "illness",
-  "equipment",
-  "finding",
-  "other",
-] as const;
-export type NoteCategory = (typeof NOTE_CATEGORIES)[number];
-
-/** Says whether a note's dates are known to the day, the month, or the year. */
-export const DATE_PRECISIONS = ["day", "month", "year"] as const;
-export type DatePrecision = (typeof DATE_PRECISIONS)[number];
-
-/** Lists the kinds of query that a short link can open. */
-export const SHORT_LINK_KINDS = ["spec", "sql"] as const;
+import { DatePrecision, NoteCategory, ShortLinkKind } from "./values.ts";
 
 /** A note's body can be at most this many characters long. */
 export const MAX_BODY_LENGTH = 32_000;
@@ -50,7 +33,7 @@ const oneOf = (column: Column, values: readonly string[]): SQL =>
 const authorColumns = () => ({
   authorEmail: text("author_email").notNull(),
   authorName: text("author_name").notNull(),
-  authorChannel: text("author_channel", { enum: CHANNELS }).notNull(),
+  authorChannel: text("author_channel", { enum: valuesOf(Channel) }).notNull(),
 });
 
 export const notesSchema = pgSchema("notes");
@@ -65,10 +48,12 @@ export const notes = notesSchema.table(
     id: bigint("id", { mode: "number" }).primaryKey().generatedAlwaysAsIdentity(),
     firstNight: plainDate("first_night").notNull(),
     lastNight: plainDate("last_night"),
-    datePrecision: text("date_precision", { enum: DATE_PRECISIONS }).notNull().default("day"),
+    datePrecision: text("date_precision", { enum: valuesOf(DatePrecision) })
+      .notNull()
+      .default(DatePrecision.Day),
     startsAt: instant("starts_at"),
     endsAt: instant("ends_at"),
-    category: text("category", { enum: NOTE_CATEGORIES }).notNull(),
+    category: text("category", { enum: valuesOf(NoteCategory) }).notNull(),
     body: text("body").notNull(),
     ...authorColumns(),
     createdAt: instant("created_at")
@@ -83,9 +68,9 @@ export const notes = notesSchema.table(
     // The findings foreign key points at (id, category), so a finding can reference only a
     // finding note.
     unique("notes_id_category").on(table.id, table.category),
-    check("notes_category", oneOf(table.category, NOTE_CATEGORIES)),
-    check("notes_author_channel", oneOf(table.authorChannel, CHANNELS)),
-    check("notes_date_precision", oneOf(table.datePrecision, DATE_PRECISIONS)),
+    check("notes_category", oneOf(table.category, valuesOf(NoteCategory))),
+    check("notes_author_channel", oneOf(table.authorChannel, valuesOf(Channel))),
+    check("notes_date_precision", oneOf(table.datePrecision, valuesOf(DatePrecision))),
     // Each night must be the first day of its period, such as the 1st for `month`, so that sorting
     // and range filters work.
     check(
@@ -125,7 +110,7 @@ export const shortLinks = notesSchema.table(
   "short_links",
   {
     code: text("code").primaryKey(),
-    kind: text("kind", { enum: SHORT_LINK_KINDS }).notNull(),
+    kind: text("kind", { enum: valuesOf(ShortLinkKind) }).notNull(),
     spec: jsonb("spec").$type<QuerySpecInput>(),
     sql: text("sql"),
     createdAt: instant("created_at")
@@ -149,9 +134,9 @@ export const findings = notesSchema.table(
   "findings",
   {
     noteId: bigint("note_id", { mode: "number" }).primaryKey(),
-    category: text("category", { enum: ["finding"] })
+    category: text("category", { enum: [NoteCategory.Finding] })
       .notNull()
-      .default("finding"),
+      .default(NoteCategory.Finding),
     shortCode: text("short_code")
       .notNull()
       .references(() => shortLinks.code),
@@ -205,7 +190,7 @@ export const queryHistory = notesSchema.table(
     truncated: boolean("truncated").notNull(),
   },
   (table) => [
-    check("query_history_author_channel", oneOf(table.authorChannel, CHANNELS)),
+    check("query_history_author_channel", oneOf(table.authorChannel, valuesOf(Channel))),
     check("query_history_row_count", sql`${table.rowCount} >= 0`),
   ],
 );

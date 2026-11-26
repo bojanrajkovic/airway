@@ -19,7 +19,7 @@ import { settingsChanges } from "@airway/contract/derived/settings";
 import type { StrDay, UsedStrDay } from "@airway/contract/derived/str";
 import { EVENT_LABELS, PLD_SAMPLE_SECONDS } from "@airway/edf/airsense";
 import { PLD_SAMPLE_COLUMNS, STR_NIGHT_COLUMNS, STR_SETTINGS } from "@airway/edf/columns";
-import type { RuleSet } from "@airway/contract/profile";
+import { RuleSet } from "@airway/contract/profile";
 import { datalogFiles, folderFiles, type CpapFile, type DatalogFile } from "./cpap-data.ts";
 import {
   DEVICE,
@@ -46,7 +46,10 @@ export type SynthesizeOptions = {
 /** Contains a CPAP data folder and the rows that ingest should derive from it. */
 export type Synthesized = { files: CpapFile[]; rows: DerivedRows };
 
-const RULE_SETS: Readonly<Record<Patient, RuleSet>> = { child: "pediatric", adult: "adult" };
+const RULE_SETS: Readonly<Record<Patient, RuleSet>> = {
+  child: RuleSet.Pediatric,
+  adult: RuleSet.Adult,
+};
 
 const value = (n: number | undefined): number | null =>
   n === undefined || Number.isNaN(n) ? null : n;

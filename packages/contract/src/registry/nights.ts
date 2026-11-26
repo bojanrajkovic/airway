@@ -1,14 +1,14 @@
 import { valuesOf } from "../enum.ts";
 import { AhiOutcome } from "../derived/values.ts";
-import { RULE_SETS } from "../profile.ts";
+import { RuleSet } from "../profile.ts";
 import { count, minutes, night } from "./columns.ts";
 import {
+  Combine,
   dimension,
   enumeration,
   metric,
   signal,
   time,
-  type Combine,
   type Dataset,
   type DimensionColumn,
   type MetricColumn,
@@ -42,16 +42,16 @@ function machineStatistics(
   return statistics.map((statistic) =>
     combined(
       signal(`${name}_${statistic}`, `${STATISTICS[statistic]} ${what} over the night.`),
-      statistic === "max" ? "max" : "median",
+      statistic === "max" ? Combine.Max : Combine.Median,
     ),
   );
 }
 
 const perHour = (name: string, what: string): NightsMetric =>
-  combined(signal(name, `${what} per hour of use, as the machine scored them.`), "rate");
+  combined(signal(name, `${what} per hour of use, as the machine scored them.`), Combine.Rate);
 // airway averages durations and counts over a week's nights, so the week's value is on the same
 // scale as one night's value.
-const perNight = (column: MetricColumn): NightsMetric => combined(column, "mean");
+const perNight = (column: MetricColumn): NightsMetric => combined(column, Combine.Mean);
 const eventCount = (name: string, what: string): NightsMetric =>
   perNight(metric(name, count("events"), `${what} that the machine flagged.`));
 
@@ -118,7 +118,11 @@ export const nights: Omit<Dataset, "columns"> & {
       valuesOf(AhiOutcome),
       "Whether the AHI that airway recomputes from the events equals the machine's AHI.",
     ),
-    enumeration("rule_set", RULE_SETS, "The scoring rules for the patient's age on this night."),
+    enumeration(
+      "rule_set",
+      valuesOf(RuleSet),
+      "The scoring rules for the patient's age on this night.",
+    ),
     time("arrived_at", "timestamp", "When the night's files finished arriving."),
   ],
 };

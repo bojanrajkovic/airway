@@ -1,10 +1,11 @@
 import { err, ok, Result } from "neverthrow";
 import { z } from "zod";
+import { valuesOf } from "../enum.ts";
 import { DATASETS } from "../registry/datasets.ts";
 import {
-  COMPARISONS,
-  MEMBERSHIP,
-  NULL_CHECKS,
+  Comparison,
+  Membership,
+  NullCheck,
   operationsFor,
   type Column,
   type Dataset,
@@ -65,27 +66,48 @@ export function granularitiesFor(dataset: Dataset, nights?: Nights): readonly Gr
     : steps.filter((step) => nightCount(nights) <= MAX_NIGHTS[step]);
 }
 
+/** Lists the calculations that a query can run on a column. */
+export enum CalculationOp {
+  Count = "COUNT",
+  CountDistinct = "COUNT_DISTINCT",
+  Sum = "SUM",
+  Avg = "AVG",
+  P001 = "P001",
+  P01 = "P01",
+  P05 = "P05",
+  P10 = "P10",
+  P20 = "P20",
+  P25 = "P25",
+  P50 = "P50",
+  P75 = "P75",
+  P80 = "P80",
+  P90 = "P90",
+  P95 = "P95",
+  P99 = "P99",
+  P999 = "P999",
+  Min = "MIN",
+  Max = "MAX",
+}
+
 export const PERCENTILES = [
-  "P001",
-  "P01",
-  "P05",
-  "P10",
-  "P20",
-  "P25",
-  "P50",
-  "P75",
-  "P80",
-  "P90",
-  "P95",
-  "P99",
-  "P999",
+  CalculationOp.P001,
+  CalculationOp.P01,
+  CalculationOp.P05,
+  CalculationOp.P10,
+  CalculationOp.P20,
+  CalculationOp.P25,
+  CalculationOp.P50,
+  CalculationOp.P75,
+  CalculationOp.P80,
+  CalculationOp.P90,
+  CalculationOp.P95,
+  CalculationOp.P99,
+  CalculationOp.P999,
 ] as const;
 // These take a metric column and return a number.
-const NUMERIC = ["SUM", "AVG", ...PERCENTILES] as const;
+const NUMERIC = [CalculationOp.Sum, CalculationOp.Avg, ...PERCENTILES] as const;
 // These take a number, integer, timestamp, or date column and return a value of the same kind.
-const EXTREMES = ["MIN", "MAX"] as const;
-export const CALCULATION_OPS = ["COUNT", "COUNT_DISTINCT", ...NUMERIC, ...EXTREMES] as const;
-export type CalculationOp = (typeof CALCULATION_OPS)[number];
+const EXTREMES = [CalculationOp.Min, CalculationOp.Max] as const;
 
 export const LIMITS = {
   calculations: 10,
@@ -180,11 +202,11 @@ function filterSchema(column: Column) {
   const name = z.literal(column.name);
   const value = valueSchema(column);
 
-  const lists = only(MEMBERSHIP);
+  const lists = only(valuesOf(Membership));
 
   return z.discriminatedUnion("op", [
-    z.strictObject({ column: name, op: z.enum(only(COMPARISONS)), value }),
-    z.strictObject({ column: name, op: z.enum(NULL_CHECKS) }),
+    z.strictObject({ column: name, op: z.enum(only(valuesOf(Comparison))), value }),
+    z.strictObject({ column: name, op: z.enum(NullCheck) }),
     // z.discriminatedUnion throws when an option's `op` enum is empty, so only columns with list
     // operations include this shape.
     ...(lists.length > 0
@@ -209,11 +231,11 @@ export const isOneOf = <Value extends string>(
 
 /** Returns the columns that a calculation can take, which is an empty list for COUNT. */
 export function columnsFor({ columns }: Dataset, op: CalculationOp): string[] {
-  if (op === "COUNT") {
+  if (op === CalculationOp.Count) {
     return [];
   }
 
-  if (op === "COUNT_DISTINCT") {
+  if (op === CalculationOp.CountDistinct) {
     return namesOf(columns);
   }
 
@@ -233,13 +255,16 @@ export function columnsFor({ columns }: Dataset, op: CalculationOp): string[] {
 // oxlint-disable-next-line typescript/explicit-function-return-type -- zod infers this schema's type; writing it out would repeat the schema
 function calculationSchema(dataset: Dataset) {
   return z.discriminatedUnion("op", [
-    z.strictObject({ op: z.literal("COUNT") }),
+    z.strictObject({ op: z.literal(CalculationOp.Count) }),
     z.strictObject({
-      op: z.literal("COUNT_DISTINCT"),
-      column: z.enum(columnsFor(dataset, "COUNT_DISTINCT")),
+      op: z.literal(CalculationOp.CountDistinct),
+      column: z.enum(columnsFor(dataset, CalculationOp.CountDistinct)),
     }),
-    z.strictObject({ op: z.enum(NUMERIC), column: z.enum(columnsFor(dataset, "SUM")) }),
-    z.strictObject({ op: z.enum(EXTREMES), column: z.enum(columnsFor(dataset, "MIN")) }),
+    z.strictObject({ op: z.enum(NUMERIC), column: z.enum(columnsFor(dataset, CalculationOp.Sum)) }),
+    z.strictObject({
+      op: z.enum(EXTREMES),
+      column: z.enum(columnsFor(dataset, CalculationOp.Min)),
+    }),
   ]);
 }
 
@@ -255,7 +280,7 @@ export function calculationKind(
   dataset: Dataset,
   { op, column }: CalculationReference,
 ): "number" | "integer" | "timestamp" | "date" {
-  if (op === "COUNT" || op === "COUNT_DISTINCT") {
+  if (op === CalculationOp.Count || op === CalculationOp.CountDistinct) {
     return "integer";
   }
 
@@ -334,7 +359,7 @@ function fieldsSchema(dataset: Dataset) {
       .array(calculationSchema(dataset))
       .min(1)
       .max(LIMITS.calculations)
-      .default([{ op: "COUNT" }]),
+      .default([{ op: CalculationOp.Count }]),
     filters: z
       .array(z.discriminatedUnion("column", mapNonEmpty(dataset.columns, filterSchema)))
       .max(LIMITS.filters)
@@ -348,7 +373,7 @@ function fieldsSchema(dataset: Dataset) {
     orders: z
       .array(
         z.strictObject({
-          op: z.enum(CALCULATION_OPS).optional(),
+          op: z.enum(CalculationOp).optional(),
           column: columns.optional(),
           order: z.enum(["ascending", "descending"]).default("descending"),
         }),
@@ -358,9 +383,9 @@ function fieldsSchema(dataset: Dataset) {
     havings: z
       .array(
         z.strictObject({
-          calculate_op: z.enum(CALCULATION_OPS),
+          calculate_op: z.enum(CalculationOp),
           column: columns.optional(),
-          op: z.enum(COMPARISONS),
+          op: z.enum(Comparison),
           value: z.union([z.number(), z.string()]),
         }),
       )

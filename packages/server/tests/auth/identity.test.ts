@@ -1,6 +1,7 @@
 import { Writable } from "node:stream";
 import { pino } from "pino";
 import { describe, expect, it } from "vitest";
+import { Channel } from "@airway/contract/author";
 import { identifier, toAuthor } from "../../src/auth/identity.ts";
 import { testContext } from "../support/context.ts";
 import { MCP_HOST, testIssuer, UI_HOST } from "../support/tokens.ts";
@@ -9,7 +10,7 @@ const issuer = testIssuer();
 
 describe("toAuthor", () => {
   it("uses the identity's name", () => {
-    expect(toAuthor({ email: "sam@example.test", name: " Sam Rivera " }, "web")).toEqual({
+    expect(toAuthor({ email: "sam@example.test", name: " Sam Rivera " }, Channel.Web)).toEqual({
       email: "sam@example.test",
       name: "Sam Rivera",
       channel: "web",
@@ -19,7 +20,7 @@ describe("toAuthor", () => {
   it.each([undefined, "", "  "])(
     "falls back to the email's local part when the name is %j",
     (name) => {
-      expect(toAuthor({ email: "sam@example.test", name }, "mcp")).toEqual({
+      expect(toAuthor({ email: "sam@example.test", name }, Channel.Mcp)).toEqual({
         email: "sam@example.test",
         name: "sam",
         channel: "mcp",
@@ -32,7 +33,7 @@ describe("identifier with auth off", () => {
   it("returns the configured local person, on the request's channel, when the headers are empty", async () => {
     const identify = identifier(testContext());
 
-    expect((await identify(new Headers(), "mcp"))._unsafeUnwrap()).toEqual({
+    expect((await identify(new Headers(), Channel.Mcp))._unsafeUnwrap()).toEqual({
       name: "Sam Rivera",
       email: "sam@example.test",
       channel: "mcp",
@@ -63,7 +64,7 @@ describe("identifier with Pomerium", () => {
       expiresAt: now.subtract({ seconds: 1 }),
     });
 
-    const result = await identify(new Headers({ "X-Pomerium-Jwt-Assertion": token }), "web");
+    const result = await identify(new Headers({ "X-Pomerium-Jwt-Assertion": token }), Channel.Web);
 
     expect(result._unsafeUnwrapErr().kind).toBe("expired");
     expect(lines).toHaveLength(1);

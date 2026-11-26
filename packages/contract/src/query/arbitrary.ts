@@ -2,23 +2,24 @@
 // "parsing a parsed spec changes nothing" against thousands of these specs instead of a few
 // written by hand. The tests cover a new column or operation without any new test code.
 import fc from "fast-check";
+import { valuesOf } from "../enum.ts";
 import { DATASETS } from "../registry/datasets.ts";
 import {
-  COMPARISONS,
-  MEMBERSHIP,
-  NULL_CHECKS,
+  Comparison,
+  Membership,
+  NullCheck,
   operationsFor,
   type Column,
   type Dataset,
 } from "../registry/define.ts";
 import {
-  CALCULATION_OPS,
-  LIMITS,
   calculationKind,
   calculationLabel,
+  CalculationOp,
   columnsFor,
   granularitiesFor,
   isOneOf,
+  LIMITS,
   parseSpec,
   type Calculation,
   type Filter,
@@ -51,11 +52,11 @@ function filterOf(column: Column): fc.Arbitrary<Filter> {
   const { name } = column;
 
   return fc.constantFrom(...operationsFor(column)).chain((op): fc.Arbitrary<Filter> => {
-    if (isOneOf(NULL_CHECKS, op)) {
+    if (isOneOf(valuesOf(NullCheck), op)) {
       return fc.constant({ column: name, op });
     }
 
-    return isOneOf(MEMBERSHIP, op)
+    return isOneOf(valuesOf(Membership), op)
       ? fc
           .array(valueOf(column), { minLength: 1, maxLength: LIMITS.list })
           .map((value) => ({ column: name, op, value }))
@@ -65,9 +66,9 @@ function filterOf(column: Column): fc.Arbitrary<Filter> {
 
 function calculationOf(dataset: Dataset): fc.Arbitrary<Calculation> {
   return fc
-    .constantFrom(...CALCULATION_OPS)
+    .constantFrom(...valuesOf(CalculationOp))
     .chain((op): fc.Arbitrary<Calculation> =>
-      op === "COUNT"
+      op === CalculationOp.Count
         ? fc.constant({ op })
         : fc.constantFrom(...columnsFor(dataset, op)).map((column) => ({ op, column })),
     );
@@ -97,7 +98,10 @@ function references(
     .constantFrom(...calculations)
     .chain(({ op, ...column }) =>
       fc
-        .tuple(fc.constantFrom(...COMPARISONS), VALUES[calculationKind(dataset, { op, ...column })])
+        .tuple(
+          fc.constantFrom(...valuesOf(Comparison)),
+          VALUES[calculationKind(dataset, { op, ...column })],
+        )
         .map(([comparison, value]) => ({ calculate_op: op, ...column, op: comparison, value })),
     );
 
@@ -148,7 +152,11 @@ function specOf(dataset: Dataset): fc.Arbitrary<QuerySpecInput> {
   return clauses.chain((spec) =>
     fc
       .tuple(
-        references(dataset, spec.calculations ?? [{ op: "COUNT" }], spec.breakdowns ?? []),
+        references(
+          dataset,
+          spec.calculations ?? [{ op: CalculationOp.Count }],
+          spec.breakdowns ?? [],
+        ),
         fc.record(
           {
             granularity: fc.constantFrom(

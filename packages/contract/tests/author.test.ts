@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { authorLabel, type Author } from "../src/author.ts";
+import { authorLabel, Channel, type Author } from "../src/author.ts";
 
 const person = (name: string, channel: Author["channel"]): Author => ({
   email: "sam@example.test",
@@ -9,10 +9,10 @@ const person = (name: string, channel: Author["channel"]): Author => ({
 
 describe("authorLabel", () => {
   it.each([
-    ["Sam Rivera", "web", "Sam"],
-    ["Sam Rivera", "mcp", "Agent for Sam"],
-    ["  Sam  ", "web", "Sam"],
-    ["sam", "mcp", "Agent for sam"],
+    ["Sam Rivera", Channel.Web, "Sam"],
+    ["Sam Rivera", Channel.Mcp, "Agent for Sam"],
+    ["  Sam  ", Channel.Web, "Sam"],
+    ["sam", Channel.Mcp, "Agent for sam"],
   ] as const)("labels %j on %s as %j", (name, channel, label) => {
     expect(authorLabel(person(name, channel))).toBe(label);
   });

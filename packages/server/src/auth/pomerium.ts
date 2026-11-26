@@ -1,6 +1,6 @@
 // Reads a request's identity from Pomerium's signed token. docs/auth.md describes what the
 // verifier checks and why.
-import type { Channel } from "@airway/contract/author";
+import { Channel } from "@airway/contract/author";
 import { createRemoteJWKSet, errors, jwtVerify } from "jose";
 import { err, errAsync, ok, ResultAsync } from "neverthrow";
 import { z } from "zod";
@@ -53,7 +53,10 @@ export function pomeriumVerifier(
   clock: () => Temporal.Instant,
 ): Verifier {
   const jwks = createRemoteJWKSet(new URL(auth.jwksUrl));
-  const hosts: Record<Channel, string> = { web: auth.uiHost, mcp: auth.mcpHost };
+  const hosts: Record<Channel, string> = {
+    [Channel.Web]: auth.uiHost,
+    [Channel.Mcp]: auth.mcpHost,
+  };
 
   return (headers, channel) => {
     const token = headers.get(TOKEN_HEADER);

@@ -1,3 +1,4 @@
+import { valuesOf } from "../enum.ts";
 import type { ColumnUnit } from "./units.ts";
 
 /** Stands for the home time zone in a column's SQL. `render` turns it into a bound parameter. */
@@ -65,12 +66,15 @@ export type DimensionColumn = Described &
     | { role: "dimension"; kind: "enum"; values: readonly [string, ...string[]] }
   );
 /**
- * Each value is a way to combine a nights metric's nightly values into one value for a week or
- * month.
+ * Lists the ways to combine a nights metric's nightly values into one value for a week or month.
  * docs/trends.md describes each one.
  */
-export const COMBINE = ["rate", "median", "max", "mean"] as const;
-export type Combine = (typeof COMBINE)[number];
+export enum Combine {
+  Rate = "rate",
+  Median = "median",
+  Max = "max",
+  Mean = "mean",
+}
 
 export type MetricColumn = Described & {
   role: "metric";
@@ -143,18 +147,27 @@ export function time(name: string, kind: TimeColumn["kind"], description: string
   return { name, description, role: "time", kind };
 }
 
-const EQUALITY = ["=", "!="] as const;
-/** These operations compare a column with one value. */
-export const COMPARISONS = [...EQUALITY, ">", ">=", "<", "<="] as const;
-/** These operations compare a column with a list of values. */
-export const MEMBERSHIP = ["in", "not-in"] as const;
-/** These operations check whether a column has a value. */
-export const NULL_CHECKS = ["exists", "does-not-exist"] as const;
-export type Comparison = (typeof COMPARISONS)[number];
-export type FilterOperation =
-  | Comparison
-  | (typeof MEMBERSHIP)[number]
-  | (typeof NULL_CHECKS)[number];
+/** Lists the operations that compare a column with one value. */
+export enum Comparison {
+  Equal = "=",
+  NotEqual = "!=",
+  GreaterThan = ">",
+  GreaterOrEqual = ">=",
+  LessThan = "<",
+  LessOrEqual = "<=",
+}
+const EQUALITY = [Comparison.Equal, Comparison.NotEqual] as const;
+/** Lists the operations that compare a column with a list of values. */
+export enum Membership {
+  In = "in",
+  NotIn = "not-in",
+}
+/** Lists the operations that check whether a column has a value. */
+export enum NullCheck {
+  Exists = "exists",
+  DoesNotExist = "does-not-exist",
+}
+export type FilterOperation = Comparison | Membership | NullCheck;
 
 /** Returns the filter operations that a query can apply to `column`. */
 export function operationsFor(column: Column): readonly FilterOperation[] {
@@ -162,19 +175,19 @@ export function operationsFor(column: Column): readonly FilterOperation[] {
     case "number":
     case "timestamp":
     case "date": {
-      return [...COMPARISONS, ...NULL_CHECKS];
+      return [...valuesOf(Comparison), ...valuesOf(NullCheck)];
     }
 
     case "integer": {
-      return [...COMPARISONS, ...MEMBERSHIP, ...NULL_CHECKS];
+      return [...valuesOf(Comparison), ...valuesOf(Membership), ...valuesOf(NullCheck)];
     }
 
     case "enum": {
-      return [...EQUALITY, ...MEMBERSHIP, ...NULL_CHECKS];
+      return [...EQUALITY, ...valuesOf(Membership), ...valuesOf(NullCheck)];
     }
 
     case "boolean": {
-      return [...EQUALITY, ...NULL_CHECKS];
+      return [...EQUALITY, ...valuesOf(NullCheck)];
     }
   }
 }

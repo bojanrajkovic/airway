@@ -2,8 +2,10 @@ import { createInsertSchema } from "drizzle-zod";
 import { err, ok, type Result } from "neverthrow";
 import { z } from "zod";
 import { Instant, PlainDate } from "../dates.ts";
+import { valuesOf } from "../enum.ts";
 import type { QuerySpec } from "../query/spec.ts";
-import { MAX_BODY_LENGTH, NOTE_CATEGORIES, notes, queryHistory } from "./schema.ts";
+import { MAX_BODY_LENGTH, notes, queryHistory } from "./schema.ts";
+import { NoteCategory } from "./values.ts";
 
 // The web app imports this file's types only, so drizzle stays out of the browser bundle.
 
@@ -30,7 +32,9 @@ export const ShortCode = z.string().regex(/^[0-9a-hjkmnp-tv-z]{10}$/v, "isn't a 
  * Lists the categories that a person or agent can choose when adding a note. Saving a finding is
  * the only way to create a `finding` note, because every `finding` note needs a query.
  */
-const WRITABLE_CATEGORIES = NOTE_CATEGORIES.filter((category) => category !== "finding");
+const WRITABLE_CATEGORIES = valuesOf(NoteCategory).filter(
+  (category) => category !== NoteCategory.Finding,
+);
 
 const noteFields = createInsertSchema(notes, {
   firstNight: PlainDate,
@@ -71,7 +75,7 @@ export type UpdateNote = z.infer<typeof UpdateNote>;
 export const ListNotes = z.strictObject({
   from: PlainDate.optional(),
   to: PlainDate.optional(),
-  category: z.enum(NOTE_CATEGORIES).optional(),
+  category: z.enum(NoteCategory).optional(),
 });
 export type ListNotes = z.infer<typeof ListNotes>;
 
