@@ -48,6 +48,15 @@ describe("readHeader", () => {
     expect(parsed.warnings).toEqual([]);
   });
 
+  it("reads °C as UTF-8 header text", () => {
+    const bytes = file(plain(), 2 * RECORD);
+
+    // Flow's unit field follows both signals' labels and transducers.
+    bytes.set([0xc2, 0xb0, 0x43], 256 + 2 * (16 + 80));
+
+    expect(readHeader(bytes)._unsafeUnwrap().header.signals[0]?.unit).toBe("°C");
+  });
+
   it.each<[string, string, number, FileSizeCheck]>([
     ["matches its header", "2", 2 * RECORD, { verdict: "read", header: "matches", records: 2 }],
     [
