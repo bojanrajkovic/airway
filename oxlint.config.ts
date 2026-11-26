@@ -3,14 +3,13 @@ import presets from "./oxlint.presets.ts";
 import { WEB_RULES } from "./oxlint.web.ts";
 
 type Brand = { name: string; owner: string };
-// Branded types are only as safe as their constructors; a cast elsewhere forges one.
-// typescript/no-unsafe-type-assertion already rejects every cast to a brand, so the owner's
-// constructor casts behind a disable comment that says why. This list is a second lock: a file
-// that disables no-unsafe-type-assertion for another cast still can't forge a brand. Add an entry
-// with each new brand.
+// Only a brand's owner file may cast to the brand. no-unsafe-type-assertion flags every cast, but
+// a file can disable it for one line. `restrictedSyntax` uses this list to flag a cast to a brand
+// in any file other than the brand's owner, even where no-unsafe-type-assertion is disabled. Add
+// an entry for each new brand.
 const BRANDS: Brand[] = [{ name: "TrustedSql", owner: "packages/contract/src/registry/define.ts" }];
-// An object shape spelled out where a function's return type goes, including inside
-// `Promise<…>`, arrays, and unions. A named type says what the result is and reads at a glance.
+// Matches an object type literal used as a function's return type, including inside
+// `Promise<…>`, arrays, and unions. A named return type is easier to read.
 const INLINE_RETURN_TYPE = {
   selector:
     ":matches(FunctionDeclaration, FunctionExpression, ArrowFunctionExpression, TSDeclareFunction, TSEmptyBodyFunctionExpression, TSFunctionType, TSMethodSignature, TSPropertySignature > TSTypeAnnotation > TSFunctionType) > TSTypeAnnotation.returnType TSTypeLiteral:not(TSFunctionType > * > TSTypeAnnotation TSTypeLiteral)",
@@ -19,9 +18,9 @@ const INLINE_RETURN_TYPE = {
 type Restriction = { selector: string; message: string };
 type RestrictedSyntax = ["error", ...Restriction[]];
 /**
- * The `no-restricted-syntax` rule for `file`: no inline return types, and no casts to a brand
- * `file` doesn't own. An override replaces this rule rather than merging it, so every block that
- * sets it must include both.
+ * Returns the `no-restricted-syntax` options for `file`. The options ban inline return types and
+ * casts to brands that `file` doesn't own. An override's options replace the base options, so
+ * each override must include both restrictions.
  */
 const restrictedSyntax = (file?: string): RestrictedSyntax => [
   "error",
@@ -36,16 +35,16 @@ const BRAND_OWNERS = [...new Set(BRANDS.map(({ owner }) => owner))];
 export default defineConfig({
   extends: [presets],
   // Type-aware rules run on tsgolint, which reads each file's tsconfig.json with TypeScript 7.
-  // Oxlint reports a suppression comment that no longer suppresses anything only when asked.
+  // Oxlint reports unused disable comments only when this option is on.
   options: { typeAware: true, reportUnusedDisableDirectives: "error" },
   ignorePatterns: ["dist/", "node_modules/"],
-  // ESLint rules Oxlint doesn't implement natively, run unchanged.
+  // These plugins run the original ESLint rules that Oxlint doesn't implement natively.
   jsPlugins: ["@stylistic/eslint-plugin", { name: "eslint-js", specifier: "oxlint-plugin-eslint" }],
   rules: {
-    // Types, not interfaces: they compose into discriminated unions.
+    // Use `type` for object shapes, because types compose into discriminated unions.
     "typescript/consistent-type-definitions": ["error", "type"],
     "eslint-js/no-restricted-syntax": restrictedSyntax(),
-    // Conditions are booleans: `if (count)` skips 0 and `if (name)` skips "", so compare explicitly.
+    // Require boolean conditions, because `if (count)` skips 0 and `if (name)` skips "".
     "typescript/strict-boolean-expressions": [
       "error",
       {
@@ -58,7 +57,7 @@ export default defineConfig({
         allowAny: false,
       },
     ],
-    // Declared functions state what they return; inline callbacks and typed expressions infer it.
+    // Require return types on declared functions. Callbacks and typed expressions can infer them.
     "typescript/explicit-function-return-type": [
       "error",
       {
@@ -70,17 +69,18 @@ export default defineConfig({
     ],
     // The `v` flag gives Unicode-aware matching and stricter class syntax.
     "require-unicode-regexp": ["error", { requireFlag: "v" }],
-    // More than four parameters means they belong together in an object.
+    // A function with more than four parameters takes them as one object.
     "max-params": ["error", { max: 4 }],
     // Method shorthand in a type checks parameters bivariantly, even under `strict`.
     "typescript/method-signature-style": ["error", "property"],
-    // A cast can claim anything; narrow, parse, or brand in the owning module instead.
+    // A cast skips type checking. Narrow, parse, or call the brand's constructor instead.
     "typescript/no-unsafe-type-assertion": "error",
     // The default sort compares UTF-16 code units, which is wrong for numbers and most text.
     "typescript/require-array-sort-compare": ["error", { ignoreStringArrays: false }],
-    // A `let` with no value is a variable in an unknown state; compute it with an expression.
+    // Require an initial value on every `let`. Compute it with an expression, such as a ternary, instead
+    // of assigning it later.
     "init-declarations": ["error", "always"],
-    // Same-name property reads destructure; renamed ones (`const e = result.data`) may not.
+    // Destructure a property into a variable of the same name. `const e = result.data` is fine.
     "prefer-destructuring": [
       "error",
       { array: false, object: true },
@@ -93,7 +93,7 @@ export default defineConfig({
     // A switch over a union handles every member, so adding a member fails to compile.
     "typescript/switch-exhaustiveness-check": "error",
     curly: ["error", "all"],
-    // A blank line after every block and before every return or throw.
+    // Put a blank line after every block and before every return or throw.
     "@stylistic/padding-line-between-statements": [
       "error",
       { blankLine: "always", prev: "block-like", next: "*" },
@@ -106,14 +106,14 @@ export default defineConfig({
       plugins: ["react", "jsx-a11y"],
       rules: WEB_RULES,
     },
-    // A brand's owner is exempt from this list for its own brands; its cast still needs the
-    // no-unsafe-type-assertion disable comment.
+    // Lets each owner file cast to its own brands.
     ...BRAND_OWNERS.map((file) => ({
       files: [file],
       rules: { "eslint-js/no-restricted-syntax": restrictedSyntax(file) },
     })),
-    // Vitest reads a fixture's dependencies from its destructured first parameter, so a fixture
-    // with none must still destructure `{}`. @airway/testing defines fixtures outside tests/.
+    // Vitest reads a fixture's dependencies from its destructured first parameter, so every
+    // fixture destructures that parameter, even as `{}`. The list includes packages/testing/src/
+    // because @airway/testing defines fixtures there.
     {
       files: ["tests/**/*.ts", "packages/*/tests/**/*.{ts,tsx}", "packages/testing/src/**/*.ts"],
       rules: { "no-empty-pattern": ["error", { allowObjectPatternsAsParameters: true }] },

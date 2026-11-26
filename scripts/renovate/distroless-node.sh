@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
-# Renovate runs this after a Node.js major update. The distroless runtime image's name holds the
-# Node major (gcr.io/distroless/nodejs26-debian13), and Renovate only updates its digest. This
-# renames the image to the major in mise.toml and pins the new image's digest. It changes nothing
-# when the majors already match. Run it from the repo root.
+# Renovate runs this after a Node.js major update. The distroless runtime image has the Node major
+# in its name (gcr.io/distroless/nodejs26-debian13), and Renovate only updates the image's digest.
+# This script puts the major from mise.toml in the image name and pins the new image's digest. When
+# the majors already match, it leaves the Dockerfile as is. Run it from the repo root.
 set -euo pipefail
 
 node_version=$(sed -nE 's/^node = "([0-9.]+)"$/\1/p' mise.toml)

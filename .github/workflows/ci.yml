@@ -22,8 +22,8 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      # Caches are written only by pushes to main. A PR restores main's caches and saves none, so
-      # PRs can't fill the cache quota or leave anything for a later run to restore.
+      # Only pushes to main write caches. A PR only restores main's caches, so a PR can't fill the
+      # cache quota or leave anything for a later run to restore.
       - uses: jdx/mise-action@924e7c586e33d7d4bae9c14e26c5d22e2beb6e78 # v5.3.0
         with:
           cache_save: ${{ github.ref == 'refs/heads/main' }}
@@ -42,7 +42,7 @@ jobs:
       # Fails if a package's registry signature doesn't verify.
       - run: pnpm audit signatures
       - run: pnpm check
-      # If this step creates a migration, the schema changed without one.
+      # If this step creates a migration, a schema change was committed without its migration.
       - name: Check the notes migrations are up to date
         run: |
           pnpm --filter @airway/contract migrations:generate
@@ -53,7 +53,7 @@ jobs:
     name: Database tests
     runs-on: ubuntu-26.04
     timeout-minutes: 15
-    # The same image and digest scripts/db.sh runs locally.
+    # scripts/db.sh runs the same image and digest locally.
     services:
       postgres:
         image: postgres:19@sha256:aaa10f7ba7328b4a221a6c3184d83eef885bd16bf1f6de864757863156b0a4d1
@@ -77,7 +77,7 @@ jobs:
           cache_save: ${{ github.ref == 'refs/heads/main' }}
       - id: pnpm-store
         run: echo "path=$(pnpm store path --silent)" >> "$GITHUB_OUTPUT"
-      # Only restores: the Lint and test job saves the store on main.
+      # This step only restores the store. The Lint and test job saves it on main.
       - uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with: *pnpm-store-cache
       - run: pnpm install --frozen-lockfile
@@ -86,9 +86,10 @@ jobs:
   browser:
     name: Browser tests
     runs-on: ubuntu-26.04
-    # Playwright's image holds Chromium and its system packages. Its tag must match the playwright
-    # package in the catalog; on a playwright update, scripts/renovate/playwright-image.sh moves it.
-    # The user is the runner's, so the checkout and caches stay writable.
+    # Playwright's image includes Chromium and the system packages that Chromium needs. The image's
+    # tag must match the playwright package in the catalog, and
+    # scripts/renovate/playwright-image.sh updates the tag when playwright updates. The container
+    # runs as the runner's user, so the checkout and caches stay writable.
     container:
       image: mcr.microsoft.com/playwright:v1.65.1-noble@sha256:1507cbfc550a63a6b7396791ca4f00df17beb56342d2447b3f106c306f525579
       options: --user 1001
@@ -106,7 +107,7 @@ jobs:
         with: *pnpm-store-cache
       - run: pnpm install --frozen-lockfile
       - run: pnpm test:browser
-      # Desktop and phone screenshots, in light and dark, for the PR's screenshots.
+      # Uploads the desktop and phone screenshots, in light and dark, to use in the PR.
       - if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
@@ -123,7 +124,7 @@ jobs:
         with:
           persist-credentials: false
       - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
-      # amd64 only for now; #77 adds arm64.
+      # Builds only amd64 until #77 adds arm64.
       - uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
         with:
           context: .
@@ -167,13 +168,13 @@ jobs:
           advanced-security: false
           annotations: true
 
-  # The ruleset on main requires Check. A job skipped after a failed job it needs counts as passing,
-  # so this one always runs and fails unless every job it gates succeeded.
+  # The ruleset on main requires Check. GitHub counts a job as passing when it's skipped because a
+  # job that it needs failed, so Check always runs and fails unless every job in `needs` succeeded.
   check:
     name: Check
     needs: [test, db, browser, image, zizmor]
     if: always()
-    # One step of a few seconds, so the 1-vCPU runner is enough.
+    # This job runs one step that takes a few seconds, so the 1-vCPU runner is enough.
     runs-on: ubuntu-slim
     timeout-minutes: 5
     steps:

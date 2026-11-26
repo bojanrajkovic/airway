@@ -24,8 +24,9 @@ export default defineConfig({
     // run first fails. A failing run prints its seed; `--sequence.seed=<seed>` replays that order.
     sequence: { shuffle: true },
     projects: [
-      // Shares a module registry across files, which saves starting one per file. A test that
-      // sets process-wide state, such as an OpenTelemetry SDK, needs a project with isolation on.
+      // Unit tests share one module registry, which is faster than starting a registry for each
+      // file. A test that sets process-wide state, such as an OpenTelemetry SDK, needs a project
+      // with isolation on.
       {
         extends: true,
         test: {
@@ -35,9 +36,10 @@ export default defineConfig({
           isolate: false,
         },
       },
-      // Isolated, so one file's SDK never records another file's spans.
+      // Each telemetry file runs isolated, so its SDK records only that file's spans.
       { extends: true, test: { name: "telemetry", include: TELEMETRY } },
-      // Creates the owner and reader roles the database tests connect as, once per run.
+      // Once per run, global setup creates the owner and reader roles that the database tests
+      // connect as.
       {
         extends: true,
         test: { name: "db", include: DB, globalSetup: ["packages/testing/src/roles.ts"] },

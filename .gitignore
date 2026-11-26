@@ -1,6 +1,6 @@
 node_modules/
 dist/
 
-# Browser-test screenshots: CI uploads them; nothing compares them.
+# Browser-test screenshots are test output that CI uploads, so git ignores them.
 __screenshots__/
 .env

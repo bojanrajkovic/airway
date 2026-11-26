@@ -1,9 +1,8 @@
-// The rules ESLint's presets enabled (js.configs.recommended, typescript-eslint's
-// strictTypeChecked and stylisticTypeChecked), as @oxlint/migrate translated them, minus the
-// JavaScript-only rules TypeScript makes redundant. Oxlint has no equivalent presets, so they're
-// listed here. oxlint.config.ts adds
-// this repo's own rules on top. Oxlint lacks typescript/no-unsafe-enum-assignment, and the code
-// has no enums for it to check.
+// Lists the rules that ESLint's presets enabled (js.configs.recommended, and typescript-eslint's
+// strictTypeChecked and stylisticTypeChecked), as @oxlint/migrate translated them. Oxlint has no
+// equivalent presets. The list leaves out JavaScript-only rules that TypeScript makes redundant.
+// oxlint.config.ts adds this repo's own rules on top. The list omits the preset rule
+// typescript/no-unsafe-enum-assignment, which Oxlint doesn't implement.
 import { defineConfig } from "oxlint";
 
 export default defineConfig({
@@ -46,7 +45,8 @@ export default defineConfig({
     "no-unsafe-optional-chaining": "error",
     "no-unused-labels": "error",
     "no-unused-private-class-members": "error",
-    // Empty options turn off Oxlint's default of skipping `_`-prefixed names, which ESLint lacks.
+    // Oxlint skips `_`-prefixed names by default. Empty options make it report them, as ESLint
+    // does.
     "no-unused-vars": ["error", {}],
     "no-useless-assignment": "error",
     "no-useless-backreference": "error",

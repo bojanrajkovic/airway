@@ -2,7 +2,8 @@ packages:
   - packages/*
 
 # Every dependency's version lives here once, and package.json files say "catalog:". Strict mode
-# makes `pnpm add` go through the catalog; a version typed into a package.json by hand isn't caught.
+# makes `pnpm add` go through the catalog. pnpm still accepts a version typed into a package.json
+# by hand.
 catalogMode: strict
 catalog:
   "@babel/core": 8.1.3
@@ -21,7 +22,7 @@ catalog:
   "@rolldown/plugin-babel": 0.3.1
   "@stylistic/eslint-plugin": 6.0.1
   "@trpc/server": 11.29.7
-  # An alias, so a Node major bump changes only this line, not every tsconfig that extends it.
+  # Every tsconfig extends this alias, so a Node major bump changes only this line.
   "@tsconfig/node": npm:@tsconfig/node26@26.0.2
   "@tsconfig/strictest": 2.0.9
   "@types/d3-random": 3.0.4
@@ -64,18 +65,19 @@ catalog:
   vitest-browser-react: 2.3.0
   zod: 4.6.7
 
-# Setting this turns on strict mode: a version younger than a day fails the install instead of
-# being skipped silently. Most malicious releases are caught and pulled within that day.
+# Setting this turns on strict mode, in which pnpm fails the install on a version younger than a
+# day instead of silently skipping that version. Most malicious releases are caught and pulled within that day.
 minimumReleaseAge: 1440
-# Fails on a version published with weaker trust evidence (provenance, trusted publishing) than an
-# earlier version of the same package, the usual sign of a stolen publish token.
+# pnpm fails the install when a version has weaker trust evidence (provenance, trusted publishing)
+# than an earlier version of the same package. Weaker evidence usually means a stolen publish token.
 trustPolicy: no-downgrade
 
 # `pnpm add` writes exact versions, so the lockfile and the catalog say the same thing.
 savePrefix: ""
 
-# tRPC lists TypeScript as a peer only for its types. Marked optional, it stays out of the image's
-# production dependencies; the root's devDependency still satisfies it for type-checking.
+# tRPC lists TypeScript as a peer dependency only for TypeScript's types. Marking the peer optional
+# keeps TypeScript out of the image's production dependencies, and the root's devDependency still
+# satisfies the peer for type-checking.
 packageExtensions:
   "@trpc/server":
     peerDependenciesMeta:
@@ -83,16 +85,16 @@ packageExtensions:
         optional: true
 
 permissions:
-  # Its postinstall only checks versions; the library works without it.
+  # The protobufjs postinstall only checks versions, and the library works without that script.
   protobufjs:
     build: false
-  # testcontainers' Docker client pulls these in for SSH connections, which the tests never use.
-  # Both fall back to plain JavaScript without their native builds.
+  # testcontainers' Docker client depends on cpu-features and ssh2 for SSH connections, which the
+  # tests never use. Both packages run as plain JavaScript when their native builds are missing.
   cpu-features:
     build: false
   ssh2:
     build: false
-  # drizzle-kit's bundler. Its postinstall only checks the platform binary, which pnpm installs as an
-  # optional dependency, so drizzle-kit runs without it.
+  # esbuild is drizzle-kit's bundler. The esbuild postinstall only checks the platform binary, and
+  # pnpm installs that binary as an optional dependency. drizzle-kit runs without the postinstall.
   esbuild:
     build: false
