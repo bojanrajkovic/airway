@@ -46,7 +46,7 @@ function edgeCase(name: EdgeCaseName): Case {
 describe("readStr", () => {
   it("reads each used day's values and mask slots, and marks the days between as unused", () => {
     const { nights, zone, bytes, rows } = edgeCase("unused-days");
-    const { days, warnings } = readStr(bytes, readable(bytes))._unsafeUnwrap();
+    const { days, warnings } = readStr(bytes)._unsafeUnwrap();
 
     expect(warnings).toEqual([]);
     expect(days.map(({ day, used }) => [day.toString(), used])).toEqual(
@@ -70,7 +70,7 @@ describe("readStr", () => {
 
   it("reads settings that show the one max_pressure change", () => {
     const { nights, bytes, rows } = edgeCase("settings-change");
-    const { days } = readStr(bytes, readable(bytes))._unsafeUnwrap();
+    const { days } = readStr(bytes)._unsafeUnwrap();
     const [first] = nights;
 
     if (first === undefined) {
@@ -90,7 +90,7 @@ describe("readStr", () => {
 
     new DataView(changed.buffer).setInt16(at, -1, true);
 
-    const { days, warnings } = readStr(changed, file)._unsafeUnwrap();
+    const { days, warnings } = readStr(changed)._unsafeUnwrap();
     const expected = file.header.start.toPlainDate().add({ days: 1 });
 
     expect(days[1]?.day).toEqual(expected);

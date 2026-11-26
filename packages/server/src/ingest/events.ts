@@ -1,7 +1,7 @@
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { Span as OtelSpan } from "@opentelemetry/api";
-import { errAsync, okAsync, ResultAsync } from "neverthrow";
+import { errAsync, ResultAsync } from "neverthrow";
 import { toInstant } from "@airway/contract/clock";
 import { nightRow, type ScoredNight } from "@airway/contract/derived/nights";
 import type { EventRow } from "@airway/contract/derived/rows";
@@ -9,9 +9,10 @@ import { assignEvents, type Session, type Sessions } from "@airway/contract/deri
 import type { UsedStrDay } from "@airway/contract/derived/str";
 import { EVENT_TYPES } from "@airway/contract/derived/values";
 import { ruleSetFor } from "@airway/contract/profile";
-import { EVENT_LABELS } from "@airway/edf/airsense";
-import { readAnnotations, type EdfAnnotation } from "@airway/edf/annotations";
-import { isReadable, type EdfFileHeaders, type EdfReadError } from "@airway/edf/header";
+import { AIRSENSE, EVENT_LABELS } from "@airway/edf/airsense";
+import type { EdfAnnotation } from "@airway/edf/annotations";
+import { readEdf } from "@airway/edf/file";
+import type { EdfFileHeaders, EdfReadError } from "@airway/edf/header";
 import type { Logger } from "../logger.ts";
 import type { AppContext } from "../runtime/context.ts";
 import { inSpanAsync } from "../telemetry.ts";
@@ -124,26 +125,25 @@ export function toEvents(
   };
 }
 
-// Reads one EVE file's annotations, and returns an empty list for a header-only file.
+// Reads one EVE file's annotations. `readEdf` returns an empty list for a header-only file.
 function readEve(
   root: string,
   zone: string,
   file: EveFile,
 ): ResultAsync<FileAnnotations, EventFileError> {
-  const { path, edf } = file;
-  const start = toInstant(edf.header.start, zone);
-
-  if (!isReadable(edf)) {
-    return okAsync({ path, start, annotations: [] });
-  }
+  const { path } = file;
 
   return ResultAsync.fromPromise(readFile(join(root, path)), (cause): EventFileError => ({
     kind: "read_failed",
     path,
     message: cause instanceof Error ? cause.message : String(cause),
   })).andThen((bytes) =>
-    readAnnotations(bytes, edf)
-      .map((annotations) => ({ path, start, annotations }))
+    readEdf(bytes, AIRSENSE.eve)
+      .map(({ header, annotations }) => ({
+        path,
+        start: toInstant(header.start, zone),
+        annotations,
+      }))
       .mapErr((error): EventFileError => ({ ...error, path })),
   );
 }

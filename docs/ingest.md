@@ -63,6 +63,25 @@ Import starts at the first DATALOG folder, because every night comes from a DATA
 
 `@airway/edf` reads the card's EDF files. BRP, PLD, SAD, and `STR.edf` are plain EDF. EVE and CSL are EDF+D, and hold annotations.
 
+### Whole files
+
+`readEdf(bytes, type)` in `@airway/edf/file` reads one whole file. `type` is the `EdfFileType` that the caller expects, such as `AIRSENSE.str`:
+
+```ts
+// The error is format_mismatch, record_length_mismatch, missing_signal, size_rejected, or a
+// header error.
+readEdf(bytes, AIRSENSE.brp).map(({ header, signals, records, samples }) => {
+  // samples["Flow.40ms"] is a Float64Array with every record's flow values.
+});
+```
+
+- The result has the main header, the signal headers as the file declares them, the number of whole records on disk, and any warnings.
+- For a signal file type, the result has `samples`: one `Float64Array` for each of the type's data labels. For an annotation file type, the result has `annotations`.
+- `readEdf` returns `format_mismatch` when the file's format differs from the type's, `record_length_mismatch` when the record length differs, and `missing_signal` when the file lacks one of the type's signals. A file may declare signals that the type doesn't list.
+- `readEdf` returns `size_rejected` for a file that `checkFileSize` rejects. `readEdf` reads a file that holds only a header as a file with no records.
+
+`readStr` and the EVE reader use `readEdf`. Each function in the next sections reads one part of a file. The scan uses them to read a header without its records.
+
 ### Headers
 
 An EDF file starts with a 256-byte main header, followed by a 256-byte signal header for each signal. `readHeader(bytes, size)` parses both and returns `{header, signals, size, warnings}`:
@@ -156,7 +175,7 @@ The 90 s join can't be exact: the machine starts new BRP files inside one period
 
 ## STR.edf
 
-`STR.edf` is the machine's daily summary, with one 86,400 s record per day. `readStr(bytes, file)` in `packages/server/src/ingest/str.ts` reads it into one `StrDay` per record, oldest first. `StrDay` is defined in `@airway/contract/derived/str`, because the synthetic data generator builds the same days from its model.
+`STR.edf` is the machine's daily summary, with one 86,400 s record per day. `readStr(bytes)` in `packages/server/src/ingest/str.ts` reads it into one `StrDay` per record, oldest first. `StrDay` is defined in `@airway/contract/derived/str`, because the synthetic data generator builds the same days from its model.
 
 - A day's date is the header's start date plus the record's index. When the `Date` signal disagrees, `readStr` returns a `date_mismatch` warning with both dates, and the caller logs it.
 - A day is unused when `OnDuration` is -1. The machine writes -1 for every other signal that day too, so an unused day has only its date.
@@ -176,7 +195,7 @@ EVE files hold the events that the machine scored, such as apneas and hypopneas.
 
 ```mermaid
 flowchart LR
-  eve["EVE files"] --> read["readAnnotations"]
+  eve["EVE files"] --> read["readEdf"]
   read --> toEvents
   sessions["buildNight's sessions"] --> toEvents
   toEvents --> rows["events rows"]
