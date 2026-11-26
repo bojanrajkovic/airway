@@ -1,5 +1,6 @@
 import type { Config } from "../config.ts";
 import type { Pools } from "../db/pools.ts";
+import type { NightPool } from "../ingest/pool.ts";
 import type { Logger } from "../logger.ts";
 
 /**
@@ -14,4 +15,6 @@ export type AppContext = {
   clock: () => Temporal.Instant;
   /** Contains one database pool for writes, one for the web API, and one for agents. */
   db: Pools;
+  /** Computes nights in worker threads. */
+  nightPool: NightPool;
 };

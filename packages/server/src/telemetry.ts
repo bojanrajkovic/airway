@@ -1,7 +1,17 @@
 // Runs service code in spans. docs/observability.md covers what goes on a span and what gets
 // logged.
-import { context, SpanStatusCode, trace, type Span } from "@opentelemetry/api";
-import { suppressTracing } from "@opentelemetry/core";
+import {
+  context,
+  defaultTextMapGetter,
+  defaultTextMapSetter,
+  ProxyTracerProvider,
+  ROOT_CONTEXT,
+  SpanStatusCode,
+  trace,
+  type Context,
+  type Span,
+} from "@opentelemetry/api";
+import { suppressTracing, W3CTraceContextPropagator } from "@opentelemetry/core";
 import { Err, ResultAsync, type Result } from "neverthrow";
 
 // The trace API returns a proxy, so a tracer created at module load works once the SDK starts.
@@ -81,3 +91,49 @@ function fail(span: Span, error: unknown): never {
 export function untraced<T>(fn: () => T): T {
   return context.with(suppressTracing(context.active()), fn);
 }
+
+// OTEL_PROPAGATORS=none makes the global propagator a no-op, so `currentTraceparent` and
+// `contextOf` use this propagator directly.
+const propagator = new W3CTraceContextPropagator();
+
+/** Returns the active trace context as a W3C `traceparent`, or null outside a trace. */
+export function currentTraceparent(): string | null {
+  const carrier: { traceparent?: string } = {};
+  propagator.inject(context.active(), carrier, defaultTextMapSetter);
+
+  return carrier.traceparent ?? null;
+}
+
+/**
+ * Returns the trace context parsed from `traceparent`, or the active context when `traceparent` is
+ * null.
+ */
+export function contextOf(traceparent: string | null): Context {
+  return traceparent === null
+    ? context.active()
+    : propagator.extract(ROOT_CONTEXT, { traceparent }, defaultTextMapGetter);
+}
+
+/**
+ * Exports the spans that this thread has ended but not yet sent. A worker thread calls it after
+ * each task. piscina terminates workers, and a terminated worker never emits `beforeExit`, the
+ * event that flushes the main thread's SDK.
+ */
+export async function flushSpans(): Promise<void> {
+  const provider = trace.getTracerProvider();
+  // oxlint-disable-next-line typescript/no-deprecated -- the API has no other way to reach the SDK's provider
+  const delegate = provider instanceof ProxyTracerProvider ? provider.getDelegate() : provider;
+
+  if (isFlushable(delegate)) {
+    await delegate.forceFlush();
+  }
+}
+
+/**
+ * Resolves to a tracer provider with `forceFlush`. The SDK's providers have it, and the API's no-op
+ * provider doesn't.
+ */
+type Flushable = { forceFlush: () => Promise<void> };
+
+const isFlushable = (value: object): value is Flushable =>
+  "forceFlush" in value && typeof value.forceFlush === "function";

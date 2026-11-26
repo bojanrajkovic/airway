@@ -4,6 +4,7 @@ import { serve } from "@hono/node-server";
 import { loadConfig } from "./config.ts";
 import { createPools } from "./db/pools.ts";
 import { createApp } from "./http/app.ts";
+import { createNightPool } from "./ingest/pool.ts";
 import { createLogger } from "./logger.ts";
 import type { AppContext } from "./runtime/context.ts";
 
@@ -23,13 +24,20 @@ if (config.auth.mode === "none") {
   logger.warn("authentication is off, so every request acts as the configured local author");
 }
 
-// Shutdown disposes these in reverse order, so the listener stops before the pools close.
+// Shutdown disposes these in reverse order: first the listener, then the night pool, then the
+// database pools.
 const resources = new AsyncDisposableStack();
 const ctx: AppContext = {
   config,
   logger,
   clock: () => Temporal.Now.instant(),
   db: resources.use(createPools(config, logger)),
+  nightPool: resources.use(
+    createNightPool(
+      { config, logger },
+      { filename: fileURLToPath(new URL("./night-worker.js", import.meta.url)) },
+    ),
+  ),
 };
 
 // Start the listener first, so the pod answers /healthz while later startup work runs.
@@ -46,6 +54,9 @@ const server = serve(
     logger.info({ port }, "listening");
   },
 );
+// Runs once the listener is up, so the server responds to /healthz while the worker loads. warmUp
+// logs its own failure.
+void ctx.nightPool.warmUp();
 resources.defer(async () => {
   await new Promise<void>((resolve, reject) => {
     server.close((error) => {

@@ -39,6 +39,8 @@ export type Config = {
   cpapDataPath: string;
   /** After this home time of day, a used night whose folder is absent counts as missing. */
   dataMissingCutoff: Temporal.PlainTime;
+  /** Limits how many worker threads compute nights at once. */
+  ingestWorkers: number;
   port: number;
   logLevel: LogLevel;
   auth: AuthConfig;
@@ -74,6 +76,7 @@ const Env = z.object({
     .time({ precision: -1, error: "must be a time like 15:00" })
     .default("15:00")
     .transform((time) => Temporal.PlainTime.from(time)),
+  AIRWAY_INGEST_WORKERS: z.coerce.number().int().min(1).max(64).default(2),
   PORT: z.coerce.number().int().min(1).max(65_535).default(3000),
   LOG_LEVEL: z.enum(LogLevel).default(LogLevel.Info),
 });
@@ -124,6 +127,7 @@ export function parseConfig(env: Record<string, string | undefined>): Result<Con
     timeZone: data.AIRWAY_TIME_ZONE,
     cpapDataPath: data.AIRWAY_CPAP_DATA_PATH,
     dataMissingCutoff: data.AIRWAY_DATA_MISSING_CUTOFF,
+    ingestWorkers: data.AIRWAY_INGEST_WORKERS,
     port: data.PORT,
     logLevel: data.LOG_LEVEL,
     auth:

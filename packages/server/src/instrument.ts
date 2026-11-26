@@ -2,6 +2,8 @@
 // dependency loads. The SDK starts only when OTEL_EXPORTER_OTLP_ENDPOINT is set, and reads its
 // other settings from the standard OTEL_* variables.
 import { createRequire } from "node:module";
+import { hostname } from "node:os";
+import { isMainThread, threadId } from "node:worker_threads";
 import { HttpInstrumentation } from "@opentelemetry/instrumentation-http";
 import { PgInstrumentation } from "@opentelemetry/instrumentation-pg";
 import { RuntimeNodeInstrumentation } from "@opentelemetry/instrumentation-runtime-node";
@@ -59,6 +61,15 @@ if ((process.env["OTEL_EXPORTER_OTLP_ENDPOINT"] ?? "") !== "") {
   await startSdk();
 }
 
+/**
+ * Returns this thread's `service.instance.id`: the host name, plus `/worker-<threadId>` in a worker
+ * thread. Each worker loads this preload and exports its own telemetry, so the ID separates a worker's
+ * runtime metrics from the main thread's.
+ */
+export function serviceInstanceId(thread = { isMainThread, threadId }): string {
+  return thread.isMainThread ? hostname() : `${hostname()}/worker-${String(thread.threadId)}`;
+}
+
 async function startSdk(): Promise<void> {
   // airway logs to stdout, not over OTLP.
   process.env["OTEL_LOGS_EXPORTER"] ??= "none";
@@ -70,6 +81,7 @@ async function startSdk(): Promise<void> {
     resource: resourceFromAttributes({
       "service.version": process.env["AIRWAY_VERSION"] ?? "dev",
       "vcs.ref.head.revision": process.env["AIRWAY_GIT_SHA"] ?? "dev",
+      "service.instance.id": serviceInstanceId(),
     }),
     // Exponential histograms adapt their buckets to what's recorded, so no instrument picks bucket
     // boundaries.

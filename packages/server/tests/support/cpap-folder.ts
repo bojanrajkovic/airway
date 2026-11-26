@@ -15,7 +15,12 @@ import { Patient } from "@airway/synthetic/patients";
 import { synthesize } from "@airway/synthetic/synthesize";
 import { LogLevel } from "../../src/config.ts";
 import type { EveFile, NightEvents } from "../../src/ingest/events.ts";
-import { planSegments, type PlannedNight, type SegmentFile } from "../../src/ingest/segments.ts";
+import {
+  planSegments,
+  type NightFiles,
+  type PlannedNight,
+  type SegmentFile,
+} from "../../src/ingest/segments.ts";
 import { readStr } from "../../src/ingest/str.ts";
 import { createLogger, type Logger } from "../../src/logger.ts";
 import type { AppContext } from "../../src/runtime/context.ts";
@@ -213,4 +218,23 @@ export function synthesizedNights(cases: readonly EdgeCaseName[], nights = 0): S
   );
 
   return { planned, files, rows };
+}
+
+/** Returns a `NightFiles` for each night that `synthesize` expects ingest to import. */
+export function nightTasks({ planned, files }: SynthesizedNights): NightFiles[] {
+  return usedDays(files).flatMap((day): NightFiles[] => {
+    const plan = planned.find(({ night }) => night.equals(day.day));
+
+    return plan === undefined
+      ? []
+      : [
+          {
+            night: day.day,
+            zone: plan.zone,
+            day,
+            files: segmentFiles(files, day.day),
+            eveFiles: eveFiles(files, day.day),
+          },
+        ];
+  });
 }
