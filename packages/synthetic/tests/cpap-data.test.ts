@@ -7,7 +7,7 @@ import { syntheticNights, type SyntheticNight } from "../src/model.ts";
 const zone = "America/New_York";
 const { nights } = syntheticNights({ seed: 7, nights: 3 })._unsafeUnwrap();
 
-// Each test that asks for `folder` gets its own, written from `nights`.
+// Builds a new `folder` from `nights` for every test that takes `folder`.
 const test = base.extend<{ folder: CpapFile[] }>({
   folder: async ({}, use) => {
     await use(cpapData(nights, zone)._unsafeUnwrap());
@@ -42,7 +42,7 @@ describe("cpapData", () => {
   });
 
   test.for(nights.map((night) => [night.night.toString(), night] as const))(
-    "gives %s a BRP, PLD, and SAD per segment, one EVE and CSL, and a .crc for each",
+    "for %s, writes a BRP, PLD, and SAD file per segment, one EVE file, one CSL file, and a .crc for every .edf file",
     ([, night], { folder }) => {
       const inFolder = pathsOf(folder).filter((path) => path.startsWith(nightFolder(night)));
       const count = (suffix: string): number =>
@@ -60,7 +60,7 @@ describe("cpapData", () => {
     },
   );
 
-  test("names files by their device-clock start, in the night's folder after midnight too", ({
+  test("puts a segment that starts after midnight in the night's folder and names its files by the device-clock start", ({
     folder,
   }) => {
     const night = nights.find((n) =>
@@ -80,7 +80,9 @@ describe("cpapData", () => {
     );
   });
 
-  test("checksums each night file's first 256 bytes and its rest, little-endian", ({ folder }) => {
+  test("writes two little-endian CRC-32s to each DATALOG .crc file, the first over the .edf file's first 256 bytes and the second over the remaining bytes", ({
+    folder,
+  }) => {
     const byPath = bytesOf(folder);
     const edfs = folder.filter(
       (file) => file.path.startsWith("DATALOG/") && file.path.endsWith(".edf"),
@@ -95,7 +97,9 @@ describe("cpapData", () => {
     }
   });
 
-  test("writes Identification.tgt in the card's layout, with the files' serial", ({ folder }) => {
+  test("writes Identification.tgt with the keys in the card's order and the same serial number as the EDF files", ({
+    folder,
+  }) => {
     const byPath = bytesOf(folder);
     const tgt = byPath.get("Identification.tgt") ?? new Uint8Array();
     const text = new TextDecoder().decode(tgt);

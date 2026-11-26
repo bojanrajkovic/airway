@@ -10,8 +10,8 @@ const arrivedAt = Temporal.Instant.from("2030-03-01T12:00:00Z");
 const Count = z.array(z.object({ count: z.coerce.number() }));
 
 test(
-  "loads every edge case that 'all' builds, one night row per night with a folder",
-  // Building and loading every case takes a few seconds, near Vitest's 5 s default.
+  "loads every edge case that 'all' builds, writing one row for each night that has a folder",
+  // Building and loading every case takes a few seconds, and Vitest's default timeout is 5 s.
   { timeout: 30_000 },
   async ({ databaseUrl }) => {
     const model = syntheticNights({ seed: 7, nights: 0, cases: "all" })._unsafeUnwrap();

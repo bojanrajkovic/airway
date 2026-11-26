@@ -38,8 +38,8 @@ const NightCounts = z.array(
 const Count = z.array(z.object({ count: z.coerce.number() }));
 
 test(
-  "loads a month: one night row per night with the machine's AHI, and every 2 s sample",
-  // Building and loading 30 nights takes about 7 s locally, past Vitest's 5 s default.
+  "for each of 30 nights, loads one row with the machine's AHI and all of the night's 2 s samples",
+  // Building and loading 30 nights can take longer than Vitest's default timeout.
   { timeout: 30_000 },
   async ({ databaseUrl }) => {
     const { nights } = syntheticNights({ seed: 7, nights: 30 })._unsafeUnwrap();
@@ -108,7 +108,7 @@ test("keeps only daily usage for a night with no segments, and lets the reader r
 
   expect(counts).toEqual({ usage: 1, segments: 0 });
 
-  // A table the reader was never granted.
+  // Creates a table that the reader role was never granted access to.
   await withClient(databaseUrl, async (client) => {
     await client.query("create schema other; create table other.secrets (value text)");
   });

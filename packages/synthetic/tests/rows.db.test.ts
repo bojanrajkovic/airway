@@ -9,22 +9,21 @@ import { synthesize } from "../src/synthesize.ts";
 const zone = "America/New_York";
 const Columns = z.array(z.object({ table: z.string(), column: z.string() }));
 
-// A row's column names, with the machine-signal columns under `signals` spread out.
 const columnsOf = (row: object): string[] =>
   Object.entries(row).flatMap(([key, value]: [string, unknown]) =>
     key === "signals" && typeof value === "object" && value !== null ? Object.keys(value) : [key],
   );
 
-// rows.ts and ddl.ts both list every derived column. A column one leaves out would otherwise load
-// as null without an error.
-test("gives every derived table's rows exactly the table's columns", async ({ databaseUrl }) => {
+// COPY sets a column that rows.ts leaves out to null without an error, so this test compares
+// rows.ts's columns with ddl.ts's.
+test("builds rows with exactly the columns of each derived table", async ({ databaseUrl }) => {
   const [first, second] = syntheticNights({ seed: 7, nights: 2 })._unsafeUnwrap().nights;
 
   if (first === undefined || second === undefined) {
     throw new Error("expected two nights");
   }
 
-  // A changed setting, so settings_changes has a row too.
+  // Changes a setting on the second night so that synthesize builds a settings_changes row.
   const raised = { ...second, str: new Map(second.str).set("S.AS.MaxPress", 14) };
   const { rows } = synthesize([first, raised], zone, {
     patient: "child",
@@ -57,7 +56,8 @@ test("gives every derived table's rows exactly the table's columns", async ({ da
     );
   }
 
-  // Every derived table has rows here, except the two a load computes.
+  // synthesize builds rows for every derived table except meta and period_percentiles, which a
+  // load computes.
   expect(new Set(tables.map((entry) => entry.table))).toEqual(
     new Set([...Object.keys(rows), "meta", "period_percentiles"]),
   );

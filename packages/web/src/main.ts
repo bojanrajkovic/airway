@@ -1,5 +1,5 @@
-// Some browsers don't ship Temporal yet. The polyfill loads only there, and before any module that
-// uses Temporal at the top level, so the app imports after it.
+// Some browsers don't ship Temporal yet. Those browsers load the polyfill before the app, because
+// some of the app's modules use Temporal at the top level.
 if (!("Temporal" in globalThis)) {
   await import("temporal-polyfill/global");
 }

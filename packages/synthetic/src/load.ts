@@ -12,18 +12,18 @@ import { periodPercentiles } from "@airway/contract/derived/percentiles";
 import type { DerivedRows, SignalValues } from "@airway/contract/derived/rows";
 
 export type LoadOptions = {
-  /** Defaults to `derived`, the schema queries read. */
+  /** Defaults to `derived`, the schema that queries read. */
   schema?: DerivedSchema;
-  /** Stands in for the time the schema was built, in `meta`. */
+  /** `meta` records this instant as the time the schema was built. */
   builtAt: Temporal.Instant;
 };
 
-// The reader role in the database tests and in .env.example.
+// The database tests and .env.example use this reader role.
 const READER = "airway_reader";
 
 const BATCH_ROWS = 5000;
 
-// Parents first, so every foreign key finds its row.
+// Parent tables load first, so each foreign key references an existing row.
 const ORDER = [
   "device",
   "column_units",
@@ -39,7 +39,7 @@ const ORDER = [
 ] as const satisfies readonly (keyof DerivedRows)[];
 
 type Cell = string | number | boolean | null | Temporal.Instant | Temporal.PlainDate;
-/** Any derived row: its columns, with machine-signal columns grouped under `signals`. */
+/** Any row in `DerivedRows`. */
 type Row = Readonly<Record<string, Cell | SignalValues>>;
 
 const isSignals = (value: Cell | SignalValues): value is SignalValues =>
@@ -48,8 +48,8 @@ const isSignals = (value: Cell | SignalValues): value is SignalValues =>
   !(value instanceof Temporal.Instant) &&
   !(value instanceof Temporal.PlainDate);
 
-// A value in COPY's text format. Strings escape backslashes, tabs, and newlines, which COPY treats
-// as separators.
+// Returns `cell` in COPY's text format. In a string, it escapes backslashes, tabs, and newlines,
+// because COPY treats those characters as special.
 function text(cell: Cell, decimals: number | undefined): string {
   if (cell === null) {
     return "\\N";
@@ -60,7 +60,7 @@ function text(cell: Cell, decimals: number | undefined): string {
   }
 
   if (typeof cell === "number") {
-    // A signal value goes in as the decimal text ingest writes, so `leak = 0.4` matches it.
+    // Writes a signal value with ingest's number of decimals, so `leak = 0.4` matches the value.
     return decimals === undefined ? String(cell) : cell.toFixed(decimals);
   }
 
@@ -74,7 +74,7 @@ function text(cell: Cell, decimals: number | undefined): string {
   return cell.toString();
 }
 
-// A row's columns and values. A `signals` field holds machine-signal columns by name.
+// Returns the name and value of each column in `row`, including the columns inside `signals`.
 function cells(row: Row): [string, Cell][] {
   return Object.entries(row).flatMap(([key, value]): [string, Cell][] =>
     isSignals(value) ? Object.entries(value) : [[key, value]],
@@ -117,12 +117,7 @@ async function copy(
   );
 }
 
-/**
- * Creates `schema` and loads `rows` into it with COPY, in one transaction. It then builds the
- * indexes and the `samples` and `breaths` foreign keys, fills `period_percentiles` with the shared
- * statement, stamps `meta`, and grants the reader role SELECT. Throws on any error, after rolling
- * back, so a test fails with Postgres's message.
- */
+/** Creates `schema` and loads `rows` in one transaction. docs/synthetic-data.md lists each step. */
 export async function loadDerived(
   client: pg.Client,
   rows: DerivedRows,

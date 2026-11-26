@@ -1,4 +1,4 @@
-// pnpm synth: writes a synthetic CPAP data folder that `pnpm dev` can import.
+// `pnpm synth` writes a synthetic CPAP data folder that `pnpm dev` can import.
 import { mkdir, readdir, writeFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { parseArgs } from "node:util";
@@ -21,7 +21,7 @@ const wholeNumber = (flag: string, text: string, min: number): number => {
 
   return Number.isInteger(value) && value >= min
     ? value
-    : fail(`--${flag} must be a whole number of at least ${min.toString()}.`);
+    : fail(`--${flag} must be a whole number, ${min.toString()} or more.`);
 };
 
 const isPatient = (text: string): text is Patient => PATIENTS.some((patient) => patient === text);
@@ -39,14 +39,16 @@ function cases(text: string): "all" | EdgeCaseName[] {
 
   return unknown.length === 0
     ? names.filter(isCase)
-    : fail(`Unknown --cases: ${unknown.join(", ")}. Known: ${EDGE_CASE_NAMES.join(", ")}.`);
+    : fail(
+        `These --cases names are unknown: ${unknown.join(", ")}. The known names are ${EDGE_CASE_NAMES.join(", ")}.`,
+      );
 }
 
 function timeZone(text: string): string {
   try {
     return Temporal.Now.zonedDateTimeISO(text).timeZoneId;
   } catch {
-    return fail(`--time-zone ${text} isn't a time zone Temporal knows.`);
+    return fail(`--time-zone ${text} isn't a time zone that Temporal recognizes.`);
   }
 }
 
@@ -88,7 +90,7 @@ const model = syntheticNights({
 
 if (model.isErr()) {
   fail(
-    `Couldn't build the ${model.error.name} nights in ${model.error.zone}: it has no such transition.`,
+    `Couldn't build the ${model.error.name} nights, because ${model.error.zone} doesn't observe daylight saving time.`,
   );
 }
 
@@ -112,7 +114,7 @@ for (const { path, bytes } of files.value) {
   await writeFile(target, bytes);
 }
 
-// The server reads the device clock with this zone's winter offset.
+// The server needs this zone to convert the files' device-clock times.
 process.stdout.write(
   `Wrote ${nights.length.toString()} ${patient} nights to ${dir}\n` + `AIRWAY_TIME_ZONE=${zone}\n`,
 );

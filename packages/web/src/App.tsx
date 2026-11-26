@@ -1,6 +1,6 @@
 import "./styles/base.css";
 
-/** The app shell: the root component the web app renders. */
+/** Renders the app shell, which is the web app's root component. */
 export function App(): React.JSX.Element {
   return (
     <main>

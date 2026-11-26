@@ -1,12 +1,12 @@
 import type { EVENT_TYPES } from "@airway/contract/derived/values";
 
-// Invented round numbers that look like a child or an adult on an AutoSet machine. None come from
-// a real patient.
+// These round numbers are invented. They resemble how a child and an adult breathe on an AutoSet
+// machine.
 
 export const PATIENTS = ["child", "adult"] as const;
 export type Patient = (typeof PATIENTS)[number];
 
-/** The event types the machine scores. */
+/** Lists the event types that the machine scores. */
 export const MACHINE_EVENT_TYPES = [
   "obstructive_apnea",
   "central_apnea",
@@ -16,14 +16,17 @@ export const MACHINE_EVENT_TYPES = [
 ] as const satisfies readonly (typeof EVENT_TYPES)[number][];
 export type MachineEventType = (typeof MACHINE_EVENT_TYPES)[number];
 
-/** The machine's apnea types, which also show as a gap in flow. */
+/** Lists the machine's apnea types. Each apnea also appears as a gap in the flow signal. */
 export const APNEAS: ReadonlySet<(typeof EVENT_TYPES)[number]> = new Set<MachineEventType>([
   "obstructive_apnea",
   "central_apnea",
   "unclassified_apnea",
 ]);
 
-/** Whole-number ranges, each picked in proportion to its weight. `max` is included. */
+/**
+ * Lists whole-number ranges. The model chooses a range in proportion to its weight, and each range
+ * includes its `max`.
+ */
 export type WeightedRanges = readonly { weight: number; min: number; max: number }[];
 
 export type Breathing = {
@@ -31,27 +34,31 @@ export type Breathing = {
   periods: WeightedRanges;
   /** Seconds between consecutive BRP files inside one mask-on period. */
   fileGaps: WeightedRanges;
-  /** Breaths per minute: the night's mean, and how much it varies between nights. */
+  /** Breaths per minute. `mean` is a night's average, and `sd` is how much nights differ. */
   rate: { mean: number; sd: number };
   /** Litres per breath. */
   tidalVolume: { mean: number; sd: number };
   /** Events per hour of use on an ordinary night. */
   eventsPerHour: Readonly<Record<MachineEventType, number>>;
-  /** Pauses too short for the machine's 10 s apnea limit but at least 2 breaths long. */
+  /** Pauses per hour that last at least 2 breaths but less than the machine's 10 s apnea limit. */
   pediatricPausesPerHour: number;
-  /** Dips in flow shorter than 2 breaths, which nothing should flag. */
+  /** Dips in flow per hour. A dip lasts under 2 breaths, so it's too short to count as an event. */
   dipsPerHour: number;
   /** Unintentional leak between spikes, in L/s. */
   leak: number;
-  /** The AutoSet pressure range in cmH2O, written as S.AS.MinPress and S.AS.MaxPress. */
+  /** The AutoSet pressure range in cmH2O. STR.edf stores it as S.AS.MinPress and S.AS.MaxPress. */
   pressure: { min: number; max: number };
-  /** How far expiratory relief lowers the pressure, in cmH2O, written as S.EPR.Level. */
+  /** How far expiratory relief lowers the pressure, in cmH2O. STR.edf stores it as S.EPR.Level. */
   epr: number;
-  /** Every other S.* setting in STR.edf, by label. The model copies them into STR.edf as they are. */
+  /**
+   * Maps the label of every other S.* setting in STR.edf to its value. The model copies each value
+   * into STR.edf unchanged.
+   */
   settings: Readonly<Record<string, number>>;
 };
 
-// Codes for the on/off and choice settings. The values are invented but stay in their 0 to 16 range.
+// These are the codes for the on/off and choice settings. The values are invented, and each one
+// falls within its setting's range of 0 to 16.
 const CODES = {
   "S.RampEnable": 1,
   "S.EPR.ClinEnable": 1,
@@ -77,9 +84,10 @@ const comfort = {
 };
 
 export const BREATHING: Readonly<Record<Patient, Breathing>> = {
-  // Children breathe faster and smaller, and their pauses reach 2 breaths well before 10 s.
-  // A child gets many short mask-off breaks, so some nights pass STR.edf's 10 slots, and file gaps
-  // fall on both sides of ingest's 90 s join.
+  // Children take faster, smaller breaths, so a pause lasts 2 breaths well before it lasts 10 s.
+  // A child takes the mask off often and briefly, so some nights have more mask-on periods than
+  // STR.edf's 10 slots. File gaps fall on both sides of the 90 s limit that ingest uses to join
+  // files into a session.
   child: {
     periods: [
       { weight: 5, min: 1, max: 10 },
@@ -107,7 +115,8 @@ export const BREATHING: Readonly<Record<Patient, Breathing>> = {
     epr: 2,
     settings: { ...CODES, ...comfort, "S.C.Press": 8 },
   },
-  // Few periods and short gaps, so ingest's sessions always match the periods.
+  // An adult has few periods and short gaps, so the sessions that ingest builds always match the
+  // mask-on periods.
   adult: {
     periods: [{ weight: 1, min: 1, max: 6 }],
     fileGaps: [{ weight: 1, min: 5, max: 90 }],

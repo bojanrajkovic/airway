@@ -69,7 +69,7 @@ describe("renderBrp", () => {
     }
   });
 
-  it("holds flow under 5% of a breath, and under the crossing threshold, through every pause", () => {
+  it("keeps flow in pauses below both the crossing threshold and 5% of the typical peak", () => {
     for (const segment of segments) {
       const { flow } = renderBrp(segment, episodes);
       const peaks = breaths(segment, episodes)

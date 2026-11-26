@@ -11,14 +11,17 @@ export type ColorScheme = (typeof SCHEMES)[number];
 declare module "vitest/browser" {
   // oxlint-disable-next-line typescript/consistent-type-definitions -- module augmentation merges into an interface
   interface BrowserCommands {
-    /** Emulates the color scheme with Playwright's emulateMedia; vitest.config.ts defines it. */
+    /**
+     * Emulates the color scheme with Playwright's emulateMedia. vitest.config.ts defines the
+     * command.
+     */
     setColorScheme: (scheme: ColorScheme) => Promise<void>;
   }
 }
 
 /**
  * Saves `name`-<viewport>-<scheme>.png for desktop and phone, in light and dark, next to the test
- * under __screenshots__/. CI uploads them for the PR's screenshots; nothing compares them.
+ * under __screenshots__/. CI uploads the files as the PR's screenshots, for people to look at.
  */
 export async function takeScreenshots(name: string): Promise<void> {
   for (const { label, width, height } of VIEWPORTS) {

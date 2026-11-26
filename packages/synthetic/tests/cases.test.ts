@@ -7,7 +7,6 @@ import { synthesize, type Synthesized } from "../src/synthesize.ts";
 
 const arrivedAt = Temporal.Instant.from("2030-03-01T12:00:00Z");
 
-// One case on its own: its nights, their files, and the rows ingest should derive.
 type Built = Synthetic & Synthesized & { night: SyntheticNight };
 
 function edgeCase(name: EdgeCaseName, zone = "America/Chicago"): Built {
@@ -48,7 +47,7 @@ describe("edge cases", () => {
   describe("many-periods", () => {
     const { night, rows } = edgeCase("many-periods");
 
-    it("gives 10 slot sessions and 3 derived ones, matching MaskEvents", () => {
+    it("has 10 slot sessions and 3 derived sessions, and the total matches MaskEvents", () => {
       expect(night.periods).toHaveLength(13);
       expect(rows.sessions.map(({ source }) => source)).toEqual([
         ...Array.from({ length: 10 }, () => "str"),
@@ -66,11 +65,11 @@ describe("edge cases", () => {
       expect(sessionOf.slice(10)).toEqual([11, 11, 12, 13]);
     });
 
-    it("puts a file within 60 s of two slots in the one it overlaps most", () => {
+    it("puts a file within 60 s of two slots in the slot that the file overlaps most", () => {
       expect(rows.segments[4]?.session).toBe(5);
     });
 
-    it("keeps events 45 s before a period inside it, and marks events 120 s after one outside", () => {
+    it("keeps events 45 s before a period inside the period, and marks events 120 s after a period as outside", () => {
       const outside = rows.events.filter((event) => event.outside_mask_on);
 
       expect(outside).toHaveLength(11);
@@ -106,7 +105,7 @@ describe("edge cases", () => {
       expect(night.segments).toHaveLength(2);
     });
 
-    it("makes no session for the pair, so the count can't match MaskEvents", () => {
+    it("skips the pair when making sessions, so the session count is one short of MaskEvents", () => {
       expect(rows.sessions).toHaveLength(2);
       expect(rows.nights[0]?.expected_sessions).toBe(3);
       expect(rows.nights[0]?.session_count_approximate).toBe(true);
@@ -152,8 +151,8 @@ describe("edge cases", () => {
   describe("ahi-rounding", () => {
     const { rows } = edgeCase("ahi-rounding");
 
-    it("gives an AHI of 2.7 that airway's integer count matches", () => {
-      // The trap ingest avoids: floating point puts this just under 2.7.
+    it("has an AHI of 2.7 that airway's integer count matches", () => {
+      // Floating point puts 18 / 400 * 60 just under 2.7, so ingest counts in integers.
       expect((18 / 400) * 60).toBeLessThan(2.7);
       expect(rows.events).toHaveLength(18);
       expect(rows.nights[0]?.signals["ahi"]).toBe(2.7);
@@ -173,7 +172,7 @@ describe("edge cases", () => {
           return `${size.verdict} ${size.verdict === "reject" ? size.reason : size.header}`;
         });
 
-    it("writes each damaged file at the size its header promises", () => {
+    it("writes each damaged file at the size that its header declares", () => {
       expect(verdicts("brp")).toEqual([
         "read matches",
         "skip unknown_length",
@@ -188,7 +187,7 @@ describe("edge cases", () => {
       expect(verdicts("sad")[4]).toBe("read undercounted");
     });
 
-    it("keeps a segment only for each BRP file ingest reads", () => {
+    it("keeps segments only for the BRP files that ingest reads", () => {
       expect(rows.segments.map(({ ts }) => ts)).toEqual(
         [0, 3, 4, 5].map((i) => night.segments[i]?.start),
       );
@@ -211,12 +210,12 @@ describe("edge cases", () => {
         .filter((file) => file.kind === "pld" && file.segment === segment)
         .map(({ path }) => path);
 
-    it("gives a BRP with no PLD a segment without samples", () => {
+    it("makes a segment without samples for a BRP that has no PLD", () => {
       expect(pldsOf(2)).toEqual([]);
       expect(rows.samples.filter(({ segment }) => segment === 2)).toHaveLength(0);
     });
 
-    it("splits a PLD into two files while its BRP keeps going, with every sample", () => {
+    it("splits a PLD into two files while its BRP continues, and keeps every sample", () => {
       const split = written.filter((file) => file.kind === "pld" && file.segment === 2);
       const samples = rows.samples.filter(({ segment }) => segment === 3);
 

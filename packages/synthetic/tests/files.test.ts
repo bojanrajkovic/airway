@@ -22,7 +22,7 @@ describe("nightFiles", () => {
     expect(kinds.filter((kind) => kind === "eve" || kind === "csl")).toEqual(["eve", "csl"]);
   });
 
-  it("starts files on the device clock, at the zone's winter offset", () => {
+  it("writes each file's start in device time, which stays at the zone's winter offset", () => {
     const [segment] = first?.segments ?? [];
     const [brp, pld] = written;
 
@@ -42,7 +42,7 @@ describe("nightFiles", () => {
     expect(readBackEdf(brp?.bytes ?? new Uint8Array(256)).records).toBe(minutes);
   });
 
-  it("puts each event's end in EVE, after the recording-start annotation", () => {
+  it("writes each event to EVE at the time the event ends, after the recording-start annotation", () => {
     const eve = written.find((file) => file.kind === "eve");
     const start = first?.eventFiles[0]?.start;
     const expected = (first?.events ?? []).map((event) => ({
@@ -71,7 +71,7 @@ describe("nightFiles", () => {
     ).toBe(true);
   });
 
-  it("puts each event in the last EVE file starting before it, measured from that file", () => {
+  it("writes each event to the last EVE file that starts before the event, and counts its onset from that file's start", () => {
     const split = first?.events[Math.floor(first.events.length / 2)]?.at;
     const eventFiles = [
       ...(first?.eventFiles ?? []),
@@ -95,7 +95,7 @@ describe("nightFiles", () => {
     );
   });
 
-  it("writes SAD as missing throughout", () => {
+  it("writes every pulse sample in SAD as missing", () => {
     const sad = written.find((file) => file.kind === "sad");
     const pulse = readBackEdf(sad?.bytes ?? new Uint8Array(256)).digital.get("Pulse.1s");
 
@@ -146,7 +146,7 @@ describe("strFile", () => {
     expect(strFile([...nights].reverse(), zone)._unsafeUnwrap()).toEqual(sorted);
   });
 
-  it("refuses an empty list of nights", () => {
+  it("returns no_nights for an empty list of nights", () => {
     expect(strFile([], zone)._unsafeUnwrapErr()).toEqual({ kind: "no_nights" });
   });
 });

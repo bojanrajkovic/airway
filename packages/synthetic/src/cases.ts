@@ -16,7 +16,7 @@ import type { Breathing } from "./patients.ts";
 
 /** What an edge case builds its nights from. */
 export type EdgeCaseContext = {
-  /** The case's own generator, so adding a case leaves every other night as it was. */
+  /** Each case has its own generator, so adding a case leaves the other cases' nights unchanged. */
   random: Random;
   breathing: Breathing;
   /** The case's first night. Its other nights follow on later dates. */
@@ -26,7 +26,7 @@ export type EdgeCaseContext = {
 
 export type EdgeCaseNights = { nights: SyntheticNight[] };
 
-/** A DST case asked for in a zone that has no such transition. */
+/** A caller asked for a DST case in a zone that doesn't observe DST. */
 export type EdgeCaseError = { kind: "no_dst_transition"; name: EdgeCaseName; zone: string };
 
 type Built = Result<EdgeCaseNights, EdgeCaseError>;
@@ -34,8 +34,10 @@ type EdgeCase = (context: EdgeCaseContext) => Built;
 
 type Layout = { periods: MaskPeriod[]; segmentTimes: Interval[] };
 
-// Mask-on periods made of BRP files back to back. Each period lists its files in minutes, joined
-// by `fileGap` seconds; `breaks[i]` seconds follow period i.
+// Lays out mask-on periods made of BRP files:
+// - `files[i]` lists the lengths of period i's files, in minutes.
+// - `fileGap` is the gap between files within a period, in seconds.
+// - `breaks[i]` is the break after period i, in seconds.
 function layPeriods(
   start: Temporal.Instant,
   files: readonly (readonly number[])[],
@@ -63,15 +65,18 @@ function layPeriods(
 
 const hypopnea = (at: Temporal.Instant): MachineEvent => ({ at, duration: 15, type: "hypopnea" });
 const only = (night: SyntheticNight): Built => ok({ nights: [night] });
-// An hour after the night's evening, in the home time zone.
+// Returns 21:00 on the night's date in the home time zone.
 const nineOClock = (night: Temporal.PlainDate, zone: string): Temporal.Instant =>
   evening(night, zone).toInstant().add({ hours: 1 });
 
-// 13 periods: 10 fill STR.edf's slots and 3 come after them. Period 5 starts 40 s after period 4,
-// so its file is within 60 s of both slots. Period 11's two files are 90 s apart, the most that
-// still joins, and period 13 starts 91 s after period 12, the least that splits. Events sit 45 s
-// before a period (inside its 60 s slack) and 120 s after one (outside it), wherever the gap on
-// that side is at least 5 minutes.
+// Builds 13 mask-on periods:
+// - Periods 1 to 10 fill STR.edf's slots, and periods 11 to 13 come after them.
+// - Period 5 starts 40 s after period 4, so its file is within 60 s of both slots.
+// - Period 11's two files are 90 s apart, the longest gap that joins files into one period.
+// - Period 13 starts 91 s after period 12, the shortest gap that splits periods.
+// - A hypopnea 45 s before a period falls inside `assignEvents`'s 60 s slack.
+// - A hypopnea 120 s after a period falls outside the slack.
+// The case adds each hypopnea only where the break on that side is at least 5 minutes.
 function manyPeriods({ random, breathing, first, zone }: EdgeCaseContext): Built {
   const files = [...Array.from({ length: 10 }, () => [30]), [30, 30], [20], [20]];
   const breaks = [300, 300, 300, 40, 300, 300, 300, 300, 300, 300, 300, 91];
@@ -107,8 +112,8 @@ function noonEdge({ random, breathing, first, zone }: EdgeCaseContext): Built {
   );
 }
 
-// A 30 s mask-on period between two others, too short for a BRP file. STR.edf records its
-// mask-on and mask-off in the same minute, so ingest drops it.
+// Puts a 30 s mask-on period, which is too short for a BRP file, between two longer periods.
+// STR.edf records its mask-on and mask-off in the same minute, so ingest drops the 30 s period.
 function subMinutePeriod({ random, breathing, first, zone }: EdgeCaseContext): Built {
   const start = nineOClock(first, zone);
   const before = layPeriods(start, [[120]], [], 90);
@@ -129,7 +134,8 @@ function subMinutePeriod({ random, breathing, first, zone }: EdgeCaseContext): B
   );
 }
 
-// Six hours of use that STR.edf records, with no BRP files, so the night has no DATALOG folder.
+// Builds six hours of use that only STR.edf records. The night's segment list is empty, so
+// `cpapData` skips its DATALOG folder.
 function folderlessDay({ random, breathing, first, zone }: EdgeCaseContext): Built {
   const { periods } = layPeriods(nineOClock(first, zone), [[360]], [], 90);
 
@@ -143,7 +149,7 @@ function folderlessDay({ random, breathing, first, zone }: EdgeCaseContext): Bui
   );
 }
 
-// Two nights with two unused days between them, which STR.edf stores as -1.
+// Two nights with two unused days between them. STR.edf stores -1 for an unused day.
 function unusedDays({ random, breathing, first, zone }: EdgeCaseContext): Built {
   return ok({
     nights: [0, 3].map((days) =>
@@ -161,7 +167,7 @@ function settingsChange({ random, breathing, first, zone }: EdgeCaseContext): Bu
   return ok({ nights: [before, { ...after, str: raised }] });
 }
 
-// 18 hypopneas in 400 minutes: an AHI of exactly 2.7, which floating point computes as 2.69999…
+// 18 hypopneas in 400 minutes make an AHI of exactly 2.7.
 function ahiRounding({ random, breathing, first, zone }: EdgeCaseContext): Built {
   const layout = layPeriods(nineOClock(first, zone), [[400]], [], 90);
   const start = layout.segmentTimes[0]?.start ?? nineOClock(first, zone);
@@ -174,7 +180,7 @@ function ahiRounding({ random, breathing, first, zone }: EdgeCaseContext): Built
   );
 }
 
-// One period of BRP files 30 s apart, each written as `files` says.
+// Builds one period of BRP files, 30 s apart. `files[i]` sets how segment i's files are written.
 function filesNight(
   { random, breathing, first, zone }: EdgeCaseContext,
   minutes: readonly number[],
@@ -248,7 +254,8 @@ function splitFiles(context: EdgeCaseContext): Built {
   });
 }
 
-// The night before the zone's next transition in the given direction, searched from `first`.
+// Returns the date before the zone's first `direction` transition after `first`, or undefined
+// when the zone has no such transition.
 function transitionNight(
   first: Temporal.PlainDate,
   zone: string,
@@ -256,7 +263,8 @@ function transitionNight(
 ): Temporal.PlainDate | undefined {
   let at: Temporal.ZonedDateTime | null = first.toZonedDateTime({ timeZone: zone });
 
-  // A year holds at most two transitions, so four reach both directions.
+  // A zone changes its clocks at most twice a year, so the next four transitions include both
+  // directions.
   for (let i = 0; i < 4 && at !== null; i += 1) {
     at = at.getTimeZoneTransition("next");
 
@@ -272,8 +280,8 @@ function transitionNight(
   return undefined;
 }
 
-// A night from 21:00 to about 05:00 across the zone's next fall-back or spring-forward, so the
-// night has 01:00 twice or no 02:00 in the home zone.
+// Builds a night from 21:00 to about 05:00 that crosses the zone's next fall-back or
+// spring-forward. A fall-back night has 01:00 twice, and a spring-forward night skips 02:00.
 const dstCase =
   (name: "fall-back" | "spring-forward"): EdgeCase =>
   ({ random, breathing, first, zone }) => {
@@ -308,7 +316,8 @@ export const EDGE_CASE_NAMES = [
 ] as const;
 export type EdgeCaseName = (typeof EDGE_CASE_NAMES)[number];
 
-// Named only: their dates depend on the zone, and a zone without DST has none.
+// `'all'` skips the DST cases, so a caller has to name them. Their dates depend on the zone, and
+// a zone without DST can't build them.
 const DST_CASES: ReadonlySet<EdgeCaseName> = new Set(["fall-back", "spring-forward"]);
 
 export const EDGE_CASES: Readonly<Record<EdgeCaseName, EdgeCase>> = {
@@ -325,11 +334,14 @@ export const EDGE_CASES: Readonly<Record<EdgeCaseName, EdgeCase>> = {
   "spring-forward": dstCase("spring-forward"),
 };
 
-/** The cases `'all'` or a list names, in `EDGE_CASE_NAMES` order. `'all'` leaves out DST cases. */
+/**
+ * Returns the cases that `cases` selects, in `EDGE_CASE_NAMES` order. `'all'` leaves out the DST
+ * cases.
+ */
 export const edgeCaseNames = (cases: "all" | readonly EdgeCaseName[]): EdgeCaseName[] =>
   EDGE_CASE_NAMES.filter((name) => (cases === "all" ? !DST_CASES.has(name) : cases.includes(name)));
 
-/** A case's seed: the model's seed mixed with the case's name. */
+/** Returns a case's seed, which mixes the model's seed with the case's name. */
 export function edgeCaseSeed(seed: number, name: EdgeCaseName): number {
   let hash = seed;
 

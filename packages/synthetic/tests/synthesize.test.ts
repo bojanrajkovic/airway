@@ -9,7 +9,7 @@ const { nights } = syntheticNights({ seed: 7, nights: 4 })._unsafeUnwrap();
 
 const run = (list: readonly SyntheticNight[]): Synthesized =>
   synthesize(list, zone, { patient: "child", arrivedAt })._unsafeUnwrap();
-// Each test that asks for `synthesized` gets its own folder and rows, built from `nights`.
+// Builds a fresh folder and rows from `nights` for each test that uses `synthesized`.
 const test = base.extend<{ synthesized: Synthesized }>({
   synthesized: async ({}, use) => {
     await use(run(nights));
@@ -21,7 +21,7 @@ const ofNight = <T extends { night: Temporal.PlainDate | null }>(
 ): T[] => rows.filter((row) => row.night?.equals(night.night) === true);
 
 describe("synthesize", () => {
-  test("gives every night a row with the machine's AHI, matched by airway's count", ({
+  test("writes one row per night, with the machine's AHI and an `ahi_check` of `match`", ({
     synthesized: { rows },
   }) => {
     expect(rows.nights.map((row) => row.night.toString())).toEqual(
@@ -35,7 +35,7 @@ describe("synthesize", () => {
     }
   });
 
-  test("writes one sample per 2 s of each segment, starting with its PLD file", ({
+  test("writes one sample per 2 s of each segment, starting when the segment's PLD file starts", ({
     synthesized: { rows },
   }) => {
     for (const night of nights) {
@@ -66,7 +66,7 @@ describe("synthesize", () => {
     expect(orphans).toEqual([]);
   });
 
-  test("starts each apnea at its modeled start and each hypopnea or arousal at its modeled end, within half a second, because EVE stores whole seconds", ({
+  test("starts each apnea row at the modeled start and each hypopnea or arousal row at the modeled end, rounded to the whole second", ({
     synthesized: { rows },
   }) => {
     const [night] = nights;
@@ -76,14 +76,14 @@ describe("synthesize", () => {
     events.forEach((row, i) => {
       const event = night?.events[i];
       const at = event?.at ?? row.ts;
-      // The machine writes a 0 duration for hypopneas and arousals, so the row starts at the onset, which marks the event's end.
+      // The machine writes a hypopnea or arousal at the time the event ends, with a 0 duration.
       const start = row.duration === null ? at.add({ seconds: event?.duration ?? 0 }) : at;
 
       expect(Math.abs(start.until(row.ts).total("seconds"))).toBeLessThanOrEqual(0.5);
     });
   });
 
-  test("gives hypopneas and arousals a null duration, and apneas a duration of at least 10 s", ({
+  test("writes a null duration for hypopneas and arousals, and a duration of at least 10 s for apneas", ({
     synthesized: { rows },
   }) => {
     const untimed = rows.events.filter(({ type }) => type === "hypopnea" || type === "arousal");
@@ -95,7 +95,7 @@ describe("synthesize", () => {
     expect(timed.every(({ duration }) => duration !== null && duration >= 10)).toBe(true);
   });
 
-  test("lists the files ingest imports, with their sizes and SHA-256", ({
+  test("lists the files that ingest imports, with each file's size and SHA-256", ({
     synthesized: { files, rows },
   }) => {
     const byPath = new Map(files.map((file) => [file.path, file.bytes]));
@@ -128,7 +128,7 @@ describe("synthesize", () => {
     }
   });
 
-  test("gives a night with no segments only its daily usage", () => {
+  test("writes only a daily usage row for a night with no segments", () => {
     const [first, second, ...rest] = nights;
 
     if (first === undefined || second === undefined) {
@@ -154,7 +154,7 @@ describe("synthesize", () => {
     expect(ofNight(nightRows, second)).toEqual([]);
   });
 
-  test("gives a day with no night zero usage", () => {
+  test("writes zero usage for a day with no night", () => {
     const [first, , third] = nights;
     const gap = run([first, third].filter((night) => night !== undefined)).rows;
 
@@ -184,7 +184,7 @@ describe("synthesize", () => {
     ]);
   });
 
-  test("puts a change made on a night with no folder on that night", () => {
+  test("puts a setting change on the night it happened, even when that night has no folder", () => {
     const [first, second, third] = nights;
 
     if (first === undefined || second === undefined || third === undefined) {
@@ -209,7 +209,7 @@ describe("synthesize", () => {
     ]);
   });
 
-  test("rebuilds sessions past STR.edf's 10 slots from the BRP files", () => {
+  test("uses the BRP files to rebuild the sessions beyond the 10 that fit in STR.edf", () => {
     // Seed 1's second night has 15 periods.
     const busy = syntheticNights({ seed: 1, nights: 2 })
       ._unsafeUnwrap()
