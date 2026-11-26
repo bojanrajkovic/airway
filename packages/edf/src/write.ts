@@ -1,8 +1,14 @@
 import crc16ccitt from "crc/calculators/crc16ccitt";
 import { err, ok, Result } from "neverthrow";
-import { dataSignals, step, type EdfFileType, type EdfSignal } from "./airsense.ts";
-import type { Annotation } from "./annotations.ts";
-import { recordBytes, type EdfHeader } from "./header.ts";
+import {
+  dataSignals,
+  step,
+  type EdfAnnotationFileType,
+  type EdfFileType,
+  type EdfSignalFileType,
+} from "./airsense.ts";
+import type { EdfAnnotation } from "./annotations.ts";
+import { recordBytes, type EdfHeader, type EdfSignalHeader } from "./header.ts";
 
 /** These header fields change from file to file. The file type sets the rest. */
 export type PerFileHeader = Pick<EdfHeader, "start" | "patient" | "recording">;
@@ -13,9 +19,9 @@ export type EdfWriteError =
   | { kind: "missing_not_representable"; label: string }
   | { kind: "uneven_signals"; label: string; records: number; expected: number }
   | { kind: "field_too_long"; field: string; value: string }
-  | { kind: "annotation_too_long"; annotation: Annotation }
+  | { kind: "annotation_too_long"; annotation: EdfAnnotation }
   // The machine writes every onset at or after the file's start.
-  | { kind: "negative_onset"; annotation: Annotation };
+  | { kind: "negative_onset"; annotation: EdfAnnotation };
 
 const HEADER_BYTES = 256;
 const SIGNAL_HEADER_BYTES = 256;
@@ -67,9 +73,9 @@ function writeHeader(
     ["start date", `${two(start.day)}.${two(start.month)}.${two(start.year % 100)}`, 8],
     ["start time", `${two(start.hour)}.${two(start.minute)}.${two(start.second)}`, 8],
     ["header bytes", headerBytes.toString(), 8],
-    ["reserved", file.format, 44],
+    ["reserved", file.header.format, 44],
     ["records", records.toString(), 8],
-    ["record duration", file.recordSeconds.toFixed(2), 8],
+    ["record duration", file.header.recordSeconds.toFixed(2), 8],
     ["signals", signals.length.toString(), 4],
     ...perSignal(signals, "label", 16, (signal) => signal.label),
     ...perSignal(signals, "transducer", 80, () => ""),
@@ -89,15 +95,18 @@ function writeHeader(
 }
 
 function perSignal(
-  signals: readonly EdfSignal[],
+  signals: readonly EdfSignalHeader[],
   name: string,
   width: number,
-  value: (signal: EdfSignal) => string,
+  value: (signal: EdfSignalHeader) => string,
 ): [string, string, number][] {
   return signals.map((signal) => [`${signal.label} ${name}`, value(signal), width]);
 }
 
-function digitize(signal: EdfSignal, samples: Float64Array): Result<Int16Array, EdfWriteError> {
+function digitize(
+  signal: EdfSignalHeader,
+  samples: Float64Array,
+): Result<Int16Array, EdfWriteError> {
   const physicalMin = Number(signal.physicalMin);
   const size = step(signal);
   const missingAllowed = signal.digitalMin > MISSING || signal.digitalMax < MISSING;
@@ -138,7 +147,7 @@ function signRecords(bytes: Uint8Array, first: number, size: number): Uint8Array
 
 // Every signal must fill the same whole number of records. Callers leave Crc16 out of `values`.
 function recordCount(
-  file: EdfFileType,
+  file: EdfSignalFileType,
   values: ReadonlyMap<string, Float64Array>,
 ): Result<number, EdfWriteError> {
   const counts: { label: string; records: number }[] = [];
@@ -169,7 +178,7 @@ function recordCount(
  * docs/synthetic-data.md describes the rounding and how `NaN` is written.
  */
 export function writeSignals(
-  file: EdfFileType,
+  file: EdfSignalFileType,
   header: PerFileHeader,
   values: ReadonlyMap<string, Float64Array>,
 ): Result<Uint8Array, EdfWriteError> {
@@ -213,9 +222,9 @@ export function writeSignals(
  * padded with zeros, and the checksum ends the record.
  */
 export function writeAnnotations(
-  file: EdfFileType,
+  file: EdfAnnotationFileType,
   header: PerFileHeader,
-  annotations: readonly Annotation[],
+  annotations: readonly EdfAnnotation[],
 ): Result<Uint8Array, EdfWriteError> {
   const [annotationSignal] = file.signals;
   const capacity = 2 * (annotationSignal?.samplesPerRecord ?? 0);

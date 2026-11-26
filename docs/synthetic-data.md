@@ -4,7 +4,9 @@ This page explains how airway generates the synthetic SD-card data for tests, sc
 
 ## The AirSense 10's signals
 
-`@airway/edf/airsense` lists every EDF file type that the AirSense 10 writes, with each signal as the file's header declares it. The EDF writer uses the list, and ingest's reader will use it too, so writing and reading follow one description of the format.
+`@airway/edf/airsense` lists every EDF file type that the AirSense 10 writes. Each one is an `EdfFileType`. Its `header` has the format and the record length, and its `signals` has one `EdfSignalHeader` per signal, with the values that a real file's header declares. The type of a file that stores samples is an `EdfSignalFileType`, and the type of a file that stores annotations is an `EdfAnnotationFileType`. `writeSignals` and `writeAnnotations` each accept only their own kind. The EDF writer and STR ingest both use these types, so they share one description of the format.
+
+`@airway/edf/columns` pairs each signal that airway stores with the name it's stored under. `PLD_SAMPLE_COLUMNS` and `STR_NIGHT_COLUMNS` map signals to dataset columns. `STR_SETTINGS` maps them to settings. STR ingest and the synthetic generator both read these lists.
 
 | File | Format | Record | What it holds |
 |---|---|---|---|

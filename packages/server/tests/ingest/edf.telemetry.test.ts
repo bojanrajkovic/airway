@@ -2,7 +2,7 @@ import { inMemoryTelemetry } from "@airway/testing/telemetry";
 import { beforeEach, describe, expect, it } from "vitest";
 import type { ReadableSpan } from "@opentelemetry/sdk-trace";
 import type { Result } from "neverthrow";
-import { readHeader, type EdfFile, type EdfReadError } from "@airway/edf/header";
+import { readHeader, type EdfFileHeaders, type EdfReadError } from "@airway/edf/header";
 import type { CpapFile } from "@airway/synthetic/cpap-data";
 import { readEdfFile } from "../../src/ingest/edf.ts";
 import {
@@ -20,7 +20,7 @@ beforeEach(() => {
 });
 
 type Read = {
-  result: Result<EdfFile, EdfReadError>;
+  result: Result<EdfFileHeaders, EdfReadError>;
   span: ReadableSpan | undefined;
   lines: Record<string, unknown>[];
 };

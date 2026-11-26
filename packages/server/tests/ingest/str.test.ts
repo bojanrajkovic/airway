@@ -1,7 +1,12 @@
 import { describe, expect, it } from "vitest";
 import type { DerivedRows } from "@airway/contract/derived/rows";
 import { settingsChanges } from "@airway/contract/derived/settings";
-import { isReadable, readHeader, recordBytes, type ReadableEdfFile } from "@airway/edf/header";
+import {
+  isReadable,
+  readHeader,
+  recordBytes,
+  type ReadableEdfFileHeaders,
+} from "@airway/edf/header";
 import type { EdgeCaseName } from "@airway/synthetic/cases";
 import { maskSlots, strFile } from "@airway/synthetic/files";
 import { syntheticNights, type Synthetic } from "@airway/synthetic/model";
@@ -10,7 +15,7 @@ import { readStr } from "../../src/ingest/str.ts";
 
 const arrivedAt = Temporal.Instant.from("2030-03-01T12:00:00Z");
 
-function readable(bytes: Uint8Array): ReadableEdfFile {
+function readable(bytes: Uint8Array): ReadableEdfFileHeaders {
   const file = readHeader(bytes)._unsafeUnwrap();
 
   if (!isReadable(file)) {
@@ -81,7 +86,7 @@ describe("readStr", () => {
     const file = readable(bytes);
     const changed = bytes.slice();
     // Date is the first signal, so it's the first int16 of record 1.
-    const at = file.header.headerBytes + recordBytes(file.header);
+    const at = file.header.headerBytes + recordBytes(file);
 
     new DataView(changed.buffer).setInt16(at, -1, true);
 

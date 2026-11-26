@@ -144,7 +144,7 @@ type PldPart = {
   damage: FileDamage;
 };
 
-const PLD_RECORD_SAMPLES = AIRSENSE.pld.recordSeconds / PLD_SAMPLE_SECONDS;
+const PLD_RECORD_SAMPLES = AIRSENSE.pld.header.recordSeconds / PLD_SAMPLE_SECONDS;
 
 // Returns one entry per PLD file, depending on `pldFiles.files`:
 // - `none`: no entries

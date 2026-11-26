@@ -2,7 +2,7 @@ import { join } from "node:path";
 import type { Attributes } from "@opentelemetry/api";
 import type { ResultAsync } from "neverthrow";
 import { readFileHeader } from "@airway/edf/file-header";
-import type { EdfFile, EdfReadError, EdfWarning } from "@airway/edf/header";
+import type { EdfFileHeaders, EdfReadError, EdfWarning } from "@airway/edf/header";
 import type { AppContext } from "../runtime/context.ts";
 import { inSpanAsync } from "../telemetry.ts";
 
@@ -24,7 +24,10 @@ function warningAttributes({ kind, headerDate, startdate }: EdfWarning): Attribu
  * the number of whole records on disk, and the warning count. Each header warning becomes an
  * `edf.warning` span event with the warning's kind and details, and is logged at `warn`.
  */
-export function readEdfFile(ctx: AppContext, path: string): ResultAsync<EdfFile, EdfReadError> {
+export function readEdfFile(
+  ctx: AppContext,
+  path: string,
+): ResultAsync<EdfFileHeaders, EdfReadError> {
   const logger = ctx.logger.child({ module: "ingest.edf", path });
 
   return inSpanAsync("edf.read_file", (span) => {

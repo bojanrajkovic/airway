@@ -3,7 +3,7 @@ import { createReadStream } from "node:fs";
 import { join } from "node:path";
 import { ResultAsync } from "neverthrow";
 import type { FileRow } from "@airway/contract/derived/rows";
-import { recordBytes, type EdfFile } from "@airway/edf/header";
+import { recordBytes, type EdfFileHeaders } from "@airway/edf/header";
 import type { Logger } from "../logger.ts";
 import type { AppContext } from "../runtime/context.ts";
 import { inSpanAsync } from "../telemetry.ts";
@@ -15,7 +15,7 @@ import type { Scan, ScannedFile } from "./scan.ts";
 export type FileVersion = Pick<FileRow, "path" | "size" | "sha256">;
 
 /** Describes a file that's ready to import, with its hash. `edf` is the header of an EDF file. */
-export type ReadyFile = ScannedFile & FileVersion & { edf: EdfFile | null };
+export type ReadyFile = ScannedFile & FileVersion & { edf: EdfFileHeaders | null };
 
 export type RejectedFile = ScannedFile & { reason: RejectReason };
 
@@ -171,7 +171,7 @@ function logRejection(
       ? {
           declaredRecords: header.file.header.declaredRecords,
           recordsOnDisk: Math.floor(
-            (file.size - header.file.header.headerBytes) / recordBytes(header.file.header),
+            (file.size - header.file.header.headerBytes) / recordBytes(header.file),
           ),
         }
       : {};

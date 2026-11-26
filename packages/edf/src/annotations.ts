@@ -1,11 +1,16 @@
 import { err, ok, Result } from "neverthrow";
-import { coversRecords, recordBytes, type EdfReadError, type ReadableEdfFile } from "./header.ts";
+import {
+  coversRecords,
+  recordBytes,
+  type EdfReadError,
+  type ReadableEdfFileHeaders,
+} from "./header.ts";
 
 /**
  * Describes one EDF+ annotation. `onset` counts seconds from the file's start, and `duration` is
  * in seconds.
  */
-export type Annotation = { onset: number; duration: number; label: string };
+export type EdfAnnotation = { onset: number; duration: number; label: string };
 
 const ANNOTATION_LABEL = "EDF Annotations";
 // Matches a TAL (time-stamped annotation list): a signed onset, an optional duration after \x15,
@@ -32,7 +37,7 @@ function tals(chunk: Uint8Array): string[] {
   return found;
 }
 
-function parseTal(record: number, tal: string): Result<Annotation[], EdfReadError> {
+function parseTal(record: number, tal: string): Result<EdfAnnotation[], EdfReadError> {
   const match = TAL.exec(tal);
 
   if (match === null) {
@@ -56,14 +61,14 @@ function parseTal(record: number, tal: string): Result<Annotation[], EdfReadErro
  */
 export function readAnnotations(
   bytes: Uint8Array,
-  file: ReadableEdfFile,
-): Result<Annotation[], EdfReadError> {
+  file: ReadableEdfFileHeaders,
+): Result<EdfAnnotation[], EdfReadError> {
   const { header } = file;
-  const stride = recordBytes(header);
+  const stride = recordBytes(file);
   let offset = 0;
   const spans: { offset: number; length: number }[] = [];
 
-  for (const signal of header.signals) {
+  for (const signal of file.signals) {
     if (signal.label === ANNOTATION_LABEL) {
       spans.push({ offset, length: 2 * signal.samplesPerRecord });
     }
@@ -76,10 +81,10 @@ export function readAnnotations(
 
   return found
     .andThen((annotationSpans) =>
-      coversRecords(bytes, header, file.size.records).map(() => annotationSpans),
+      coversRecords(bytes, file, file.size.records).map(() => annotationSpans),
     )
     .andThen((annotationSpans) => {
-      const parsed: Result<Annotation[], EdfReadError>[] = [];
+      const parsed: Result<EdfAnnotation[], EdfReadError>[] = [];
 
       for (let record = 0; record < file.size.records; record += 1) {
         const base = header.headerBytes + record * stride;

@@ -1,8 +1,8 @@
 import { err, ok, Result } from "neverthrow";
 import { checkFileSize, type FileSizeCheck } from "./size.ts";
 
-/** Describes one signal with the values that the file header declares for it. */
-export type SignalHeader<L extends string = string> = {
+/** Describes one signal with the values that its 256-byte signal header declares. */
+export type EdfSignalHeader<L extends string = string> = {
   label: L;
   /** Contains an empty string when the header leaves the unit blank. */
   unit: string;
@@ -30,8 +30,6 @@ export type EdfHeader = {
   /** Equals -1 when the machine never filled in the record count. */
   declaredRecords: number;
   recordSeconds: number;
-  /** Contains each signal's header fields, in header order. */
-  signals: readonly SignalHeader[];
 };
 
 /** `readHeader` reports a contradiction in the header as a warning and keeps reading. */
@@ -59,23 +57,31 @@ export type EdfReadError =
   | { kind: "bad_annotation"; record: number; tal: string };
 
 /**
- * `readHeader` returns the parsed header, the result of `checkFileSize` for the file, and any
- * warnings.
+ * Holds the main header, the signal headers in file order, the `checkFileSize` result, and any
+ * warnings that `readHeader` produces.
  */
-export type EdfFile = { header: EdfHeader; size: FileSizeCheck; warnings: EdfWarning[] };
+export type EdfFileHeaders = {
+  header: EdfHeader;
+  signals: readonly EdfSignalHeader[];
+  size: FileSizeCheck;
+  warnings: EdfWarning[];
+};
 
 /** `checkFileSize` says to read this file, so the file has whole records to decode. */
-export type ReadableEdfFile = EdfFile & { size: Extract<FileSizeCheck, { verdict: "read" }> };
+export type ReadableEdfFileHeaders = EdfFileHeaders & {
+  size: Extract<FileSizeCheck, { verdict: "read" }>;
+};
 
-export const isReadable = (file: EdfFile): file is ReadableEdfFile => file.size.verdict === "read";
+export const isReadable = (file: EdfFileHeaders): file is ReadableEdfFileHeaders =>
+  file.size.verdict === "read";
 
 /** Checks that `bytes` covers every record before `toRecord`. */
 export function coversRecords(
   bytes: Uint8Array,
-  header: EdfHeader,
+  file: EdfFileHeaders,
   toRecord: number,
 ): Result<void, EdfReadError> {
-  const needed = header.headerBytes + toRecord * recordBytes(header);
+  const needed = file.header.headerBytes + toRecord * recordBytes(file);
 
   return bytes.length >= needed
     ? ok(undefined)
@@ -83,7 +89,7 @@ export function coversRecords(
 }
 
 /** Returns the number of bytes in one data record, including the Crc16. */
-export const recordBytes = (file: { signals: readonly SignalHeader[] }): number =>
+export const recordBytes = (file: { signals: readonly EdfSignalHeader[] }): number =>
   2 * file.signals.reduce((sum, signal) => sum + signal.samplesPerRecord, 0);
 
 const FIXED_BYTES = 256;
@@ -211,7 +217,7 @@ function startdate(recording: string): Temporal.PlainDate | null {
   )().unwrapOr(null);
 }
 
-function parseSignals(reader: FieldReader, count: number): Result<SignalHeader[], EdfReadError> {
+function parseSignals(reader: FieldReader, count: number): Result<EdfSignalHeader[], EdfReadError> {
   const labels = reader.readColumn(count, 16);
   const name = (signal: number, field: string): string => `${labels[signal] ?? ""} ${field}`;
   const integer =
@@ -237,7 +243,7 @@ function parseSignals(reader: FieldReader, count: number): Result<SignalHeader[]
   return Result.combine([physicalMins, physicalMaxes, digitalMins, digitalMaxes, samples]).andThen(
     ([physicalMin, physicalMax, digitalMin, digitalMax, samplesPerRecord]) =>
       Result.combine(
-        labels.map((label, i): Result<SignalHeader, EdfReadError> => {
+        labels.map((label, i): Result<EdfSignalHeader, EdfReadError> => {
           const signal = {
             label,
             unit: units[i] ?? "",
@@ -266,7 +272,10 @@ function parseSignals(reader: FieldReader, count: number): Result<SignalHeader[]
  * Parses an EDF or EDF+ header and checks the file's size against it. `bytes` must contain the
  * whole header. `size` is the file's size on disk, and defaults to `bytes.length`.
  */
-export function readHeader(bytes: Uint8Array, size = bytes.length): Result<EdfFile, EdfReadError> {
+export function readHeader(
+  bytes: Uint8Array,
+  size = bytes.length,
+): Result<EdfFileHeaders, EdfReadError> {
   if (bytes.length < FIXED_BYTES) {
     return err({ kind: "header_too_short", headerBytes: FIXED_BYTES });
   }
@@ -312,19 +321,21 @@ export function readHeader(bytes: Uint8Array, size = bytes.length): Result<EdfFi
       }
 
       return Result.combine([parseStart(date, time), parseSignals(reader, count)]).map(
-        ([start, signals]): EdfHeader => ({
-          format,
-          start,
-          patient,
-          recording,
-          headerBytes,
-          declaredRecords,
-          recordSeconds,
+        ([start, signals]) => ({
+          header: {
+            format,
+            start,
+            patient,
+            recording,
+            headerBytes,
+            declaredRecords,
+            recordSeconds,
+          } satisfies EdfHeader,
           signals,
         }),
       );
     })
-    .map((header): EdfFile => {
+    .map(({ header, signals }): EdfFileHeaders => {
       const stated = startdate(header.recording);
       const date = header.start.toPlainDate();
       const warnings: EdfWarning[] =
@@ -334,10 +345,10 @@ export function readHeader(bytes: Uint8Array, size = bytes.length): Result<EdfFi
       const check = checkFileSize({
         size,
         headerBytes: header.headerBytes,
-        recordBytes: recordBytes(header),
+        recordBytes: recordBytes({ signals }),
         declaredRecords: header.declaredRecords,
       });
 
-      return { header, size: check, warnings };
+      return { header, signals, size: check, warnings };
     });
 }

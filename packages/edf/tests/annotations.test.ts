@@ -1,13 +1,16 @@
 import { describe, expect, it } from "vitest";
 import type { Result } from "neverthrow";
-import { readAnnotations, type Annotation } from "../src/annotations.ts";
+import { readAnnotations, type EdfAnnotation } from "../src/annotations.ts";
 import { isReadable, readHeader, type EdfReadError } from "../src/header.ts";
 import { readable } from "./readable.ts";
 import { annotated, file, plain, withTals } from "./bytes.ts";
 
 const TIMEKEEPING = "+0\x14\x14\0";
 
-const read = (records: string[], declared = records.length): Result<Annotation[], EdfReadError> => {
+const read = (
+  records: string[],
+  declared = records.length,
+): Result<EdfAnnotation[], EdfReadError> => {
   const bytes = withTals(annotated(declared), records);
 
   return readAnnotations(bytes, readable(bytes));

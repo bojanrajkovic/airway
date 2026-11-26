@@ -65,10 +65,11 @@ Import starts at the first DATALOG folder, because every night comes from a DATA
 
 ### Headers
 
-`readHeader(bytes, size)` parses a header and returns `{header, size, warnings}`:
+An EDF file starts with a 256-byte main header, followed by a 256-byte signal header for each signal. `readHeader(bytes, size)` parses both and returns `{header, signals, size, warnings}`:
 
-- `header` holds every field that ingest uses: the format, the start time on the device clock, the patient and recording fields, the header length, the declared record count, the record length in seconds, and each signal's label, unit, physical and digital ranges, and samples per record.
-- `size` is `checkFileSize`'s verdict for the file's size on disk: `read`, `skip`, or `reject`. `readSignals` and `readAnnotations` take a `ReadableEdfFile`, which is a file whose verdict is `read`. The `isReadable(file)` type guard narrows an `EdfFile` to a `ReadableEdfFile`.
+- `header` is an `EdfHeader`. It contains the main header's fields: the format, the start time on the device clock, the patient and recording fields, the header length, the declared record count, and the record length in seconds.
+- `signals` lists one `EdfSignalHeader` per signal, in file order. Each one has the signal's label, unit, physical and digital ranges, and samples per record.
+- `size` is `checkFileSize`'s verdict for the file's size on disk: `read`, `skip`, or `reject`. `readSignals` and `readAnnotations` take a `ReadableEdfFileHeaders`, which is a file whose verdict is `read`. The `isReadable(file)` type guard narrows an `EdfFileHeaders` to a `ReadableEdfFileHeaders`.
 - `readHeader` decodes header text as UTF-8, which is how the machine writes it, and replaces an invalid byte with U+FFFD.
 - `warnings` lists each inconsistency that `readHeader` found in the header and read past. A `startdate_mismatch` means the recording field's `Startdate` names a different day from the header's start date.
 
