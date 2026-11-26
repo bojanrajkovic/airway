@@ -109,6 +109,19 @@ export function breaths(
   return result;
 }
 
+/** Holds a breath's peak in-breath and out-breath flow, in L/s. */
+export type BreathPeaks = { in: number; out: number };
+
+/**
+ * Returns a breath's peak in-breath flow and peak out-breath flow, in L/s. Each half is a half sine
+ * wave that moves the breath's volume. The area under a half sine of height h over t seconds is
+ * 2ht/π, so each peak is π × volume / (2t).
+ */
+export const breathPeaks = ({ inhale, exhale, volume }: Breath): BreathPeaks => ({
+  in: (Math.PI * volume) / (2 * inhale),
+  out: (Math.PI * volume) / (2 * exhale),
+});
+
 /**
  * Renders a segment's 25 Hz flow and pressure. Each breath is a half sine wave in and a half
  * sine wave out, sized so the inhale moves the breath's volume. Pressure follows the 2 s
@@ -131,10 +144,9 @@ export function renderBrp(
     pressure[i] = inhalePressure[Math.floor(i / HZ / PLD_SAMPLE_SECONDS)] ?? 0;
   }
 
-  for (const { start, inhale, exhale, volume } of breaths(segment, night)) {
-    // The area under a half sine of height h over t seconds is 2ht/π.
-    const inHeight = (Math.PI * volume) / (2 * inhale);
-    const outHeight = (Math.PI * volume) / (2 * exhale);
+  for (const breath of breaths(segment, night)) {
+    const { start, inhale, exhale } = breath;
+    const { in: inHeight, out: outHeight } = breathPeaks(breath);
     const last = Math.min(count, Math.ceil((start + inhale + exhale) * HZ));
 
     for (let i = Math.ceil(start * HZ); i < last; i += 1) {

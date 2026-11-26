@@ -34,7 +34,7 @@ import {
 } from "./files.ts";
 import type { SyntheticNight } from "./model.ts";
 import { Patient } from "./patients.ts";
-import { breaths } from "./signals.ts";
+import { breathPeaks, breaths } from "./signals.ts";
 
 export type SynthesizeOptions = {
   /** A child's nights use the `pediatric` rule set, and an adult's nights use `adult`. */
@@ -311,17 +311,25 @@ function addNight(
       } satisfies SampleRow);
     }
 
+    // Ingest's detector counts an onset only after flow drops below −0.01 L/s, so it skips a
+    // segment's first breath. A detected breath lasts until the next onset, so the detector also
+    // drops the last breath, and a pause belongs to the breath before it.
+    const modeled = breaths(segment, night);
     rows.breaths.push(
-      ...breaths(segment, night).map((breath): BreathRow => ({
-        night: date,
-        segment: index,
-        session,
-        ts: segment.start.add({ milliseconds: Math.round(breath.start * 1000) }),
-        duration: breath.inhale + breath.exhale,
-        // A half-sine in-breath of this volume and length peaks at π × volume / (2 × length).
-        amplitude: (Math.PI * breath.volume) / (2 * breath.inhale),
-        inspiratory_volume: breath.volume,
-      })),
+      ...modeled.slice(1, -1).map((breath, i): BreathRow => {
+        const next = modeled[i + 2] ?? breath;
+        const peaks = breathPeaks(breath);
+
+        return {
+          night: date,
+          segment: index,
+          session,
+          ts: segment.start.add({ milliseconds: Math.round(breath.start * 1000) }),
+          duration: next.start - breath.start,
+          amplitude: peaks.in + peaks.out,
+          inspiratory_volume: breath.volume,
+        };
+      }),
     );
   });
 

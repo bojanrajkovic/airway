@@ -8,7 +8,7 @@ import type { EdfSignalFile } from "@airway/edf/file";
 import type { AppContext } from "../runtime/context.ts";
 import { inSpanAsync } from "../telemetry.ts";
 import { readEdfFile, type EdfFileError } from "./edf.ts";
-import type { NightFiles, NightSegments } from "./segments.ts";
+import type { PlannedNight } from "./segments.ts";
 
 /** Names a column of the samples table that holds a PLD signal. */
 export type SampleColumn = (typeof PLD_SAMPLE_COLUMNS)[number][1];
@@ -68,9 +68,6 @@ export function toSamples(
   return { ts, signals };
 }
 
-/** Resolves to the input of `readSamples`, which reads the PLD files of a night's segments. */
-export type NightSamples = Pick<NightFiles, "night" | "zone"> & Pick<NightSegments, "segments">;
-
 /**
  * Reads every PLD file attached to the night's segments and returns one `SampleBlock` per file.
  * Converts each header's device-clock start time to an instant in `zone`. Runs in an
@@ -78,7 +75,7 @@ export type NightSamples = Pick<NightFiles, "night" | "zone"> & Pick<NightSegmen
  */
 export function readSamples(
   ctx: Pick<AppContext, "config">,
-  { night, zone, segments }: NightSamples,
+  { night, zone, segments }: PlannedNight,
 ): ResultAsync<SampleBlock[], EdfFileError> {
   const plds = segments.flatMap(({ segment, session, plds }) =>
     plds.map((file) => ({ segment, session, path: file.path })),

@@ -15,7 +15,7 @@ import { Patient } from "@airway/synthetic/patients";
 import { synthesize } from "@airway/synthetic/synthesize";
 import { LogLevel } from "../../src/config.ts";
 import type { EveFile, NightEvents } from "../../src/ingest/events.ts";
-import { planSegments, type SegmentFile } from "../../src/ingest/segments.ts";
+import { planSegments, type PlannedNight, type SegmentFile } from "../../src/ingest/segments.ts";
 import { readStr } from "../../src/ingest/str.ts";
 import { createLogger, type Logger } from "../../src/logger.ts";
 import type { AppContext } from "../../src/runtime/context.ts";
@@ -180,4 +180,37 @@ export function capturingLogger(): CapturedLogs {
   });
 
   return { logger: createLogger(LogLevel.Info, sink), lines };
+}
+
+/** Holds a synthetic folder's planned nights, its files, and the rows that `synthesize` returns. */
+export type SynthesizedNights = { planned: PlannedNight[]; files: CpapFile[]; rows: DerivedRows };
+
+/**
+ * Synthesizes `nights` plain nights from seed 7, followed by the `cases` edge cases, and plans the
+ * segments of each night that `synthesize` expects ingest to import.
+ */
+export function synthesizedNights(cases: readonly EdgeCaseName[], nights = 0): SynthesizedNights {
+  const model = syntheticNights({ seed: 7, nights, cases })._unsafeUnwrap();
+  const { files, rows } = synthesize(model.nights, model.zone, {
+    patient: Patient.Child,
+    arrivedAt: CTIME,
+  })._unsafeUnwrap();
+  const planned = usedDays(files).flatMap((day): PlannedNight[] =>
+    rows.nights.some(({ night }) => night.equals(day.day))
+      ? [
+          {
+            night: day.day,
+            zone: model.zone,
+            segments: planSegments({
+              night: day.day,
+              zone: model.zone,
+              day,
+              files: segmentFiles(files, day.day),
+            }).segments,
+          },
+        ]
+      : [],
+  );
+
+  return { planned, files, rows };
 }

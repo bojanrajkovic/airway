@@ -51,6 +51,9 @@ export type NightSegments = Pick<Sessions, "sessions" | "approximate"> & {
   warnings: SegmentWarning[];
 };
 
+/** Resolves to the segments that `planSegments` built for a night, with the night and its zone. */
+export type PlannedNight = Pick<NightFiles, "night" | "zone"> & Pick<NightSegments, "segments">;
+
 type Placed = Span & { file: SegmentFile };
 
 // A file's span starts at its header's device-clock start and covers every whole record on disk.
