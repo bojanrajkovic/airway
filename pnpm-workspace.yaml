@@ -40,7 +40,7 @@ catalog:
   drizzle-orm: 0.45.4
   drizzle-zod: 0.8.3
   fast-check: 4.11.0
-  hono: 4.13.20
+  hono: 4.13.21
   jose: 6.2.18
   libpg-query: 18.2.5
   neverthrow: 8.2.0
