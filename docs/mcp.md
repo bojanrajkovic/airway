@@ -1,8 +1,8 @@
 # MCP
 
-The MCP server and the tools it gives agents.
+This page describes the MCP server and the tools that agents can call.
 
-The server isn't built yet. The shape of a query tool's result is.
+The server isn't built yet. `@airway/contract` already defines the shape of a query tool's result.
 
 ## Query results
 
@@ -12,14 +12,14 @@ A query tool returns one block of compact JSON text, defined by `agentResult` in
 {"columns":["hour_of_night","COUNT"],"rows":[[2,14],[3,11]],"link":"…","short_link":"…","truncated":false}
 ```
 
-Rows are arrays, not objects. The column names then appear once, which saves about 40% of the characters.
+Each row is an array instead of an object. The column names appear once, so the result has about 40% fewer characters.
 
 `link` is the explorer link that opens the same query, and `short_link` is its `/s/<code>` form ([Links](explorer.md#links)).
 
 ## Caps
 
-One result carries at most 200 rows and at most 25,000 characters, whichever runs out first. An agent's context pays for every character, and 200 rows is more than an agent reads usefully.
+A result has at most 200 rows and at most 25,000 characters. Every character takes up space in the agent's context, and an agent can't make good use of more than 200 rows.
 
-`capForAgent(rows, budget)` applies both. It keeps the leading rows that fit and never part of a row. `budget` is what's left of the 25,000 characters after the rest of the result.
+`capForAgent(rows, budget)` applies both caps. It keeps the leading rows that fit and drops the rest, so every row in the result is complete. `budget` is the number of characters left from the 25,000 once the rest of the result is counted.
 
 A cut result has `truncated: true` and a `hint` that tells the agent to aggregate, filter, or narrow the night range. Only a cut result has a hint.

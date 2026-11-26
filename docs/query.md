@@ -4,9 +4,9 @@ How builder queries are written and compiled to SQL, and how SQL runs read-only.
 
 ## The query spec
 
-A builder query is a JSON object, the spec. It says what to compute over which rows of one dataset. The explorer's links, the builder, and the agent tools all write the same spec, and `parseSpec` in `@airway/contract/query/spec` checks every one.
+A builder query is a JSON object called the spec. The spec names one dataset, the rows to read from it, and what to compute over those rows. The explorer's links, the builder, and the agent tools all write the same spec, and `parseSpec` in `@airway/contract/query/spec` checks each spec they write.
 
-The field names and operation names are Honeycomb's, because agents already write that shape.
+The spec uses Honeycomb's field names and operation names, because agents already know how to write Honeycomb queries.
 
 ```json
 {
@@ -38,18 +38,18 @@ The field names and operation names are Honeycomb's, because agents already writ
 
 ### What the registry decides
 
-The schema is generated from the [registry](data-model.md#columns), one variant per dataset, so a spec can only name that dataset's columns.
+The schema is generated from the [registry](data-model.md#columns) with one variant per dataset, so a spec can name only the columns of its own dataset.
 
-- **Calculations.** `COUNT` takes no column. `COUNT_DISTINCT` takes any column. `SUM`, `AVG`, and the percentiles (`P001` to `P999`) take a metric. `MIN` and `MAX` take any number, integer, timestamp, or date column, and give a value of that kind. `columnsFor(dataset, op)` lists the columns an operation takes.
-- **Filters.** Each column allows the operations of its kind ([`operationsFor`](data-model.md#columns)), with values of its kind: a number, an integer, a boolean, one of an enum's values, a date, or a time. A time must carry its offset, such as `2026-06-01T02:00:00-04:00`. `in` and `not-in` take a list of up to 50 values, and `exists` and `does-not-exist` take none.
-- **Breakdowns.** Any time or dimension column.
-- **Granularity.** The dataset's grain or longer. `nights` allows `night`, `week`, and `month`. The other four also allow `2s`, `30s`, `1m`, `5m`, `15m`, and `1h`. Each step covers a limited range ([Range limits](#range-limits)).
+- **Calculations.** `COUNT` takes no column. `COUNT_DISTINCT` takes any column. `SUM`, `AVG`, and the percentiles (`P001` to `P999`) take a metric. `MIN` and `MAX` take any number, integer, timestamp, or date column, and return a value of the column's kind. `columnsFor(dataset, op)` lists the columns an operation takes.
+- **Filters.** A column's kind decides which operations a filter on the column can use ([`operationsFor`](data-model.md#columns)) and what the filter's value must be: a number, an integer, a boolean, one of an enum's values, a date, or a time. A time must carry its offset, such as `2026-06-01T02:00:00-04:00`. `in` and `not-in` take a list of up to 50 values, and `exists` and `does-not-exist` are written without a value.
+- **Breakdowns.** A breakdown can be any time or dimension column.
+- **Granularity.** The step can be the dataset's grain or longer. `nights` allows `night`, `week`, and `month`. The other four also allow `2s`, `30s`, `1m`, `5m`, `15m`, and `1h`. Each step covers a limited range ([Range limits](#range-limits)).
 
 Numbers in filters and havings are in display units: a leak filter is in L/min ([Units](data-model.md#units)).
 
 ### Range limits
 
-A query covers at most 3,660 nights, about ten years, however its range is written. A finer step covers fewer, so a fine step over a long range is refused before anything runs:
+A query covers at most 3,660 nights, about ten years, however its range is written. A finer step covers fewer nights, so `parseSpec` refuses a fine step over a long range before any SQL runs:
 
 | Granularity | Most nights |
 |---|---|
@@ -61,13 +61,13 @@ A query covers at most 3,660 nights, about ten years, however its range is writt
 | `1h` | 366 |
 | `night`, `week`, `month` | 3,660 |
 
-`auto` picks the finest step the dataset and the range allow that satisfies
+`auto` picks the finest step that the dataset and the range allow and that satisfies
 
 ```
 nights × 86,400 ÷ step seconds ≤ 300
 ```
 
-The left side is how many buckets one group gets if the machine ran around the clock. 300 is `AUTO_BUCKETS`, about what a chart can show, and it's the only number to change: every boundary below follows from it and from each step's length in `STEP_SECONDS`.
+The left side is how many buckets one group would get if the machine ran around the clock. The 300 is `AUTO_BUCKETS`, which is about as many buckets as a chart can show. To move the boundaries below, change only `AUTO_BUCKETS`, because each boundary follows from it and from each step's length in `STEP_SECONDS`.
 
 | Nights | `auto` picks | Buckets at most |
 |---|---|---|
@@ -78,21 +78,21 @@ The left side is how many buckets one group gets if the machine ran around the c
 | 301 to 2,100 | `week` | 300 |
 | 2,101 to 3,660 | `month` | 122 |
 
-`nights` has no step under a night, so it gets `night` up to 300 nights. The pick depends only on the spec, so a link's step never changes under it, and `granularityOf(dataset, spec)` returns it.
+The shortest step for `nights` is `night`, so `auto` picks `night` for any range up to 300 nights. `granularityOf(dataset, spec)` returns the step that `auto` picks. The step depends only on the spec.
 
-Each limit keeps one group's series to about 10,000 to 20,000 buckets if the machine ran around the clock, and about a third of that on an ordinary night. The issue names the limit and lists the steps the range does allow. `granularitiesFor(dataset, nights)` gives the same list to the builder.
+Each limit keeps one group's series to about 10,000 to 20,000 buckets for a machine that runs around the clock, and to about a third of that for ordinary nights. When a range is too long for its step, the issue names the limit and lists the steps that the range allows. `granularitiesFor(dataset, nights)` gives the same list to the builder.
 
 ### What must agree within a spec
 
 - A calculation, a breakdown, or an order appears once.
 - An order names a calculation of the same spec by its `op` and `column`, or a breakdown by its `column`.
-- A having names a calculation of the same spec, and its value fits what the calculation gives: a number, or a time or date for `MIN` and `MAX` of one.
+- A having names a calculation of the same spec, and the having's value is of the kind that the calculation returns: a time or a date for `MIN` or `MAX` of a time or date column, and a number for every other calculation.
 
-Each of these is a function in `spec.ts` that returns the problems it finds, and they run after every field has passed its own check.
+A function in `spec.ts` checks each of these and returns the problems it finds. The functions run after every field has passed its own check.
 
 ### How the schema is built
 
-The schema is unions nested three deep, and each level is built by mapping over the registry. zod picks a union's member by one field, called the discriminator, so a wrong value is reported at the field where it's wrong.
+The schema is three levels of nested unions, and `spec.ts` builds each level by mapping over the registry. zod picks a union's member by one field, called the discriminator, so zod reports a wrong value at the field that holds it.
 
 ```mermaid
 flowchart TD
@@ -105,7 +105,7 @@ flowchart TD
   filter --> list["list: in, not-in<br/>up to 50 values"]
 ```
 
-`filterSchema(column)` starts from the operations `operationsFor` gives the column and the value type its kind gives, then sorts the operations into the three shapes. For example:
+`filterSchema(column)` takes the operations that `operationsFor` returns for the column and the value type of the column's kind, then sorts the operations into the three shapes. For example:
 
 | Column | Comparison | Null check | List |
 |---|---|---|---|
@@ -113,29 +113,29 @@ flowchart TD
 | `duration` (number) | all six, with a number | yes | none |
 | `outside_mask_on` (boolean) | `=`, `!=` with a boolean | yes | none |
 
-A column with no list operations gets no list shape, because zod rejects a shape with no operations.
+`filterSchema` includes the list shape only for a column with list operations, because `z.discriminatedUnion` throws when an option's `op` enum is empty.
 
-`calculationSchema(dataset)` has four shapes on `op`, each listing the columns its operations take: `COUNT` takes none, `COUNT_DISTINCT` takes any, `SUM`, `AVG`, and the percentiles take a metric, and `MIN` and `MAX` take a column with an order.
+`calculationSchema(dataset)` is a union on `op` with four shapes, and each shape lists the columns that its operations take. `COUNT` is written without a column, `COUNT_DISTINCT` takes any column, `SUM`, `AVG`, and the percentiles take a metric, and `MIN` and `MAX` take a column whose values can be ordered.
 
 So for `{"dataset": "events", "filters": [{"column": "type", "op": ">"}]}`, zod picks the `events` spec by `dataset`, the `type` filter by `column`, and then finds no shape for `>`. The issue is at `filters[0].op` and lists `=`, `!=`, `exists`, `does-not-exist`, `in`, and `not-in`.
 
 ### Generated specs
 
-`@airway/contract/query/arbitrary` has two fast-check arbitraries built from the registry: `specInput`, a valid spec as written with optional fields left out at random, and `spec`, the same after parsing. Tests of anything that takes a spec use them.
+`@airway/contract/query/arbitrary` has two fast-check arbitraries built from the registry. `specInput` generates a valid spec as a caller would write it, with optional fields left out at random. `spec` generates a parsed spec, with every default filled in. Tests of any code that takes a spec use both.
 
 ## Canonical form
 
-`canonicalize(spec)` in `@airway/contract/query/canonical` gives a query its one spelling, so two specs that ask the same thing share a link and a short code:
+`canonicalize(spec)` in `@airway/contract/query/canonical` rewrites a spec into its canonical form, so two specs that ask for the same thing share a link and a short code:
 
 - Keys come in a fixed order.
-- Anything equal to its default is left out, and so is `filter_combination` when there are fewer than two filters.
+- A field equal to its default is left out. `filter_combination` is also left out when there are fewer than two filters.
 - Each `in` and `not-in` list is sorted, without repeats.
 - Each time is written in UTC, so `02:00:00-04:00` and `06:00:00Z` are the same text.
-- A filter or having written twice is written once.
+- A filter or having that appears twice in the spec is written once.
 
-Calculations, filters, breakdowns, orders, and havings keep the order they were written in. That order is the order of the builder's rows and of the charts.
+Calculations, filters, breakdowns, orders, and havings keep the order they were written in. The builder's rows and the charts appear in the same order.
 
-`canonicalJson(spec)` is the canonical spec as compact JSON. A canonical spec is itself a valid spec, and parsing it gives the same canonical form again. It isn't always the spec as first written: a list may be reordered and a time rewritten.
+`canonicalJson(spec)` returns the canonical spec as compact JSON. A canonical spec is itself a valid spec, and parsing it gives the same canonical form again. The canonical spec can differ from the spec as first written, because `canonicalize` may reorder a list or rewrite a time.
 
 ## Results
 
@@ -153,10 +153,10 @@ type QueryResult = {
 };
 ```
 
-- **Columns.** Each has a key (`b0`, `b1` for breakdowns, then `c0`, `c1` for calculations), a label such as `hour_of_night` or `P95(leak)`, a kind, and a metric's display unit.
+- **Columns.** Each has a key (`b0`, `b1` for breakdowns, then `c0`, `c1` for calculations), a label such as `hour_of_night` or `P95(leak)`, a kind, and, for a metric, its display unit.
 - **Groups.** Each has its rank in the query's order, one value per breakdown, and one total per calculation. A total covers the whole night range. A query with no breakdowns has one group.
-- **Series.** The step the rows are bucketed by, which is the one `auto` picked when the spec asked for `auto`, and one row per group and time bucket: the bucket's start, the group's rank, and one value per calculation. Rows are in group order, then time order. A bucket with no rows has no series row. A bucket's start is an instant for steps under a night, and a date from `night` up.
-- **Truncated.** True when there were more groups than the query's `limit`, or more series rows than 10,000. Nothing stands in for the groups that were cut.
+- **Series.** The series has the step that the rows are bucketed by, and one row per group and time bucket. When the spec asked for `auto`, the step is the step that `auto` picked. Each row has the bucket's start, the group's rank, and one value per calculation. Rows are in group order, then time order. A bucket without any dataset rows is left out of the series. A bucket's start is an instant for steps under a night, and a date for `night` and longer steps.
+- **Truncated.** `truncated` is true when there were more groups than the query's `limit`, or more than 10,000 series rows. The result leaves out the groups that were cut.
 
 A value is a number, text, a boolean, an instant, a date, or null. Numbers are in display units.
 

@@ -10,9 +10,9 @@ flowchart LR
 
 ## Logs
 
-The server logs JSON lines to stdout with pino, through the root logger from `packages/server/src/logger.ts`. Each line carries `service: "airway"` and its level as a name, such as `"info"`, so log queries can filter on it. `LOG_LEVEL` sets the lowest level logged. A line written inside a span also carries `trace_id` and `span_id`.
+The server logs JSON lines to stdout with pino, through the root logger from `packages/server/src/logger.ts`. Each line includes `service: "airway"` and writes its level as a name, such as `"info"`, so log queries can filter on the level. `LOG_LEVEL` sets the lowest level logged. A line written inside a span also carries `trace_id` and `span_id`.
 
-Each module logs through a child logger with its name bound, `ctx.logger.child({ module: "http" })`, and adds the IDs of the work it's doing.
+Each module logs through a child logger bound to the module's name, such as `ctx.logger.child({ module: "http" })`. The module adds the IDs of the work it's doing.
 
 `pnpm dev` prints the server's logs through pino-pretty; production logs stay JSON.
 
@@ -20,23 +20,23 @@ Each module logs through a child logger with its name bound, `ctx.logger.child({
 
 A function that can fail returns a `Result`, and each service module has one error union of tagged objects, such as `{ kind: "not_found" }`.
 
-- **The code that returns an `Err` logs it**, through its child logger, at the level it chooses. A routine outcome, such as a night with no data, can go unlogged.
-- **Boundaries don't log it again.** tRPC procedures, MCP tools, and middleware turn the `Err` into a response.
+- **The code that returns an `Err` logs it** through the module's child logger, and chooses the level. A routine outcome, such as a night with no data, can go unlogged.
+- **Boundaries turn the `Err` into a response and leave the logging to the code that returned it.** The boundaries are tRPC procedures, MCP tools, and middleware.
 - **Thrown errors are bugs.** The HTTP app's error handler logs them.
 
 ## Telemetry startup
 
-`packages/server/src/instrument.ts` starts the OpenTelemetry SDK. Production loads it before the server with `node --import ./dist/instrument.js dist/main.js`, and `pnpm dev` does the same with the source file, so instrumentation is in place before any dependency loads.
+`packages/server/src/instrument.ts` starts the OpenTelemetry SDK. Production loads it before the server with `node --import ./dist/instrument.js dist/main.js`, and `pnpm dev` passes the source file to `--import`. Instrumentation is then in place before any dependency loads.
 
-The SDK starts only when `OTEL_EXPORTER_OTLP_ENDPOINT` is set. It reads the standard `OTEL_*` variables itself. airway sets two defaults: no OTLP logs (logs go to stdout) and no propagators, so a `traceparent` header from outside never joins airway's traces.
+The SDK starts only when `OTEL_EXPORTER_OTLP_ENDPOINT` is set. It reads the standard `OTEL_*` variables itself. airway sets two defaults. OTLP logs are off, because logs go to stdout. Propagators are off, so airway ignores an inbound `traceparent` header and starts its own trace.
 
-Every span and metric carries `service.name` `airway`, `service.version` from `AIRWAY_VERSION`, and `vcs.ref.head.revision` from `AIRWAY_GIT_SHA`. The image sets both; outside it, they're `dev`. Attributes in a deployment's `OTEL_RESOURCE_ATTRIBUTES` take precedence. The SDK flushes when the event loop empties, which happens after `main.ts` has closed everything at shutdown.
+Every span and metric carries `service.name` `airway`, `service.version` from `AIRWAY_VERSION`, and `vcs.ref.head.revision` from `AIRWAY_GIT_SHA`. The image sets both variables, and both default to `dev` outside the image. Attributes in a deployment's `OTEL_RESOURCE_ATTRIBUTES` take precedence. The SDK flushes when the event loop empties, which happens after `main.ts` has closed everything at shutdown.
 
 ## Traces
 
-Inbound HTTP requests get a span each, except kubelet probes (`/healthz`). Every span's `url.query` is blanked, because the explorer's URL holds the user's query.
+Inbound HTTP requests get a span each, except kubelet probes (`/healthz`). Every span's `url.query` is blanked, because query strings are noisy and don't help debugging.
 
-Each Postgres query gets a client span, and taking a connection from a pool gets one too. The span keeps the query's SQL text, normalized by `libpg-query` the way `pg_stat_statements` shows it: every literal becomes `$1`, `$2`, and so on. A slow query is findable by its text, and SQL typed into the SQL view or by an agent keeps none of its values. SQL that doesn't parse is recorded blank. Bound values are never recorded.
+The instrumentation records a client span for each Postgres query and for each connection taken from a pool. The query's span records the SQL text, which `libpg-query` normalizes the way `pg_stat_statements` does: every literal becomes `$1`, `$2`, and so on. You can find a slow query by its text. The values in SQL that a person types into the SQL view, or that an agent sends, are replaced before the text is recorded. SQL that doesn't parse is recorded blank. Bound values are never recorded.
 
 ```
 typed:     select night, ahi from nights where ahi > 5
@@ -57,7 +57,7 @@ function loadNight(ctx: AppContext, night: Temporal.PlainDate): ResultAsync<Nigh
 }
 ```
 
-- An `Ok` ends the span with no status. So does a plain value from `inSpan`, which lets pure work, such as planning a night's segments, return its value directly.
+- An `Ok`, or a plain value from `inSpan`, ends the span and leaves its status unset. Pure work, such as planning a night's segments, can therefore return its value directly.
 - An `Err` sets the span's status to error and records its `kind` as `error.type`.
 - A throw sets the status to error, records the exception (its message and stack) with its class as `error.type`, and rethrows.
 
@@ -65,15 +65,15 @@ The helpers never log; see [Errors](#errors). `untraced(fn)` turns tracing off i
 
 ### Sampling ingest traces
 
-Ingest polls the CPAP data folder every 5 minutes, and every poll sends a trace, idle ones included. An idle poll's trace holds the scan and readiness spans. The first poll after a restart reads every header and hashes every file, so its trace holds a span per file, thousands for a long history.
+Ingest polls the CPAP data folder every 5 minutes, and every poll sends a trace, idle ones included. An idle poll's trace holds the scan and readiness spans. The first poll after a restart reads every header and hashes every file, so its trace has a span per file. A long history makes that thousands of spans.
 
-You'll probably want to sample those traces in your collector, with tail sampling so each trace is kept or dropped whole. Keep every poll that planned nights or failed, and a share of idle ones.
+Sample those traces in your collector with tail sampling, which keeps or drops each trace whole. Keep every poll that planned nights or failed, and a share of idle ones.
 
 ## Metrics
 
-The SDK exports metrics every 60 seconds. Histograms are exponential, so their buckets adapt to what's recorded and no instrument picks bucket boundaries. Built-in metrics come from the instrumentations:
+The SDK exports metrics every 60 seconds. Histograms are exponential, so their buckets adapt to the recorded values and instruments leave bucket boundaries unset. Built-in metrics come from the instrumentations:
 
-- `http.server.request.duration` for inbound requests, without probes
+- `http.server.request.duration` for inbound requests, except probes
 - `db.client.operation.duration` for queries, and each pool's connection counts
 - `rpc.server.call.duration` for each tRPC procedure, by procedure and error type ([Server](server.md#trpc))
 - the Node runtime's event loop delay and utilization, heap, and GC

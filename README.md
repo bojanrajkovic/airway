@@ -1,9 +1,9 @@
 # airway
 
-airway is a self-hosted app for the data a ResMed CPAP, such as the AirSense 10, writes to its SD card. It imports the card's EDF files into Postgres and serves three things from them:
+airway is a self-hosted app for the data that a ResMed CPAP machine, such as the AirSense 10, writes to its SD card. It imports the card's EDF files into Postgres and serves three things from them:
 
 - a phone-first trends page with nightly, weekly, and monthly numbers
-- an explorer that slices the data any way you like and gives every query a link you can share
+- an explorer that lets you slice the data any way you like and share a link to any query
 - an MCP server, so AI agents can query the same data and hand you links to what they found
 
 One instance serves one patient.
@@ -28,7 +28,7 @@ flowchart LR
 
 ## Developing
 
-[docs/development.md](docs/development.md) covers setup, and [docs/README.md](docs/README.md) indexes the rest of the docs, one page per area.
+[docs/development.md](docs/development.md) covers setup. [docs/README.md](docs/README.md) lists the rest of the docs, which have one page per area.
 
 ## License
 
