@@ -98,7 +98,7 @@ export type Dataset = {
    * `grain` is the shortest time step that a query can bucket the dataset's rows into. A `nights`
    * row covers a whole night, so its grain is `night`.
    */
-  grain: "2s" | "night";
+  grain: Granularity.TwoSeconds | Granularity.Night;
   columns: readonly [Column, ...Column[]];
 };
 
@@ -145,6 +145,19 @@ export function enumeration(
 
 export function time(name: string, kind: TimeColumn["kind"], description: string): TimeColumn {
   return { name, description, role: "time", kind };
+}
+
+/** Lists the time steps that a query can bucket by, shortest first. */
+export enum Granularity {
+  TwoSeconds = "2s",
+  ThirtySeconds = "30s",
+  OneMinute = "1m",
+  FiveMinutes = "5m",
+  FifteenMinutes = "15m",
+  OneHour = "1h",
+  Night = "night",
+  Week = "week",
+  Month = "month",
 }
 
 /** Lists the operations that compare a column with one value. */

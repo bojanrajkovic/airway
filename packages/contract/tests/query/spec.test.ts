@@ -2,6 +2,7 @@ import fc from "fast-check";
 import { describe, expect, it } from "vitest";
 import { spec, specInput } from "../../src/query/arbitrary.ts";
 import { granularityOf, parseSpec } from "../../src/query/spec.ts";
+import { Granularity } from "../../src/registry/define.ts";
 import { nights as nightsDataset } from "../../src/registry/nights.ts";
 import { samples } from "../../src/registry/samples.ts";
 
@@ -333,7 +334,9 @@ describe("granularityOf", () => {
   );
 
   it("returns a named step unchanged, and undefined when there's no step", () => {
-    expect(granularityOf(samples, { nights: { last: 1 }, granularity: "2s" })).toBe("2s");
+    expect(
+      granularityOf(samples, { nights: { last: 1 }, granularity: Granularity.TwoSeconds }),
+    ).toBe("2s");
     expect(granularityOf(samples, { nights: { last: 1 } })).toBeUndefined();
   });
 });

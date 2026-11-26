@@ -1,10 +1,10 @@
 import { hourOfNight, night, segment, session, ts } from "./columns.ts";
-import { signal, type Dataset } from "./define.ts";
+import { Granularity, signal, type Dataset } from "./define.ts";
 
 export const samples: Dataset = {
   name: "samples",
   description: "The machine's low-rate signals, one row per 2 seconds of therapy.",
-  grain: "2s",
+  grain: Granularity.TwoSeconds,
   columns: [
     night,
     ts("When the 2 seconds start."),

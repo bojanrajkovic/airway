@@ -1,10 +1,10 @@
 import { hourOfNight, night, seconds, segment, session, ts } from "./columns.ts";
-import { metric, signal, type Dataset } from "./define.ts";
+import { Granularity, metric, signal, type Dataset } from "./define.ts";
 
 export const breaths: Dataset = {
   name: "breaths",
   description: "One row per breath that airway detects in the 25 Hz flow signal.",
-  grain: "2s",
+  grain: Granularity.TwoSeconds,
   columns: [
     night,
     ts("When the in-breath starts."),

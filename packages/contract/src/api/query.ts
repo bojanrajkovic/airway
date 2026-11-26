@@ -1,5 +1,4 @@
-import type { Column } from "../registry/define.ts";
-import type { Granularity } from "../query/spec.ts";
+import type { Column, Granularity } from "../registry/define.ts";
 import type { ColumnUnit } from "../registry/units.ts";
 
 /** Caps the number of rows in a query result on the web. */
