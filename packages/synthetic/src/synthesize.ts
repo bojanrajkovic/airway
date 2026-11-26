@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import { Result } from "neverthrow";
+import type { EdfReadError } from "@airway/edf/header";
 import type { FileSizeCheck } from "@airway/edf/size";
 import type {
   BreathRow,
@@ -19,6 +20,7 @@ import {
   AIRSENSE,
   COLUMN_UNITS,
   dataSignals,
+  EVENT_LABELS,
   PLD_SAMPLE_SECONDS,
   type EdfFileType,
 } from "@airway/edf/airsense";
@@ -26,7 +28,6 @@ import type { RuleSet } from "@airway/contract/profile";
 import { datalogFiles, folderFiles, type CpapFile, type DatalogFile } from "./cpap-data.ts";
 import {
   DEVICE,
-  EVENT_LABELS,
   eventFileFor,
   eventOnset,
   writtenDuration,
@@ -84,48 +85,64 @@ export function synthesize(
   return Result.combine([
     strFile(sorted, zone),
     Result.combine(sorted.map((night) => datalogFiles(night, zone))),
-  ]).map(([str, datalog]) => {
-    const files = folderFiles(str, datalog.flat());
-    const used = sorted.map((night) => usedDay(night, zone));
-    const days = strDays(used);
-    const rows = emptyRows(days);
-    const firstImported = sorted.find((_night, i) => (datalog[i] ?? []).length > 0);
+  ])
+    .andThen(([str, datalog]) =>
+      Result.combine(datalog.map((nightFiles) => importedFiles(nightFiles))).map((imported) => ({
+        str,
+        datalog,
+        imported,
+      })),
+    )
+    .map(({ str, datalog, imported }) => {
+      const files = folderFiles(str, datalog.flat());
+      const used = sorted.map((night) => usedDay(night, zone));
+      const days = strDays(used);
+      const rows = emptyRows(days);
+      const firstImported = sorted.find((_night, i) => (datalog[i] ?? []).length > 0);
 
-    rows.files.push(
-      fileRow(
-        files,
-        { path: "Identification.tgt", kind: "identification", night: null, segment: null },
-        options.arrivedAt,
-      ),
-      fileRow(
-        files,
-        { path: "Identification.crc", kind: "crc", night: null, segment: null },
-        options.arrivedAt,
-      ),
-      fileRow(
-        files,
-        { path: "STR.edf", kind: "str", night: null, segment: null },
-        options.arrivedAt,
-      ),
-    );
+      rows.files.push(
+        fileRow(
+          files,
+          { path: "Identification.tgt", kind: "identification", night: null, segment: null },
+          options.arrivedAt,
+        ),
+        fileRow(
+          files,
+          { path: "Identification.crc", kind: "crc", night: null, segment: null },
+          options.arrivedAt,
+        ),
+        fileRow(
+          files,
+          { path: "STR.edf", kind: "str", night: null, segment: null },
+          options.arrivedAt,
+        ),
+      );
 
-    sorted.forEach((night, i) => {
-      const nightFiles = datalog[i] ?? [];
-      const day = used[i];
+      sorted.forEach((night, i) => {
+        const nightFiles = datalog[i] ?? [];
+        const day = used[i];
 
-      if (nightFiles.length === 0 || day === undefined) {
-        return;
+        if (nightFiles.length === 0 || day === undefined) {
+          return;
+        }
+
+        addNight(rows, {
+          night,
+          day,
+          zone,
+          files: nightFiles,
+          imported: imported[i] ?? [],
+          folder: files,
+          options,
+        });
+      });
+
+      if (firstImported !== undefined) {
+        rows.settings_changes.push(...settingsChanges(days, firstImported.night));
       }
 
-      addNight(rows, { night, day, zone, files: nightFiles, folder: files, options });
+      return { files, rows };
     });
-
-    if (firstImported !== undefined) {
-      rows.settings_changes.push(...settingsChanges(days, firstImported.night));
-    }
-
-    return { files, rows };
-  });
 }
 
 // Builds the record that ingest reads from STR.edf for a night.
@@ -199,26 +216,30 @@ type NightInputs = {
   night: SyntheticNight;
   day: UsedStrDay;
   files: readonly DatalogFile[];
+  imported: readonly ImportedFile[];
   zone: string;
   folder: readonly CpapFile[];
   options: SynthesizeOptions;
 };
 
+// Ingest imports BRP, PLD, and EVE files that checkFileSize doesn't reject, and skips SAD and CSL.
+const importedFiles = (files: readonly DatalogFile[]): Result<ImportedFile[], EdfReadError> =>
+  Result.combine(
+    files.map((file) =>
+      sizeCheck(file).map(({ verdict }): ImportedFile[] =>
+        (file.kind === "brp" || file.kind === "pld" || file.kind === "eve") && verdict !== "reject"
+          ? [{ ...file, kind: file.kind, verdict }]
+          : [],
+      ),
+    ),
+  ).map((imported) => imported.flat());
+
 // Adds one night's rows to every table that stores rows by night.
 function addNight(
   rows: DerivedRows,
-  { night, day, files, zone, folder, options }: NightInputs,
+  { night, day, files, imported, zone, folder, options }: NightInputs,
 ): void {
   const date = night.night;
-  // Ingest imports BRP, PLD, and EVE files that checkFileSize doesn't reject, and skips SAD and CSL.
-  const imported = files.flatMap((file): ImportedFile[] => {
-    const { verdict } = sizeCheck(file);
-
-    return (file.kind === "brp" || file.kind === "pld" || file.kind === "eve") &&
-      verdict !== "reject"
-      ? [{ ...file, kind: file.kind, verdict }]
-      : [];
-  });
   const read = (kind: "brp" | "pld", i: number): ImportedFile[] =>
     imported.filter((file) => file.kind === kind && file.segment === i && file.verdict === "read");
   // Ingest makes a segment from each BRP file it reads.

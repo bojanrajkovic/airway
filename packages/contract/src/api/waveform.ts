@@ -29,8 +29,8 @@ export const WaveformNight = z.strictObject({ night: PlainDate });
 export type WaveformNight = z.infer<typeof WaveformNight>;
 
 /** The signals that the waveform viewer plots. */
-export const WAVEFORM_LANES = ["flow", "pressure", "leak", "flow_limitation"] as const;
-export type WaveformLane = (typeof WAVEFORM_LANES)[number];
+export const WAVEFORM_SIGNALS = ["flow", "pressure", "leak", "flow_limitation"] as const;
+export type WaveformSignal = (typeof WAVEFORM_SIGNALS)[number];
 
 /**
  * One signal's values from one recording file. Values are evenly spaced from `start`, `step`
@@ -55,7 +55,7 @@ export type WaveformEvent = { ts: Temporal.Instant; type: EventType; duration: n
 
 /** `waveform.window` returns each signal's values over the window, keyed by signal name. */
 export type WaveformData = {
-  lanes: Record<WaveformLane, WaveformSeries>;
+  signals: Record<WaveformSignal, WaveformSeries>;
   /** The events that overlap the window. */
   events: WaveformEvent[];
 };

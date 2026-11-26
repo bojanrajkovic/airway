@@ -185,7 +185,7 @@ flowchart LR
 
 `toEvents(night, files, sessions)` does the conversion:
 
-- Label matching ignores case. "Obstructive Apnea", "Central Apnea", "Apnea", "Hypopnea", and "Arousal" map to their event types. `toEvents` drops "Recording starts" and turns any other label into an `other` event, with the original text in its `label`.
+- Label matching ignores case. "Obstructive Apnea", "Central Apnea", "Apnea", "Hypopnea", and "Arousal" map to their event types. `EVENT_LABELS` in `@airway/edf/airsense` defines these labels, and the synthetic generator writes the same labels. `toEvents` drops "Recording starts" and turns any other label into an `other` event, with the original text in its `label`.
 - An onset marks the event's end, so an event starts at its onset minus its duration. The machine doesn't time hypopneas and arousals, so it writes a duration of 0 for them. `toEvents` stores that 0 as a null `duration`, and those events start at their onset.
 - `toEvents` merges the events from all of a night's EVE files in time order, and `assignEvents` places each event in a session.
 

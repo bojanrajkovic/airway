@@ -69,10 +69,7 @@ export function createPools(
     // pg emits this when an idle connection drops, and crashes the process if nothing listens. The
     // pool replaces the connection on its next query.
     created.on("error", (error) => {
-      log.warn(
-        { pool: name, code: "code" in error ? String(error.code) : error.name },
-        "idle connection failed",
-      );
+      log.warn({ pool: name, err: error }, "idle connection failed");
     });
 
     return created;

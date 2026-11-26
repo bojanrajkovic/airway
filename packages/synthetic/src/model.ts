@@ -319,7 +319,7 @@ function finishNight(
     start,
     end,
     seed: r.int(0, 2 ** 31),
-    pldSeries: drawPldSeries(r, { breathing, start, end, rate, events, pauses }),
+    pldSeries: generatePldSeries(r, { breathing, start, end, rate, events, pauses }),
     ...UNDAMAGED_FILES,
   }));
 
@@ -631,7 +631,7 @@ const seconds = (from: Temporal.Instant, to: Temporal.Instant): number =>
 // - The breathing rate drifts slowly around the night's rate.
 // - Flow stops during apneas and pediatric pauses.
 // - The AutoSet pressure rises after each apnea or hypopnea, then decreases toward the minimum.
-function drawPldSeries(r: Random, inputs: SeriesInputs): Map<string, Float64Array> {
+function generatePldSeries(r: Random, inputs: SeriesInputs): Map<string, Float64Array> {
   const { breathing, start, end, rate, events, pauses } = inputs;
   const count = Math.round(seconds(start, end) / PLD_SAMPLE_SECONDS);
   const series = new Map(PLD_LABELS.map((label) => [label, new Float64Array(count)]));
