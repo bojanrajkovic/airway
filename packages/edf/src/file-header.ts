@@ -1,6 +1,6 @@
 import { open, type FileHandle } from "node:fs/promises";
 import { errAsync, ResultAsync } from "neverthrow";
-import { readHeader, type EdfFile, type EdfReadError } from "./header.ts";
+import { readHeader, type EdfFileHeaders, type EdfReadError } from "./header.ts";
 
 // Every header starts with 256 fixed bytes, which say how long the whole header is.
 const FIXED_BYTES = 256;
@@ -9,7 +9,7 @@ const FIXED_BYTES = 256;
  * Reads a file's header from disk, without reading its records, and checks the file's size
  * against the header. It reads the first 256 bytes, then the rest of the header if there's more.
  */
-export function readFileHeader(path: string): ResultAsync<EdfFile, EdfReadError> {
+export function readFileHeader(path: string): ResultAsync<EdfFileHeaders, EdfReadError> {
   const failed = (cause: unknown): EdfReadError => ({
     kind: "read_failed",
     path,
@@ -24,7 +24,7 @@ export function readFileHeader(path: string): ResultAsync<EdfFile, EdfReadError>
 function readHeaderFromHandle(
   handle: FileHandle,
   failed: (cause: unknown) => EdfReadError,
-): ResultAsync<EdfFile, EdfReadError> {
+): ResultAsync<EdfFileHeaders, EdfReadError> {
   const readFirstBytes = (length: number): ResultAsync<Uint8Array, EdfReadError> =>
     ResultAsync.fromPromise(handle.read(new Uint8Array(length), 0, length, 0), failed).map(
       ({ buffer, bytesRead }) => buffer.subarray(0, bytesRead),

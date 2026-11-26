@@ -24,27 +24,27 @@ describe("readHeader", () => {
       headerBytes: 768,
       declaredRecords: 2,
       recordSeconds: 60,
-      signals: [
-        {
-          label: "Flow.40ms",
-          unit: "L/s",
-          physicalMin: "-655.36",
-          physicalMax: "655.34",
-          digitalMin: -32768,
-          digitalMax: 32767,
-          samplesPerRecord: 2,
-        },
-        {
-          label: "Crc16",
-          unit: "",
-          physicalMin: "-32768",
-          physicalMax: "32767",
-          digitalMin: -32768,
-          digitalMax: 32767,
-          samplesPerRecord: 1,
-        },
-      ],
     });
+    expect(parsed.signals).toEqual([
+      {
+        label: "Flow.40ms",
+        unit: "L/s",
+        physicalMin: "-655.36",
+        physicalMax: "655.34",
+        digitalMin: -32768,
+        digitalMax: 32767,
+        samplesPerRecord: 2,
+      },
+      {
+        label: "Crc16",
+        unit: "",
+        physicalMin: "-32768",
+        physicalMax: "32767",
+        digitalMin: -32768,
+        digitalMax: 32767,
+        samplesPerRecord: 1,
+      },
+    ]);
     expect(parsed.warnings).toEqual([]);
   });
 
@@ -54,7 +54,7 @@ describe("readHeader", () => {
     // Flow's unit field follows both signals' labels and transducers.
     bytes.set([0xc2, 0xb0, 0x43], 256 + 2 * (16 + 80));
 
-    expect(readHeader(bytes)._unsafeUnwrap().header.signals[0]?.unit).toBe("°C");
+    expect(readHeader(bytes)._unsafeUnwrap().signals[0]?.unit).toBe("°C");
   });
 
   it.each<[string, string, number, FileSizeCheck]>([

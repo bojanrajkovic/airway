@@ -119,7 +119,7 @@ describe("strFile", () => {
 
   it("has one record per day from the first night to the last, with all 81 signals", () => {
     expect(file.size.records).toBe(3);
-    expect(file.header.signals).toHaveLength(81);
+    expect(file.signals).toHaveLength(81);
   });
 
   it("writes every value of an unused day as missing, except its Date", () => {

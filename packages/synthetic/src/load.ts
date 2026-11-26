@@ -10,7 +10,7 @@ import {
 } from "@airway/contract/derived/ddl";
 import { periodPercentiles } from "@airway/contract/derived/percentiles";
 import type { DerivedRows, SignalValues } from "@airway/contract/derived/rows";
-import { COLUMN_UNITS } from "@airway/edf/airsense";
+import { COLUMN_UNITS } from "@airway/edf/columns";
 
 export type LoadOptions = {
   /** Defaults to `derived`, the schema that queries read. */

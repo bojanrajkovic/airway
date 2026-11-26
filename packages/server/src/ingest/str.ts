@@ -2,7 +2,8 @@ import type { Result } from "neverthrow";
 import type { StrDay } from "@airway/contract/derived/str";
 import { decimalsForStep, round } from "@airway/contract/registry/units";
 import { AIRSENSE, dataSignals, step, type DataLabel } from "@airway/edf/airsense";
-import type { EdfReadError, ReadableEdfFile } from "@airway/edf/header";
+import { STR_NIGHT_COLUMNS, STR_SETTINGS } from "@airway/edf/columns";
+import type { EdfReadError, ReadableEdfFileHeaders } from "@airway/edf/header";
 import { readSignals } from "@airway/edf/signals";
 
 /** Reports a record whose Date signal differs from the header's start date plus the record index. `date` is null when the machine wrote -1 as the Date. */
@@ -18,8 +19,7 @@ export type StrFile = { days: StrDay[]; warnings: StrWarning[] };
 
 type StrLabel = DataLabel<typeof AIRSENSE.str>;
 
-const SIGNALS = dataSignals(AIRSENSE.str);
-const LABELS = SIGNALS.map((signal) => signal.label);
+const LABELS = dataSignals(AIRSENSE.str).map((signal) => signal.label);
 const EPOCH = Temporal.PlainDate.from("1970-01-01");
 
 /**
@@ -29,9 +29,12 @@ const EPOCH = Temporal.PlainDate.from("1970-01-01");
  * Values are physical, rounded to their signal's step, and null where the machine wrote -1.
  * Unused MaskOn and MaskOff slots stay NaN because `buildSessions` expects NaN there.
  */
-export function readStr(bytes: Uint8Array, file: ReadableEdfFile): Result<StrFile, EdfReadError> {
+export function readStr(
+  bytes: Uint8Array,
+  file: ReadableEdfFileHeaders,
+): Result<StrFile, EdfReadError> {
   const start = file.header.start.toPlainDate();
-  const headers = new Map(file.header.signals.map((signal) => [signal.label, signal]));
+  const headers = new Map(file.signals.map((signal) => [signal.label, signal]));
 
   return readSignals(bytes, file, LABELS).map((values) => {
     // Returns a signal's value in `record`, rounded to the step in that signal's header.
@@ -66,14 +69,10 @@ export function readStr(bytes: Uint8Array, file: ReadableEdfFile): Result<StrFil
         maskOff: slots("MaskOff", record),
         maskEvents: at("MaskEvents", record) ?? 0,
         signals: Object.fromEntries(
-          SIGNALS.flatMap(({ label, target }) =>
-            target.table === "nights" ? [[target.column, at(label, record)]] : [],
-          ),
+          STR_NIGHT_COLUMNS.map(([label, column]) => [column, at(label, record)]),
         ),
         settings: Object.fromEntries(
-          SIGNALS.flatMap(({ label, target }) =>
-            target.table === "settings" ? [[target.name, at(label, record)]] : [],
-          ),
+          STR_SETTINGS.map(([label, name]) => [name, at(label, record)]),
         ),
       };
     });

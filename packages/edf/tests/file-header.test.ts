@@ -35,7 +35,7 @@ describe("readFileHeader", () => {
     const parsed = (await readFileHeader(path))._unsafeUnwrap();
 
     expect(parsed.header.headerBytes).toBe(2816);
-    expect(parsed.header.signals).toHaveLength(10);
+    expect(parsed.signals).toHaveLength(10);
     expect(parsed.size).toEqual({ verdict: "read", header: "undercounted", records: 3 });
   });
 

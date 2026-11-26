@@ -2,7 +2,7 @@ import type { Attributes } from "@opentelemetry/api";
 import { toInstant } from "@airway/contract/clock";
 import { buildSessions, type Sessions, type Span } from "@airway/contract/derived/sessions";
 import type { UsedStrDay } from "@airway/contract/derived/str";
-import type { EdfFile } from "@airway/edf/header";
+import type { EdfFileHeaders } from "@airway/edf/header";
 import type { FileSizeCheck } from "@airway/edf/size";
 import type { AppContext } from "../runtime/context.ts";
 import { inSpan } from "../telemetry.ts";
@@ -14,7 +14,7 @@ import type { ReadyFile } from "./versions.ts";
  */
 export type SegmentFile = ReadyFile & {
   kind: "brp" | "pld";
-  edf: EdfFile & { size: Exclude<FileSizeCheck, { verdict: "reject" }> };
+  edf: EdfFileHeaders & { size: Exclude<FileSizeCheck, { verdict: "reject" }> };
 };
 
 /** The inputs for one night are its STR.edf day and its ready BRP and PLD files. */

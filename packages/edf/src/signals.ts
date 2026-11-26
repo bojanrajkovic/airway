@@ -3,9 +3,9 @@ import { step } from "./airsense.ts";
 import {
   coversRecords,
   recordBytes,
-  type EdfHeader,
+  type EdfFileHeaders,
   type EdfReadError,
-  type ReadableEdfFile,
+  type ReadableEdfFileHeaders,
 } from "./header.ts";
 
 /**
@@ -13,6 +13,9 @@ import {
  * `toRecord`, as in `Array.slice`.
  */
 export type RecordRange = { fromRecord?: number; toRecord?: number };
+
+/** Maps each signal label to that signal's samples in physical units, across every record. */
+export type EdfSamples<L extends string> = Readonly<Record<L, Float64Array>>;
 
 /**
  * Reads the samples of the signals named in `labels` and returns them in physical units, one
@@ -25,11 +28,10 @@ export type RecordRange = { fromRecord?: number; toRecord?: number };
  */
 export function readSignals<L extends string>(
   bytes: Uint8Array,
-  file: ReadableEdfFile,
+  file: ReadableEdfFileHeaders,
   labels: readonly L[],
   range: RecordRange = {},
-): Result<Record<L, Float64Array>, EdfReadError> {
-  const { header } = file;
+): Result<EdfSamples<L>, EdfReadError> {
   const { records } = file.size;
   const { fromRecord = 0, toRecord = records } = range;
 
@@ -43,8 +45,8 @@ export function readSignals<L extends string>(
     return err({ kind: "range_out_of_bounds", fromRecord, toRecord, records });
   }
 
-  return coversRecords(bytes, header, toRecord).andThen(() =>
-    decode(bytes, header, labels, { fromRecord, toRecord }),
+  return coversRecords(bytes, file, toRecord).andThen(() =>
+    decode(bytes, file, labels, { fromRecord, toRecord }),
   );
 }
 
@@ -52,21 +54,21 @@ export function readSignals<L extends string>(
 // checked the range.
 function decode<L extends string>(
   bytes: Uint8Array,
-  header: EdfHeader,
+  { header, signals }: EdfFileHeaders,
   labels: readonly L[],
   { fromRecord, toRecord }: Required<RecordRange>,
-): Result<Record<L, Float64Array>, EdfReadError> {
-  const stride = recordBytes(header);
+): Result<EdfSamples<L>, EdfReadError> {
+  const stride = recordBytes({ signals });
   const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
   // A record stores the signals' samples back to back, in header order.
-  const offsets = header.signals.map((_, i) =>
-    header.signals.slice(0, i).reduce((sum, signal) => sum + 2 * signal.samplesPerRecord, 0),
+  const offsets = signals.map((_, i) =>
+    signals.slice(0, i).reduce((sum, signal) => sum + 2 * signal.samplesPerRecord, 0),
   );
   const result: Partial<Record<L, Float64Array>> = {};
 
   for (const label of labels) {
-    const index = header.signals.findIndex((signal) => signal.label === label);
-    const signal = header.signals[index];
+    const index = signals.findIndex((signal) => signal.label === label);
+    const signal = signals[index];
 
     if (signal === undefined) {
       return err({ kind: "missing_signal", label });
@@ -96,5 +98,5 @@ function decode<L extends string>(
   }
 
   // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the loop sets a value for every label or returns an error
-  return ok(result as Record<L, Float64Array>);
+  return ok(result as EdfSamples<L>);
 }

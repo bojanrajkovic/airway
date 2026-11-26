@@ -10,8 +10,8 @@ import type { UsedStrDay } from "@airway/contract/derived/str";
 import { EVENT_TYPES } from "@airway/contract/derived/values";
 import { ruleSetFor } from "@airway/contract/profile";
 import { EVENT_LABELS } from "@airway/edf/airsense";
-import { readAnnotations, type Annotation } from "@airway/edf/annotations";
-import { isReadable, type EdfFile, type EdfReadError } from "@airway/edf/header";
+import { readAnnotations, type EdfAnnotation } from "@airway/edf/annotations";
+import { isReadable, type EdfFileHeaders, type EdfReadError } from "@airway/edf/header";
 import type { Logger } from "../logger.ts";
 import type { AppContext } from "../runtime/context.ts";
 import { inSpanAsync } from "../telemetry.ts";
@@ -21,7 +21,7 @@ import type { ReadyFile } from "./versions.ts";
  * Describes an EVE file that passed the readiness check. `edf` is the header that the check
  * read.
  */
-export type EveFile = ReadyFile & { kind: "eve"; edf: EdfFile };
+export type EveFile = ReadyFile & { kind: "eve"; edf: EdfFileHeaders };
 
 /** Describes one night's input to `scoreNight`. `buildNight` produces `sessions`. */
 export type NightEvents = {
@@ -46,7 +46,7 @@ export type ScoredEvents = ScoredNight & { events: EventRow[] };
 export type FileAnnotations = {
   path: string;
   start: Temporal.Instant;
-  annotations: readonly Annotation[];
+  annotations: readonly EdfAnnotation[];
 };
 
 /**

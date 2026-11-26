@@ -1,4 +1,4 @@
-import type { EdfFile, EdfReadError } from "@airway/edf/header";
+import type { EdfFileHeaders, EdfReadError } from "@airway/edf/header";
 
 /** Ingest imports a file once its size and ctime have stayed the same for this long. */
 export const STABLE_FOR = Temporal.Duration.from({ minutes: 2 });
@@ -9,7 +9,7 @@ export const STABLE_FOR = Temporal.Duration.from({ minutes: 2 });
  * aren't EDF files.
  */
 export type HeaderRead =
-  | { kind: "read"; file: EdfFile }
+  | { kind: "read"; file: EdfFileHeaders }
   | { kind: "failed"; error: EdfReadError }
   | { kind: "not_edf" };
 

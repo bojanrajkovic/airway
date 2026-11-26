@@ -16,13 +16,8 @@ import { nightRow } from "@airway/contract/derived/nights";
 import { assignEvents, buildSessions } from "@airway/contract/derived/sessions";
 import { settingsChanges } from "@airway/contract/derived/settings";
 import type { StrDay, UsedStrDay } from "@airway/contract/derived/str";
-import {
-  AIRSENSE,
-  dataSignals,
-  EVENT_LABELS,
-  PLD_SAMPLE_SECONDS,
-  type EdfFileType,
-} from "@airway/edf/airsense";
+import { EVENT_LABELS, PLD_SAMPLE_SECONDS } from "@airway/edf/airsense";
+import { PLD_SAMPLE_COLUMNS, STR_NIGHT_COLUMNS, STR_SETTINGS } from "@airway/edf/columns";
 import type { RuleSet } from "@airway/contract/profile";
 import { datalogFiles, folderFiles, type CpapFile, type DatalogFile } from "./cpap-data.ts";
 import {
@@ -54,17 +49,6 @@ const RULE_SETS: Readonly<Record<Patient, RuleSet>> = { child: "pediatric", adul
 
 const value = (n: number | undefined): number | null =>
   n === undefined || Number.isNaN(n) ? null : n;
-
-// Returns a [label, column] pair for each signal of `file` that maps to a column of `table`.
-const targets = (file: EdfFileType, table: "nights" | "samples"): [string, string][] =>
-  dataSignals(file).flatMap((signal) =>
-    signal.target.table === table ? [[signal.label, signal.target.column]] : [],
-  );
-const NIGHT_COLUMNS = targets(AIRSENSE.str, "nights");
-const SAMPLE_COLUMNS = targets(AIRSENSE.pld, "samples");
-const SETTINGS = dataSignals(AIRSENSE.str).flatMap((signal) =>
-  signal.target.table === "settings" ? [[signal.label, signal.target.name] as const] : [],
-);
 
 const sha256 = (bytes: Uint8Array): string => createHash("sha256").update(bytes).digest("hex");
 
@@ -152,10 +136,10 @@ function usedDay(night: SyntheticNight, zone: string): UsedStrDay {
     ...maskSlots(night, zone),
     maskEvents: night.str.get("MaskEvents") ?? 0,
     signals: Object.fromEntries(
-      NIGHT_COLUMNS.map(([label, column]) => [column, value(night.str.get(label))]),
+      STR_NIGHT_COLUMNS.map(([label, column]) => [column, value(night.str.get(label))]),
     ),
     settings: Object.fromEntries(
-      SETTINGS.map(([label, setting]) => [setting, value(night.str.get(label))]),
+      STR_SETTINGS.map(([label, setting]) => [setting, value(night.str.get(label))]),
     ),
   };
 }
@@ -296,8 +280,7 @@ function addNight(
     const pldStart = segment.start.add({ seconds: PLD_LAG_SECONDS });
     // shortcut: in every case, ingest reads all of a segment's PLD files or none of them; count
     // each file's own records if a case ever damages one half of a split PLD.
-    const count =
-      plds.length === 0 ? 0 : (pldSeries.get(SAMPLE_COLUMNS[0]?.[0] ?? "")?.length ?? 0);
+    const count = plds.length === 0 ? 0 : (pldSeries.get(PLD_SAMPLE_COLUMNS[0][0])?.length ?? 0);
 
     rows.segments.push({
       night: date,
@@ -309,7 +292,7 @@ function addNight(
 
     for (let s = 0; s < count; s += 1) {
       const signals: SignalValues = Object.fromEntries(
-        SAMPLE_COLUMNS.map(([label, column]) => [column, value(pldSeries.get(label)?.[s])]),
+        PLD_SAMPLE_COLUMNS.map(([label, column]) => [column, value(pldSeries.get(label)?.[s])]),
       );
 
       rows.samples.push({

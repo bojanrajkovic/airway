@@ -47,7 +47,7 @@ describe("writeSignals", () => {
   });
 
   it("writes the signal headers as the list declares them", () => {
-    expect(AIRSENSE.pld.signals).toMatchObject(readable(bytes).header.signals);
+    expect(readable(bytes).signals).toEqual(AIRSENSE.pld.signals);
   });
 
   it("is exactly the header plus the records", () => {
@@ -58,7 +58,7 @@ describe("writeSignals", () => {
 
   it("pads text by bytes, so the fields after a UTF-8 °C stay in place", () => {
     const str = writeSignals(AIRSENSE.str, header, filled(AIRSENSE.str, 1))._unsafeUnwrap();
-    const { signals } = readable(str).header;
+    const { signals } = readable(str);
     const temp = signals.find((signal) => signal.label === "S.Temp");
 
     expect(temp).toMatchObject({ unit: "°C", physicalMin: "16.00", digitalMax: 300 });
