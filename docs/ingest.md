@@ -251,3 +251,36 @@ stateDiagram-v2
 - `ts` stores each onset in milliseconds since the Unix epoch, and `duration` stores each breath's length in seconds.
 
 A block stores its rows as columns, like a `SampleBlock`. `readBreaths` runs in an `ingest.breaths` span that records the night, the number of BRP files, and the number of breaths. If any BRP file fails to read, the night fails, and the error includes that file's path.
+
+## Night task
+
+`computeNight(ctx, task)` in `packages/server/src/ingest/night.ts` computes everything ingest writes for one night. Its input, a `NightFiles`, contains:
+
+- the night
+- the home time zone
+- the night's STR.edf day
+- the night's ready BRP, PLD, and EVE files
+
+`computeNight` reads only those files, so a worker thread without database pools can run it.
+
+```mermaid
+flowchart LR
+  task[NightFiles] --> segments["buildNight:<br/>segments and sessions"]
+  segments --> events["scoreNight:<br/>events and scoring"]
+  events --> samples["readSamples"]
+  samples --> breaths["readBreaths"]
+  breaths --> result[NightResult]
+```
+
+`computeNight` runs the steps in that order and times each one with `performance.now()`. A `NightResult` contains:
+
+- the segments and sessions
+- the scored events
+- the sample and breath blocks
+- the seconds each step took
+
+If a step fails, `computeNight` returns that step's `EdfFileError`, which includes the failing file's path.
+
+Structured cloning can't copy Temporal values, so `encodeTask` and `encodeNight` serialize them with contract's superjson `transformer`. `encodeTask` serializes the whole task. `encodeNight` serializes everything in the result except the sample and breath blocks. On the receiving thread, `decodeTask` and `decodeNight` rebuild each Temporal value.
+
+Structured cloning copies the blocks' typed arrays directly. `encodeNight` lists the arrays' buffers, so the sender can transfer the buffers instead of copying them. An error contains only plain values and `Error` objects, so structured cloning copies it directly. When the error's `cause` is an `Error`, structured cloning preserves that `Error`'s message and stack. `decodeNight` converts a `NightWire` back into a `Result`.

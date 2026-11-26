@@ -7,13 +7,13 @@ import type { CpapFile } from "@airway/synthetic/cpap-data";
 import { syntheticNights } from "@airway/synthetic/model";
 import { Patient } from "@airway/synthetic/patients";
 import { synthesize } from "@airway/synthetic/synthesize";
-import { planSegments, type NightFiles, type NightSegments } from "../../src/ingest/segments.ts";
+import { planSegments, type SegmentInputs, type NightSegments } from "../../src/ingest/segments.ts";
 import { segmentFiles, usedDays } from "../support/cpap-folder.ts";
 
 const arrivedAt = Temporal.Instant.from("2030-03-01T12:00:00Z");
 
 // Describes one edge case's test inputs and expected rows.
-type Case = { inputs: NightFiles[]; files: CpapFile[]; rows: DerivedRows };
+type Case = { inputs: SegmentInputs[]; files: CpapFile[]; rows: DerivedRows };
 
 function edgeCase(name: EdgeCaseName): Case {
   const { nights, zone } = syntheticNights({ seed: 7, nights: 0, cases: [name] })._unsafeUnwrap();
@@ -21,7 +21,7 @@ function edgeCase(name: EdgeCaseName): Case {
     patient: Patient.Child,
     arrivedAt,
   })._unsafeUnwrap();
-  const inputs = usedDays(files).flatMap((day): NightFiles[] =>
+  const inputs = usedDays(files).flatMap((day): SegmentInputs[] =>
     rows.nights.some(({ night }) => night.equals(day.day))
       ? [{ night: day.day, zone, day, files: segmentFiles(files, day.day) }]
       : [],
@@ -35,7 +35,7 @@ const asSessions = (rows: readonly SessionRow[]): Session[] =>
   rows.map(({ session, ts, ended_at, source }) => ({ session, start: ts, end: ended_at, source }));
 
 // Returns the rows that a night's plan would write to the segments table.
-function asRows({ night }: NightFiles, plan: NightSegments): Pick<DerivedRows, "segments"> {
+function asRows({ night }: SegmentInputs, plan: NightSegments): Pick<DerivedRows, "segments"> {
   return {
     segments: plan.segments.map(({ segment, session, start, end }) => ({
       night,
