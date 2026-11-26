@@ -1,20 +1,11 @@
 import { describe, expect, it } from "vitest";
 import type { Result } from "neverthrow";
 import { readAnnotations, type Annotation } from "../src/annotations.ts";
-import { isReadable, readHeader, type EdfReadError, type ReadableEdfFile } from "../src/header.ts";
+import { isReadable, readHeader, type EdfReadError } from "../src/header.ts";
+import { readable } from "./readable.ts";
 import { annotated, file, plain, withTals } from "./bytes.ts";
 
 const TIMEKEEPING = "+0\x14\x14\0";
-
-function readable(bytes: Uint8Array): ReadableEdfFile {
-  const parsed = readHeader(bytes)._unsafeUnwrap();
-
-  if (!isReadable(parsed)) {
-    throw new Error(`expected a readable file, got ${JSON.stringify(parsed.size)}`);
-  }
-
-  return parsed;
-}
 
 const read = (records: string[], declared = records.length): Result<Annotation[], EdfReadError> => {
   const bytes = withTals(annotated(declared), records);

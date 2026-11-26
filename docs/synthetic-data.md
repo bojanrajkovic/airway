@@ -248,4 +248,4 @@ The header's start time is a zoneless `Temporal.PlainDateTime` on the device's c
 
 Both functions return a `Result`. The errors name the signal or field at fault: a missing signal, a signal that doesn't fill a whole number of records, `NaN` where -1 is a real value, signals with different record counts, text too long for its field, or an annotation too long for its record.
 
-The writer's tests read files back with a small reader in `@airway/testing/edf-readback`.
+The writer's tests read each file back with `@airway/edf`'s reader. They also check the main header's byte offsets, the stored int16 values, and each record's checksum against the raw bytes. The reader's own tests build their bytes from literal text without the writer.
