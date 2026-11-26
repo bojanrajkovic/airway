@@ -30,7 +30,7 @@ const encoder = new TextEncoder();
 // Each field is left-aligned and padded with spaces to its width.
 const pad = (value: string, width: number): string => value.padEnd(width, " ").slice(0, width);
 
-/** A header's bytes. */
+/** Encodes `fields` as the bytes of an EDF header. */
 export function header(fields: HeaderFields): Uint8Array {
   const { signals } = fields;
   const column = (width: number, value: (signal: SignalFields) => string): string =>
@@ -61,7 +61,7 @@ export function header(fields: HeaderFields): Uint8Array {
   return encoder.encode(text);
 }
 
-/** A header followed by `bodyBytes` zero bytes. */
+/** Returns the header for `fields`, followed by `bodyBytes` zero bytes. */
 export function file(fields: HeaderFields, bodyBytes: number): Uint8Array {
   const head = header(fields);
   const bytes = new Uint8Array(head.length + bodyBytes);
@@ -71,7 +71,7 @@ export function file(fields: HeaderFields, bodyBytes: number): Uint8Array {
   return bytes;
 }
 
-/** A Flow signal: 0.02 L/s per step over -32768..32767, 2 samples per record. */
+/** A Flow signal that stores 0.02 L/s per step over -32768..32767, with 2 samples per record. */
 export const flow: SignalFields = {
   label: "Flow.40ms",
   unit: "L/s",
@@ -92,7 +92,7 @@ export const crc16: SignalFields = {
   samples: "1",
 };
 
-/** A two-signal plain EDF header with 6-byte records. */
+/** Returns the fields of a plain EDF header with two signals and 6-byte records. */
 export const plain = (overrides: Partial<HeaderFields> = {}): HeaderFields => ({
   recording: "Startdate 07-JAN-2030 X X X",
   startDate: "07.01.30",
@@ -104,7 +104,10 @@ export const plain = (overrides: Partial<HeaderFields> = {}): HeaderFields => ({
   ...overrides,
 });
 
-/** A header followed by records of int16 samples, each record's samples in header order. */
+/**
+ * Returns the header for `fields`, followed by `records` as int16 samples. Each record lists its
+ * samples in the order of the header's signals.
+ */
 export function withSamples(fields: HeaderFields, records: number[][]): Uint8Array {
   const head = header(fields);
   const samples = records.flat();
@@ -119,7 +122,7 @@ export function withSamples(fields: HeaderFields, records: number[][]): Uint8Arr
   return bytes;
 }
 
-/** An annotation signal holding `samples` int16 samples (twice as many bytes) per record. */
+/** Returns an annotation signal with `samples` int16 samples per record. Each sample is 2 bytes. */
 export const annotationSignal = (samples: number): SignalFields => ({
   label: "EDF Annotations",
   unit: "",
@@ -130,10 +133,10 @@ export const annotationSignal = (samples: number): SignalFields => ({
   samples: samples.toString(),
 });
 
-// The annotation bytes in each record of annotated().
+// The number of annotation bytes in each record of annotated().
 const TAL_BYTES = 64;
 
-/** An EDF+D header with one 64-byte annotation signal and a Crc16. */
+/** Returns the fields of an EDF+D header with a 64-byte annotation signal and a Crc16 signal. */
 export const annotated = (records: number): HeaderFields =>
   plain({
     reserved: "EDF+D",
@@ -142,10 +145,11 @@ export const annotated = (records: number): HeaderFields =>
     signals: [annotationSignal(TAL_BYTES / 2), crc16],
   });
 
-// "+1": a Crc16 that a reader running past the annotation bytes would misread as a TAL.
+// The Crc16 bytes are the text "+1". A reader that runs past the annotation bytes would misread
+// them as a TAL.
 const CRC = [0x2b, 0x31];
 
-/** An annotation file: each record's TAL text, zero-padded to 64 bytes, then a Crc16. */
+/** Returns an annotation file. Each record is TAL text zero-padded to 64 bytes, then a Crc16. */
 export function withTals(fields: HeaderFields, records: string[]): Uint8Array {
   const head = header(fields);
   const size = TAL_BYTES + CRC.length;

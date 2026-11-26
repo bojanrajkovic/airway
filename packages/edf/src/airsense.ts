@@ -3,8 +3,8 @@ import { decimalsForStep } from "@airway/contract/registry/units";
 import type { EdfHeader, SignalHeader } from "./header.ts";
 
 /**
- * Where a signal's values go when ingest reads them: a column of the `samples` or `nights`
- * dataset, a named setting in `settings_changes`, or nowhere.
+ * Names where ingest writes a signal's values: a column of the `samples` or `nights` dataset,
+ * or a named setting in `settings_changes`. Ingest skips a signal whose target table is `none`.
  */
 export type SignalTarget =
   | { table: "samples"; column: string }
@@ -12,18 +12,27 @@ export type SignalTarget =
   | { table: "settings"; name: string }
   | { table: "none" };
 
-/** One signal of an AirSense 10 file type, and where ingest puts its values. */
+/**
+ * Describes one signal of an AirSense 10 file type and names where ingest writes the signal's
+ * values.
+ */
 export type EdfSignal = SignalHeader & { target: SignalTarget };
 
-/** One AirSense 10 file type. */
+/**
+ * Describes one kind of file that an AirSense 10 writes: its EDF format, record length, and
+ * signals.
+ */
 export type EdfFileType = Pick<EdfHeader, "recordSeconds"> & {
-  /** `EDF` for signal files, `EDF+D` for annotation files. */
+  /** Signal files use `EDF`, and annotation files use `EDF+D`. */
   format: Exclude<EdfHeader["format"], "EDF+C">;
-  /** In header order. Every file ends with `Crc16`. Annotation files use 0 record seconds. */
+  /**
+   * Lists the signals in header order. Every file ends with `Crc16`. Annotation files declare a
+   * record length of 0 seconds.
+   */
   signals: readonly EdfSignal[];
 };
 
-/** One digital step in physical units, such as 0.02 cmH2O for pressure. */
+/** Returns the size of one digital step in physical units, such as 0.02 cmH2O for pressure. */
 export function step(signal: SignalHeader): number {
   return (
     (Number(signal.physicalMax) - Number(signal.physicalMin)) /
@@ -31,7 +40,7 @@ export function step(signal: SignalHeader): number {
   );
 }
 
-/** A file's signals without its trailing Crc16, which holds a checksum rather than data. */
+/** Returns a file's signals except the trailing Crc16, which is a checksum. */
 export const dataSignals = (file: EdfFileType): readonly EdfSignal[] =>
   file.signals.filter((signal) => signal.label !== "Crc16");
 
@@ -39,7 +48,7 @@ const none: SignalTarget = { table: "none" };
 const sample = (column: string): SignalTarget => ({ table: "samples", column });
 const night = (column: string): SignalTarget => ({ table: "nights", column });
 
-/** A signal's unit, physical range, and digital range, in header order. */
+/** Lists a signal's unit, physical range, and digital range in header order. */
 type Measure = readonly [
   unit: string,
   physicalMin: string,
@@ -68,7 +77,8 @@ function signal(
 
 const crc16 = signal("Crc16", ["", "-32768", "32767", -32768, 32767], 1);
 
-// Settings #12 names. Every other S.* setting keeps its label as its name.
+// These settings have their own names in `settings_changes`. Every other S.* setting uses its
+// label as its name.
 const SETTING_NAMES: Readonly<Record<string, string>> = {
   "S.AS.MinPress": "min_pressure",
   "S.AS.MaxPress": "max_pressure",
@@ -79,7 +89,7 @@ const SETTING_NAMES: Readonly<Record<string, string>> = {
 const setting = (label: string, measure: Measure): EdfSignal =>
   signal(label, measure, 1, { table: "settings", name: SETTING_NAMES[label] ?? label });
 
-// An on/off or choice code, stored as 0 to 16.
+// The machine stores an on/off value or a choice as a code from 0 to 16.
 const CODE: Measure = ["", "0", "16", 0, 16];
 const choice = (label: string): EdfSignal => setting(label, CODE);
 const flag = (label: string): EdfSignal => signal(label, CODE, 1);
@@ -89,7 +99,8 @@ const pressureSetting = (label: string): EdfSignal =>
 const STATISTIC_SUFFIXES = { "50": "p50", "70": "p70", "95": "p95", Max: "max" } as const;
 type StatisticSuffix = keyof typeof STATISTIC_SUFFIXES;
 
-// The machine's nightly statistics of one signal, such as Leak.50 → leak_p50.
+// Returns one STR signal for each nightly statistic that the machine computes, such as Leak.50,
+// which ingest writes to leak_p50.
 function statistics(
   prefix: string,
   column: string,
@@ -106,14 +117,14 @@ const index = (label: string): EdfSignal =>
 
 const flow = signal("Flow.40ms", ["L/s", "-2.00", "3.00", -1000, 1500], 1500);
 
-/** 25 Hz flow and pressure, in 60 s records. */
+/** BRP files store flow and pressure at 25 Hz, in 60 s records. */
 const brp: EdfFileType = {
   format: "EDF",
   recordSeconds: 60,
   signals: [flow, signal("Press.40ms", ["cmH2O", "0.00", "40.00", 0, 2000], 1500), crc16],
 };
 
-/** The 2 s signals, in 60 s records. */
+/** PLD files store one value every 2 s for each signal, in 60 s records. */
 const pld: EdfFileType = {
   format: "EDF",
   recordSeconds: 60,
@@ -131,7 +142,10 @@ const pld: EdfFileType = {
   ],
 };
 
-/** Pulse oximetry, at 1 Hz in 60 s records. Without a sensor, every value is missing. */
+/**
+ * SAD files store pulse oximetry at 1 Hz, in 60 s records. Without a sensor, every value is
+ * missing.
+ */
 const sad: EdfFileType = {
   format: "EDF",
   recordSeconds: 60,
@@ -151,12 +165,15 @@ const annotations = (samplesPerRecord: number): EdfFileType => ({
   ],
 });
 
-/** The machine's events, one annotation per record. */
+/** EVE files store the machine's events, with one annotation per record. */
 const eve = annotations(19);
-/** Cheyne-Stokes periods. Without any, it holds only the "Recording starts" annotation. */
+/**
+ * CSL files store Cheyne-Stokes periods. A CSL file from a night without Cheyne-Stokes breathing
+ * contains only the "Recording starts" annotation.
+ */
 const csl = annotations(15);
 
-/** The daily summary: one 86,400 s record per day. */
+/** STR.edf is the daily summary, with one 86,400 s record per day. */
 const str: EdfFileType = {
   format: "EDF",
   recordSeconds: 86_400,
@@ -231,18 +248,21 @@ const str: EdfFileType = {
 };
 
 /**
- * Every AirSense 10 EDF file airway reads or writes, as its headers declare them. The format
- * details are the same on every AirSense 10.
+ * Describes every kind of EDF file that airway reads or writes for an AirSense 10, as the file
+ * headers declare it. Every AirSense 10 uses the same format.
  */
 export const AIRSENSE = { brp, pld, sad, eve, csl, str } as const satisfies Record<
   string,
   EdfFileType
 >;
 
-/** Seconds between two values of a PLD signal: each record's samples span its 60 s. */
+/**
+ * A PLD signal has one value every `PLD_SAMPLE_SECONDS` seconds. The samples in a record are evenly
+ * spaced over the record's 60 s.
+ */
 export const PLD_SAMPLE_SECONDS = pld.recordSeconds / (pld.signals[0]?.samplesPerRecord ?? 1);
 
-// The signals of `file` that fill a column of `dataset`, as column_units rows.
+// Returns the column_units rows for the signals of `file` that are stored in the `dataset` table.
 const unitRows = (file: EdfFileType, dataset: "nights" | "samples"): ColumnUnitRow[] =>
   dataSignals(file).flatMap((signal) =>
     signal.target.table === dataset
@@ -258,12 +278,7 @@ const unitRows = (file: EdfFileType, dataset: "nights" | "samples"): ColumnUnitR
   );
 const flowDecimals = decimalsForStep(step(flow));
 
-/**
- * The `column_units` table's rows. Each column filled from a machine signal gets the unit its EDF
- * header declares and the decimals one step needs; a 0.02 cmH2O step needs 2. The breaths table's
- * amplitude and inspiratory_volume are computed from the 25 Hz flow signal, so they use its
- * decimals.
- */
+/** The rows of the `column_units` table. docs/data-model.md#units explains the decimals. */
 export const COLUMN_UNITS: readonly ColumnUnitRow[] = [
   ...unitRows(str, "nights"),
   ...unitRows(pld, "samples"),

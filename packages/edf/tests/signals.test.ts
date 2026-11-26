@@ -3,7 +3,7 @@ import { isReadable, readHeader, type ReadableEdfFile } from "../src/header.ts";
 import { readSignals, type RecordRange } from "../src/signals.ts";
 import { crc16, flow, plain, withSamples, type HeaderFields, type SignalFields } from "./bytes.ts";
 
-// Leak: 0.02 L/s per step over digital 0..100, so the card's -1 for "no value" is out of range.
+// Leak's digital range is 0 to 100, so a digital -1 reads as NaN.
 const leak: SignalFields = {
   label: "Leak.2s",
   unit: "L/s",
@@ -15,7 +15,7 @@ const leak: SignalFields = {
 };
 const fields = (records: number): HeaderFields =>
   plain({ records: records.toString(), signals: [flow, leak, crc16] });
-// Each record: two Flow samples, one Leak sample, and a Crc16 the reader skips.
+// Each record has two Flow samples, one Leak sample, and a Crc16 sample that the reader skips.
 const record = (n: number): number[] => [n, -n, n, 0x7f7f];
 
 function readable(bytes: Uint8Array): ReadableEdfFile {
@@ -46,7 +46,7 @@ describe("readSignals", () => {
     expect(Array.from(signals["Leak.2s"])).toEqual([expect.closeTo(1, 10), Number.NaN]);
   });
 
-  it("reads a record range the same as slicing a full read", () => {
+  it("reads only the records in the given range", () => {
     const bytes = withSamples(
       fields(6),
       Array.from({ length: 6 }, (_, n) => record(n + 1)),
@@ -96,7 +96,7 @@ describe("readSignals", () => {
     });
   });
 
-  it("rejects bytes that hold only the header", () => {
+  it("rejects bytes that end after the header", () => {
     const bytes = withSamples(fields(2), [record(1), record(2)]);
     const head = bytes.subarray(0, 1024);
     const file = readHeader(head, bytes.length)._unsafeUnwrap();
@@ -112,7 +112,7 @@ describe("readSignals", () => {
     });
   });
 
-  it("names a label the file doesn't have", () => {
+  it("rejects a label that's missing from the file", () => {
     const bytes = withSamples(fields(1), [record(1)]);
 
     expect(readSignals(bytes, readable(bytes), ["Press.40ms"])._unsafeUnwrapErr()).toEqual({

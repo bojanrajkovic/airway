@@ -23,7 +23,7 @@ const read = (records: string[], declared = records.length): Result<Annotation[]
 };
 
 describe("readAnnotations", () => {
-  it("reads every TAL and text in a record, and drops timekeeping TALs", () => {
+  it("reads every text of every TAL in a record, and drops timekeeping TALs", () => {
     const annotations = read([
       `${TIMEKEEPING}+10\x1530\x14Hypopnea\x14\0+50\x14Arousal\x14Apnea\x14\0`,
     ]);
@@ -41,7 +41,7 @@ describe("readAnnotations", () => {
     ]);
   });
 
-  it("reads an empty duration as 0, and decimal onsets", () => {
+  it("reads decimal onsets, and reads an empty duration as 0", () => {
     expect(read(["+5.5\x15\x14Apnea\x14\0"])._unsafeUnwrap()).toEqual([
       { onset: 5.5, duration: 0, label: "Apnea" },
     ]);
@@ -65,7 +65,7 @@ describe("readAnnotations", () => {
     ]);
   });
 
-  it("names the record of a malformed TAL", () => {
+  it("reports which record holds a malformed TAL", () => {
     expect(read([`${TIMEKEEPING}+1\x14Apnea\x14\0`, "Apnea\x14\0"])._unsafeUnwrapErr()).toEqual({
       kind: "bad_annotation",
       record: 1,

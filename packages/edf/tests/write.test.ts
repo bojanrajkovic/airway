@@ -9,7 +9,7 @@ const header: PerFileHeader = {
   recording: "Startdate 07-JAN-2030 X X SYNTHETIC-0001",
 };
 
-// Constant values for every signal of a file, enough for `records` records.
+// Returns `records` records of a constant value for every signal of a file.
 function filled(file: EdfFileType, records: number, value = 1): Map<string, Float64Array> {
   return new Map(
     file.signals
@@ -63,7 +63,7 @@ describe("writeSignals", () => {
     expect(bytes.length).toBe(2816 + 3 * recordBytes);
   });
 
-  it("pads text by bytes, so a UTF-8 °C keeps the next fields in place", () => {
+  it("pads text by bytes, so the fields after a UTF-8 °C stay in place", () => {
     const str = writeSignals(AIRSENSE.str, header, filled(AIRSENSE.str, 1))._unsafeUnwrap();
     const read = readBackEdf(str);
     const temp = read.signals.find((signal) => signal.label === "S.Temp");
@@ -102,7 +102,7 @@ describe("writeSignals", () => {
       (v: Map<string, Float64Array>) => v.set("Leak.2s", new Float64Array(60)),
       "uneven_signals",
     ],
-  ])("refuses %s", (_case, edit, kind) => {
+  ])("rejects %s", (_case, edit, kind) => {
     const values = filled(AIRSENSE.pld, 3);
 
     edit(values);
@@ -124,7 +124,7 @@ describe("writeSignals", () => {
     }
   });
 
-  it("refuses NaN where -1 is a real value, since it would read back as one", () => {
+  it("returns missing_not_representable for NaN where -1 is in the digital range", () => {
     const values = filled(AIRSENSE.brp, 1, 0);
 
     values.get("Flow.40ms")?.set([Number.NaN]);
@@ -135,7 +135,7 @@ describe("writeSignals", () => {
     });
   });
 
-  it("refuses text longer than its field", () => {
+  it("returns field_too_long for text longer than its field", () => {
     const long = { ...header, patient: "x".repeat(81) };
 
     expect(writeSignals(AIRSENSE.pld, long, filled(AIRSENSE.pld, 1))._unsafeUnwrapErr()).toEqual({
@@ -154,7 +154,7 @@ describe("writeAnnotations", () => {
   ];
   const bytes = writeAnnotations(AIRSENSE.eve, header, annotations)._unsafeUnwrap();
 
-  it("writes one annotation per record that reads back unchanged", () => {
+  it("round-trips annotations, one per record", () => {
     expect(readBackAnnotations(bytes)).toEqual(annotations);
     expect(readBackEdf(bytes)).toMatchObject({
       reserved: "EDF+D",
@@ -167,8 +167,8 @@ describe("writeAnnotations", () => {
     expect(bytes.length).toBe(768 + 3 * 40);
   });
 
-  it("refuses an annotation that doesn't fit one record", () => {
-    // 39 bytes with the timekeeping entry; a record holds 38.
+  it("returns annotation_too_long for an annotation longer than one record", () => {
+    // This annotation takes 39 bytes with the timekeeping entry, and a record has room for 38.
     const long = { onset: 1_234_567.75, duration: 30, label: "Obstructive Apnea" };
 
     expect(writeAnnotations(AIRSENSE.eve, header, [long])._unsafeUnwrapErr()).toEqual({
@@ -177,7 +177,7 @@ describe("writeAnnotations", () => {
     });
   });
 
-  it("refuses an onset before the file's start", () => {
+  it("returns negative_onset for an onset before the file's start", () => {
     const early = { onset: -5, duration: 10, label: "Hypopnea" };
 
     expect(writeAnnotations(AIRSENSE.eve, header, [early])._unsafeUnwrapErr()).toEqual({

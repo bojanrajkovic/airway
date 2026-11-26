@@ -1,15 +1,20 @@
 import { describe, expect, it } from "vitest";
 import { checkFileSize, type FileSizeCheck } from "../src/size.ts";
 
-// A file with a 768-byte header and 40-byte records.
+// Checks a file that has a 768-byte header and 40-byte records.
 const file = (size: number, declaredRecords: number): FileSizeCheck =>
   checkFileSize({ size, headerBytes: 768, recordBytes: 40, declaredRecords });
 
 describe("checkFileSize", () => {
   it.each<[string, number, number, FileSizeCheck]>([
-    ["matches its header", 768 + 3 * 40, 3, { verdict: "read", header: "matches", records: 3 }],
     [
-      "has a -1 count and whole records",
+      "has as many records as its header declares",
+      768 + 3 * 40,
+      3,
+      { verdict: "read", header: "matches", records: 3 },
+    ],
+    [
+      "declares -1 records and ends on a whole record",
       768 + 2 * 40,
       -1,
       { verdict: "read", header: "unknown_length", records: 2 },
@@ -21,12 +26,17 @@ describe("checkFileSize", () => {
       { verdict: "read", header: "undercounted", records: 4 },
     ],
     [
-      "is a header with a -1 count",
+      "contains only a header and declares -1 records",
       768,
       -1,
       { verdict: "skip", header: "unknown_length", records: 0 },
     ],
-    ["is a header declaring 0 records", 768, 0, { verdict: "skip", header: "matches", records: 0 }],
+    [
+      "contains only a header and declares 0 records",
+      768,
+      0,
+      { verdict: "skip", header: "matches", records: 0 },
+    ],
     [
       "holds fewer records than it declares",
       768 + 2 * 40,
@@ -34,19 +44,19 @@ describe("checkFileSize", () => {
       { verdict: "reject", reason: "truncated" },
     ],
     [
-      "is short and ends mid-record",
+      "holds fewer records than it declares and ends mid-record",
       768 + 2 * 40 + 7,
       3,
       { verdict: "reject", reason: "truncated" },
     ],
     [
-      "ends mid-record past its declared count",
+      "ends mid-record after the records that it declares",
       768 + 3 * 40 + 7,
       3,
       { verdict: "reject", reason: "partial_record" },
     ],
     [
-      "has a -1 count and ends mid-record",
+      "declares -1 records and ends mid-record",
       768 + 40 + 7,
       -1,
       { verdict: "reject", reason: "partial_record" },
