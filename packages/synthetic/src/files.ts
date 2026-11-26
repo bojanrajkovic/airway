@@ -1,8 +1,8 @@
 import { err, ok, Result } from "neverthrow";
 import { toDeviceTime } from "@airway/contract/clock";
-import { AIRSENSE, dataSignals, PLD_SAMPLE_SECONDS } from "@airway/edf/airsense";
-import { checkFileSize, type FileSizeCheck } from "@airway/edf/size";
-import { recordBytes } from "@airway/edf/header";
+import { AIRSENSE, dataSignals, EVENT_LABELS, PLD_SAMPLE_SECONDS } from "@airway/edf/airsense";
+import { readHeader, type EdfReadError } from "@airway/edf/header";
+import type { FileSizeCheck } from "@airway/edf/size";
 import {
   writeAnnotations,
   writeSignals,
@@ -10,7 +10,7 @@ import {
   type PerFileHeader,
 } from "@airway/edf/write";
 import type { EventFile, FileDamage, MachineEvent, Segment, SyntheticNight } from "./model.ts";
-import { APNEAS, type MachineEventType } from "./patients.ts";
+import { APNEAS } from "./patients.ts";
 import { renderBrp } from "./signals.ts";
 
 /**
@@ -25,16 +25,7 @@ export type NightFile = {
   segment: number | null;
 };
 
-export type SyntheticFileError = EdfWriteError | { kind: "no_nights" };
-
-/** How EVE files label each event type. */
-export const EVENT_LABELS: Readonly<Record<MachineEventType, string>> = {
-  obstructive_apnea: "Obstructive Apnea",
-  central_apnea: "Central Apnea",
-  unclassified_apnea: "Apnea",
-  hypopnea: "Hypopnea",
-  arousal: "Arousal",
-};
+export type SyntheticFileError = EdfWriteError | EdfReadError | { kind: "no_nights" };
 
 /**
  * Returns the duration that the machine writes to EVE for `event`. The machine times only apneas,
@@ -219,15 +210,9 @@ function applyDamage(bytes: Uint8Array, damage: FileDamage): Uint8Array {
   }
 }
 
-/** Runs `checkFileSize` on a written file, with the header's byte and record counts. */
-export function sizeCheck(file: NightFile): FileSizeCheck {
-  return checkFileSize({
-    size: file.bytes.length,
-    headerBytes: field(file.bytes, HEADER_BYTES_FIELD),
-    recordBytes: recordBytes(AIRSENSE[file.kind]),
-    declaredRecords: field(file.bytes, RECORDS_FIELD),
-  });
-}
+/** Parses a written file's header as ingest does, and returns the header's size check. */
+export const sizeCheck = (file: NightFile): Result<FileSizeCheck, EdfReadError> =>
+  readHeader(file.bytes).map(({ size }) => size);
 
 const SLOTS = 10;
 const EPOCH = Temporal.PlainDate.from("1970-01-01");

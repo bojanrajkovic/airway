@@ -167,7 +167,7 @@ describe("edge cases", () => {
       written
         .filter((file) => file.kind === kind)
         .map((file) => {
-          const size = sizeCheck(file);
+          const size = sizeCheck(file)._unsafeUnwrap();
 
           return `${size.verdict} ${size.verdict === "reject" ? size.reason : size.header}`;
         });

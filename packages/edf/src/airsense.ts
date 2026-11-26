@@ -1,4 +1,5 @@
 import type { ColumnUnitRow } from "@airway/contract/derived/rows";
+import type { EVENT_TYPES } from "@airway/contract/derived/values";
 import { decimalsForStep } from "@airway/contract/registry/units";
 import type { EdfHeader, SignalHeader } from "./header.ts";
 
@@ -261,6 +262,17 @@ export const AIRSENSE = { brp, pld, sad, eve, csl, str } as const satisfies Reco
  * spaced over the record's 60 s.
  */
 export const PLD_SAMPLE_SECONDS = pld.recordSeconds / (pld.signals[0]?.samplesPerRecord ?? 1);
+
+/** Maps each event type that the machine scores to the label that it writes in EVE files. */
+export const EVENT_LABELS: Readonly<
+  Record<Exclude<(typeof EVENT_TYPES)[number], "other">, string>
+> = {
+  obstructive_apnea: "Obstructive Apnea",
+  central_apnea: "Central Apnea",
+  unclassified_apnea: "Apnea",
+  hypopnea: "Hypopnea",
+  arousal: "Arousal",
+};
 
 // Returns the column_units rows for the signals of `file` that are stored in the `dataset` table.
 const unitRows = (file: EdfFileType, dataset: "nights" | "samples"): ColumnUnitRow[] =>

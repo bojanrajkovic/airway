@@ -38,7 +38,7 @@ The listener starts before anything else, so the pod answers `/healthz` while sl
 
 Each pool's connections appear in `pg_stat_activity` as `airway-<pool>`. The deployment sets the reader role's limits (read-only, `search_path`, `work_mem`, `temp_file_limit`) on the role itself, as [Operations](operations.md) describes.
 
-Pools connect on their first query, so a server with no database still starts and answers `/healthz`. Shutdown closes the pools after the listener stops. When an idle connection drops, the pool logs the error code and opens a replacement on the next query.
+Pools connect on their first query, so a server with no database still starts and answers `/healthz`. Shutdown closes the pools after the listener stops. When an idle connection drops, the pool logs the error and opens a replacement on the next query.
 
 Each pool parses three Postgres types into the types that airway uses:
 
@@ -94,22 +94,42 @@ The `TRPCError` contains only the code. The service has already logged the failu
 
 Each call runs in a span named `trpc.<path>` and records its duration on the `rpc.server.call.duration` histogram. The server sets `rpc.method` to the procedure's path on both the span and the histogram point. When a call fails, the span records the tRPC code as `error.type`. Only a code that maps to a 5xx marks the span as an error. The server keeps procedure inputs out of the span and the histogram.
 
-### The procedure catalog
+### Procedures
 
-`@airway/contract/api/procedures` lists every procedure that the API will serve, each under its final name. The web app, MCP, and the query engine can build against a procedure before the server serves it.
+The contract defines the inputs and return types of the procedures in this table. The router serves only `ping`. The input schemas and return types are in these `@airway/contract` modules:
 
-- `PROCEDURES` maps each procedure to its kind and to the zod schema for its input, or to null for a procedure that's called without input. A run that records history is a mutation, because it writes a history entry. The web app imports only the catalog's types: the notes inputs are built from the Drizzle tables, so importing `PROCEDURES` as a value would put Drizzle in the browser bundle.
-- `ProcedureOutputs` maps each procedure to the type that it returns. The catalog has only types for outputs, because the server sends a response without validating it again. The server's own types guarantee each output, and rows from Postgres are parsed where they're read.
+- Queries: `api/procedures` and `query/spec`
+- Notes: `notes/api`
+- Trends: `api/summary`
+- Waveforms: `api/waveform`
+- App: `api/status`
 
-| Area | Procedures |
-|---|---|
-| Queries | `query.run`, `query.tile`, `query.rows`, `sql.run`, `links.resolve`, `history.list` |
-| Notes | `notes.list`, `notes.get`, `notes.add`, `notes.update`, `notes.delete`, `notes.restore`, `findings.get`, `findings.runNow` |
-| Trends | `summary.lastNight`, `summary.range`, `summary.settingsChanges` |
-| Waveforms | `waveform.window`, `waveform.night` |
-| App | `app.status` |
+A zod schema validates each procedure's input. The server sends each output without validating it. The server's types guarantee each output, and rows from Postgres are parsed where they're read. A run that records history is a mutation, because it writes.
 
-MCP's `save_finding` calls the findings service directly, which is why the catalog omits `findings.save`.
+| Procedure | Kind | Input | Returns |
+|---|---|---|---|
+| `query.run` | mutation | `querySpec` | `QueryResult & RunLinks` |
+| `query.tile` | query | `querySpec` | `QueryResult` |
+| `query.rows` | query | `BucketSelection` | `BucketRows` |
+| `sql.run` | mutation | `SqlStatement` | `SqlResult & { shortLink: string }` |
+| `links.resolve` | query | `LinkCode` | `ShortLinkTarget` |
+| `history.list` | query | `ListHistory` | `HistoryPage` |
+| `notes.list` | query | `ListNotes` | `Note[]` |
+| `notes.get` | query | `NoteId` | `Note` |
+| `notes.add` | mutation | `AddNote` | `Note` |
+| `notes.update` | mutation | `UpdateNote` | `Note` |
+| `notes.delete` | mutation | `NoteId` | nothing |
+| `notes.restore` | mutation | `NoteId` | `Note` |
+| `findings.get` | query | `NoteId` | `Finding` |
+| `findings.runNow` | mutation | `NoteId` | `Snapshot` |
+| `summary.lastNight` | query | none | `LastNightSummary` |
+| `summary.range` | query | `SummaryRange` | `RangeSummary` |
+| `summary.settingsChanges` | query | `NightRange` | `SettingChange[]` |
+| `waveform.window` | query | `WaveformWindow` | `WaveformData` |
+| `waveform.night` | query | `WaveformNight` | `WaveformOverview` |
+| `app.status` | query | none | `AppStatus` |
+
+MCP's `save_finding` calls the findings service directly, so the table lists only `findings.get` and `findings.runNow`.
 
 ## The web build
 

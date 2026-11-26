@@ -7,8 +7,9 @@ import { nightRow, type ScoredNight } from "@airway/contract/derived/nights";
 import type { EventRow } from "@airway/contract/derived/rows";
 import { assignEvents, type Session, type Sessions } from "@airway/contract/derived/sessions";
 import type { UsedStrDay } from "@airway/contract/derived/str";
-import type { EVENT_TYPES } from "@airway/contract/derived/values";
+import { EVENT_TYPES } from "@airway/contract/derived/values";
 import { ruleSetFor } from "@airway/contract/profile";
+import { EVENT_LABELS } from "@airway/edf/airsense";
 import { readAnnotations, type Annotation } from "@airway/edf/annotations";
 import { isReadable, type EdfFile, type EdfReadError } from "@airway/edf/header";
 import type { Logger } from "../logger.ts";
@@ -56,13 +57,11 @@ export type PlacedEvents = { events: EventRow[]; unknownLabels: UnknownLabel[] }
 type EventType = (typeof EVENT_TYPES)[number];
 
 /** Maps each EVE label, in lowercase, to its event type. */
-const EVENT_TYPE_OF: ReadonlyMap<string, EventType> = new Map([
-  ["obstructive apnea", "obstructive_apnea"],
-  ["central apnea", "central_apnea"],
-  ["apnea", "unclassified_apnea"],
-  ["hypopnea", "hypopnea"],
-  ["arousal", "arousal"],
-]);
+const EVENT_TYPE_OF: ReadonlyMap<string, EventType> = new Map(
+  EVENT_TYPES.flatMap((type) =>
+    type === "other" ? [] : [[EVENT_LABELS[type].toLowerCase(), type] as const],
+  ),
+);
 
 const RECORDING_STARTS = "recording starts";
 
