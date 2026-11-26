@@ -1,5 +1,5 @@
 import { valuesOf } from "../enum.ts";
-import { RULE_SETS } from "../profile.ts";
+import { RuleSet } from "../profile.ts";
 import type { Dataset } from "../registry/define.ts";
 import { nights } from "../registry/nights.ts";
 import { samples } from "../registry/samples.ts";
@@ -96,7 +96,7 @@ create unlogged table ${schema}.nights (
   arousals integer not null,
   events_outside_mask_on integer not null,
   ahi_check text not null ${oneOf("ahi_check", valuesOf(AhiOutcome))},
-  rule_set text not null ${oneOf("rule_set", RULE_SETS)},
+  rule_set text not null ${oneOf("rule_set", valuesOf(RuleSet))},
   arrived_at timestamptz not null
 );
 

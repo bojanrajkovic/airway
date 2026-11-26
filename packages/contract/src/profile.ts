@@ -1,6 +1,8 @@
-/** Each night uses one of these rule sets. AASM scores children and adults differently. */
-export const RULE_SETS = ["pediatric", "adult"] as const;
-export type RuleSet = (typeof RULE_SETS)[number];
+/** Lists the rule sets that a night can be scored with. AASM scores children and adults differently. */
+export enum RuleSet {
+  Pediatric = "pediatric",
+  Adult = "adult",
+}
 
 export type PatientProfile = {
   /** The app's header and the MCP instructions show this name. */
@@ -20,5 +22,5 @@ export function ruleSetFor(night: Temporal.PlainDate, profile: PatientProfile): 
   const adultAge = profile.adultRulesFrom13 ? 13 : 18;
   const adultFrom = profile.birthDate.add({ years: adultAge });
 
-  return Temporal.PlainDate.compare(night, adultFrom) >= 0 ? "adult" : "pediatric";
+  return Temporal.PlainDate.compare(night, adultFrom) >= 0 ? RuleSet.Adult : RuleSet.Pediatric;
 }

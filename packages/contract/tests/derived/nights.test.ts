@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { RuleSet } from "../../src/profile.ts";
 import { ahiCheck, nightRow, type NightEvent } from "../../src/derived/nights.ts";
 import type { Session } from "../../src/derived/sessions.ts";
 import type { UsedStrDay } from "../../src/derived/str.ts";
@@ -85,7 +86,7 @@ describe("nightRow", () => {
     day: day({ usage: 240, ahi: 2.5, leak_p95: 0.2 }, 6),
     sessions: { sessions, approximate: true },
     events: nightEvents,
-    ruleSet: "pediatric",
+    ruleSet: RuleSet.Pediatric,
   });
 
   it("fills the night's columns from its day, sessions, events, and rule set", () => {
@@ -117,7 +118,7 @@ describe("nightRow", () => {
       day: day({ usage: 0, ahi: 0 }, 0),
       sessions: { sessions: [], approximate: false },
       events: [],
-      ruleSet: "adult",
+      ruleSet: RuleSet.Adult,
     });
 
     expect(empty.row.longest_stretch).toBe(0);

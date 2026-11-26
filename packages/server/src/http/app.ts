@@ -1,3 +1,4 @@
+import { Channel } from "@airway/contract/author";
 import { CSP } from "@airway/contract/csp";
 import { serveStatic } from "@hono/node-server/serve-static";
 import { trpcServer } from "@hono/trpc-server";
@@ -39,8 +40,8 @@ export function createApp(ctx: AppContext, { webRoot }: AppOptions): Hono {
 
   // requireAuthor is mounted here, rather than in each module, so it covers every route under these
   // paths.
-  app.use("/trpc/*", requireAuthor(ctx, "web"));
-  app.use("/mcp", requireAuthor(ctx, "mcp"));
+  app.use("/trpc/*", requireAuthor(ctx, Channel.Web));
+  app.use("/mcp", requireAuthor(ctx, Channel.Mcp));
 
   app.use(
     "/trpc/*",

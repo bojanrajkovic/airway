@@ -1,5 +1,6 @@
 import { errors } from "jose";
 import { describe, expect, it } from "vitest";
+import { Channel } from "@airway/contract/author";
 import { classify, pomeriumVerifier } from "../../src/auth/pomerium.ts";
 import { MCP_HOST, testIssuer, UI_HOST } from "../support/tokens.ts";
 
@@ -36,13 +37,16 @@ describe("pomeriumVerifier", () => {
   const withToken = (token: string): Headers => new Headers({ "X-Pomerium-Jwt-Assertion": token });
 
   it("returns the token's email and name", async () => {
-    const result = await verifier()(withToken(await issuer.mint(NOW, { host: UI_HOST })), "web");
+    const result = await verifier()(
+      withToken(await issuer.mint(NOW, { host: UI_HOST })),
+      Channel.Web,
+    );
 
     expect(result._unsafeUnwrap()).toEqual({ email: "sam@example.test", name: "Sam Rivera" });
   });
 
   it("returns missing_identity for a request without a token", async () => {
-    const result = await verifier()(new Headers(), "web");
+    const result = await verifier()(new Headers(), Channel.Web);
 
     expect(result._unsafeUnwrapErr()).toEqual({ kind: "missing_identity" });
   });
@@ -53,7 +57,7 @@ describe("pomeriumVerifier", () => {
       expiresAt: NOW.subtract({ seconds: 1 }),
     });
 
-    const failure = (await verifier()(withToken(token), "web"))._unsafeUnwrapErr();
+    const failure = (await verifier()(withToken(token), Channel.Web))._unsafeUnwrapErr();
 
     expect(failure.kind).toBe("expired");
     expect(failure.cause).toBeInstanceOf(errors.JWTExpired);

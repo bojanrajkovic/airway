@@ -1,10 +1,11 @@
 import { describe, expect, test } from "vitest";
 import { AddNote, findingNights, UpdateNote } from "../../src/notes/api.ts";
+import { NoteCategory } from "../../src/notes/values.ts";
 import { parseSpec, type QuerySpec } from "../../src/query/spec.ts";
 
 const note = {
   firstNight: Temporal.PlainDate.from("2030-01-10"),
-  category: "other",
+  category: NoteCategory.Other,
   body: "Synthetic note.",
 };
 

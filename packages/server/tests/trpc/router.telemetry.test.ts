@@ -1,3 +1,4 @@
+import { Channel } from "@airway/contract/author";
 import { inMemoryTelemetry } from "@airway/testing/telemetry";
 import { SpanStatusCode } from "@opentelemetry/api";
 import { TRPCError } from "@trpc/server";
@@ -54,7 +55,7 @@ describe("procedure telemetry", () => {
       const base = testContext();
       const caller = failing.createCaller({
         app: base,
-        author: { email: "sam@example.test", name: "Sam", channel: "web" },
+        author: { email: "sam@example.test", name: "Sam", channel: Channel.Web },
         signal: new AbortController().signal,
         log: base.logger,
       });

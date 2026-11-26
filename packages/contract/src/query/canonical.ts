@@ -1,4 +1,5 @@
 import {
+  CalculationOp,
   DEFAULT_LIMIT,
   instant,
   type Filter,
@@ -79,11 +80,11 @@ export function canonicalize(spec: QuerySpec): QuerySpecInput {
     v: spec.v,
     dataset: spec.dataset,
     nights: "last" in nights ? { last: nights.last } : { from: nights.from, to: nights.to },
-    ...(calculations.length === 1 && calculations[0]?.op === "COUNT"
+    ...(calculations.length === 1 && calculations[0]?.op === CalculationOp.Count
       ? {}
       : {
           calculations: calculations.map((calculation) =>
-            calculation.op === "COUNT"
+            calculation.op === CalculationOp.Count
               ? { op: calculation.op }
               : { op: calculation.op, column: calculation.column },
           ),
