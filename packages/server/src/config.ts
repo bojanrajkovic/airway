@@ -33,7 +33,6 @@ export type AuthConfig =
 
 export type Config = {
   databaseUrl: string;
-  readerDatabaseUrl: string;
   patient: PatientProfile;
   /** `timeZone` is the home IANA time zone. docs/configuration.md describes its uses. */
   timeZone: string;
@@ -66,7 +65,6 @@ const postgresUrl = z.url({ protocol: /^postgres(?:ql)?$/v, error: "must be a po
 
 const Env = z.object({
   DATABASE_URL: postgresUrl,
-  AIRWAY_READER_DATABASE_URL: postgresUrl,
   AIRWAY_PATIENT_NAME: z.string().trim().min(1, "must not be blank").max(80),
   AIRWAY_PATIENT_BIRTH_DATE: PlainDateString,
   AIRWAY_ADULT_RULES_FROM_13: z.enum(["true", "false"]).default("false"),
@@ -118,7 +116,6 @@ export function parseConfig(env: Record<string, string | undefined>): Result<Con
 
   return ok({
     databaseUrl: data.DATABASE_URL,
-    readerDatabaseUrl: data.AIRWAY_READER_DATABASE_URL,
     patient: {
       name: data.AIRWAY_PATIENT_NAME,
       birthDate: data.AIRWAY_PATIENT_BIRTH_DATE,

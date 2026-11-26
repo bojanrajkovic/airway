@@ -1,5 +1,5 @@
 // Creates the server's Postgres connection pools. docs/server.md (Database pools) describes the
-// roles and limits.
+// pools and their settings.
 import { drizzle, type NodePgDatabase } from "drizzle-orm/node-postgres";
 import pg from "pg";
 import type { Config } from "../config.ts";
@@ -40,14 +40,11 @@ const types: pg.CustomTypesConfig = {
 };
 
 export type Pools = AsyncDisposable & {
-  /**
-   * Connects as the owner role, which makes every write through Drizzle. Its statements have no
-   * timeout.
-   */
-  owner: { pool: pg.Pool; db: NodePgDatabase };
-  /** Connects as the read-only reader role, for the web API's queries. */
+  /** Runs every write, through Drizzle. Its statements have no timeout. */
+  write: { pool: pg.Pool; db: NodePgDatabase };
+  /** Runs the web API's queries. */
   api: pg.Pool;
-  /** Connects as the read-only reader role, for agents' queries over MCP. */
+  /** Runs agents' queries over MCP. */
   agent: pg.Pool;
 };
 
@@ -55,20 +52,17 @@ export type Pools = AsyncDisposable & {
  * Creates airway's three pools. They connect lazily, on their first query, so creating them never
  * fails and a server with no database still answers /healthz.
  */
-export function createPools(
-  config: Pick<Config, "databaseUrl" | "readerDatabaseUrl">,
-  logger: Logger,
-): Pools {
+export function createPools(config: Pick<Config, "databaseUrl">, logger: Logger): Pools {
   const log = logger.child({ module: "db" });
 
-  function pool(name: string, connectionString: string, max: number, timeoutMs?: number): pg.Pool {
+  function pool(name: string, max: number, settings: pg.PoolConfig = {}): pg.Pool {
     const created = new pg.Pool({
-      connectionString,
+      connectionString: config.databaseUrl,
       max,
       types,
       // Shows which pool a connection belongs to in pg_stat_activity.
       application_name: `airway-${name}`,
-      ...(timeoutMs === undefined ? {} : { statement_timeout: timeoutMs }),
+      ...settings,
     });
     // pg emits this when an idle connection drops, and crashes the process if nothing listens. The
     // pool replaces the connection on its next query.
@@ -79,16 +73,22 @@ export function createPools(
     return created;
   }
 
-  const owner = pool("owner", config.databaseUrl, 5);
-  const api = pool("api", config.readerDatabaseUrl, 5, 10_000);
-  const agent = pool("agent", config.readerDatabaseUrl, 3, 15_000);
+  // Query pools set search_path to derived, so Postgres finds unqualified tables such as `nights`
+  // there.
+  const query = (timeoutMs: number): pg.PoolConfig => ({
+    statement_timeout: timeoutMs,
+    options: "-c search_path=derived",
+  });
+  const write = pool("write", 5);
+  const api = pool("api", 5, query(10_000));
+  const agent = pool("agent", 3, query(15_000));
 
   return {
-    owner: { pool: owner, db: drizzle({ client: owner }) },
+    write: { pool: write, db: drizzle({ client: write }) },
     api,
     agent,
     async [Symbol.asyncDispose]() {
-      await Promise.all([owner.end(), api.end(), agent.end()]);
+      await Promise.all([write.end(), api.end(), agent.end()]);
     },
   };
 }

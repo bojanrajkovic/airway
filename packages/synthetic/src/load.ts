@@ -19,9 +19,6 @@ export type LoadOptions = {
   builtAt: Temporal.Instant;
 };
 
-// The database tests and .env.example use this reader role.
-const READER = "airway_reader";
-
 const BATCH_ROWS = 5000;
 
 const DECIMALS: ReadonlyMap<string, number> = new Map(
@@ -138,10 +135,6 @@ export async function loadDerived(
       DERIVED_VERSION,
       builtAt.toString(),
     ]);
-    await client.query(
-      `grant usage on schema ${schema} to ${READER};
-       grant select on all tables in schema ${schema} to ${READER};`,
-    );
 
     await client.query("commit");
   } catch (error) {

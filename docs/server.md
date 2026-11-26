@@ -28,15 +28,15 @@ The listener starts before anything else, so the pod answers `/healthz` while sl
 
 ## Database pools
 
-`createPools(config, logger)` in `src/db/pools.ts` opens three pools, and `main.ts` puts them on `ctx.db`:
+`createPools(config, logger)` in `src/db/pools.ts` creates three pools that connect to `DATABASE_URL`, and `main.ts` puts them on `ctx.db`:
 
-| Pool | Role | Size | `statement_timeout` | Used for |
+| Pool | Size | `statement_timeout` | `search_path` | Used for |
 |---|---|---|---|---|
-| `owner` | owner, through `DATABASE_URL` | 5 | none | every write, through Drizzle (`ctx.db.owner.db`) |
-| `api` | reader, through `AIRWAY_READER_DATABASE_URL` | 5 | 10 s | the web API's queries |
-| `agent` | reader, through `AIRWAY_READER_DATABASE_URL` | 3 | 15 s | agents' queries over MCP |
+| `write` | 5 | none | Postgres's default | every write, through Drizzle (`ctx.db.write.db`) |
+| `api` | 5 | 10 s | `derived` | the web API's queries |
+| `agent` | 3 | 15 s | `derived` | agents' queries over MCP |
 
-Each pool's connections appear in `pg_stat_activity` as `airway-<pool>`. The deployment sets the reader role's limits (read-only, `search_path`, `work_mem`, `temp_file_limit`) on the role itself, as [Operations](operations.md) describes.
+Each pool's connections appear in `pg_stat_activity` as `airway-<pool>`. The `api` and `agent` pools set `search_path`, so SQL from the explorer or an agent can name a table such as `nights` without its schema.
 
 Pools connect on their first query, so a server with no database still starts and answers `/healthz`. Shutdown closes the pools after the listener stops. When an idle connection drops, the pool logs the error and opens a replacement on the next query.
 

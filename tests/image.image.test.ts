@@ -28,7 +28,6 @@ const container = await new ReadOnlyContainer(image)
   .withEnvironment({
     // The pools connect on their first query, so the server starts without a database.
     DATABASE_URL: "postgres://airway:airway@127.0.0.1:5432/airway",
-    AIRWAY_READER_DATABASE_URL: "postgres://airway_reader:airway@127.0.0.1:5432/airway",
     AIRWAY_PATIENT_NAME: "Sample Patient",
     AIRWAY_PATIENT_BIRTH_DATE: "2015-03-14",
     AIRWAY_TIME_ZONE: "America/Chicago",

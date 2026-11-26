@@ -1,46 +1,56 @@
 import { randomUUID } from "node:crypto";
+import pg from "pg";
 import { test as base } from "vitest";
-import { ADMIN_URL, ROLE_PASSWORD, ROLES, runAsAdmin } from "./roles.ts";
 
-type PostgresFixtures = { databaseUrl: string; readerUrl: string };
+// `pnpm db:up` starts Postgres at this URL. CI sets AIRWAY_TEST_POSTGRES_URL to its Postgres
+// service container.
+const ADMIN_URL =
+  process.env["AIRWAY_TEST_POSTGRES_URL"] ?? "postgres://postgres:airway@127.0.0.1:54318/postgres";
 
-// Returns ADMIN_URL changed to connect as `role` to `database`.
-function urlFor(role: string, database: string): string {
-  const url = new URL(ADMIN_URL);
-  url.username = role;
-  url.password = ROLE_PASSWORD;
-  url.pathname = `/${database}`;
+/** Runs `sql` as the admin user, in the `postgres` database. */
+async function runAsAdmin(sql: string): Promise<void> {
+  // The connection times out before Vitest's 5-second test timeout, so a test that can't reach the
+  // host fails with the message below.
+  const client = new pg.Client({ connectionString: ADMIN_URL, connectionTimeoutMillis: 3_000 });
 
-  return url.toString();
+  try {
+    await client.connect();
+  } catch (error) {
+    // ADMIN_URL contains a password, so the message includes only the host.
+    throw new Error(
+      `Couldn't connect to Postgres at ${new URL(ADMIN_URL).host}. If it isn't running, start it with \`pnpm db:up\`, or set AIRWAY_TEST_POSTGRES_URL.`,
+      { cause: error },
+    );
+  }
+
+  try {
+    await client.query(sql);
+  } finally {
+    await client.end();
+  }
 }
 
 /**
- * Extends Vitest's `test` with two fixtures that connect to the same empty database. `databaseUrl`
- * creates the database the first time a test in the file asks for it, and the file's other tests
- * share it. When the file finishes, `databaseUrl` drops the database and closes any connections
- * that are still open.
- *
- * - `databaseUrl` connects as the owner role, which owns the database and isn't a superuser.
- * - `readerUrl` connects to the same database as the read-only reader role.
+ * Extends Vitest's `test` with a `databaseUrl` fixture, which is the admin user's URL for an empty
+ * database. The fixture creates the database the first time a test in the file asks for it, and
+ * the file's other tests share it. When the file finishes, the fixture drops the database and
+ * closes any connections that are still open.
  */
-export const test = base.extend<PostgresFixtures>({
+export const test = base.extend<{ databaseUrl: string }>({
   databaseUrl: [
     async ({}, use) => {
       // This fixture generates the name, so it's safe to put in the statement directly.
       const name = `airway_test_${randomUUID().replaceAll("-", "")}`;
-      await runAsAdmin(`create database ${name} owner ${ROLES.owner}`);
+      await runAsAdmin(`create database ${name}`);
+
+      const url = new URL(ADMIN_URL);
+      url.pathname = `/${name}`;
 
       try {
-        await use(urlFor(ROLES.owner, name));
+        await use(url.toString());
       } finally {
         await runAsAdmin(`drop database ${name} with (force)`);
       }
-    },
-    { scope: "file" },
-  ],
-  readerUrl: [
-    async ({ databaseUrl }, use) => {
-      await use(urlFor(ROLES.reader, new URL(databaseUrl).pathname.slice(1)));
     },
     { scope: "file" },
   ],

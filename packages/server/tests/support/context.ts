@@ -5,7 +5,6 @@ import type { AppContext } from "../../src/runtime/context.ts";
 
 const CONFIG: Config = {
   databaseUrl: "postgres://airway:secret@db.test:5432/airway",
-  readerDatabaseUrl: "postgres://airway_reader:secret@db.test:5432/airway",
   patient: {
     name: "Test Patient",
     birthDate: Temporal.PlainDate.from("2012-06-15"),
