@@ -49,7 +49,7 @@ The `Dockerfile` builds the image in two stages.
 1. **Build**, on `node:26-slim`: `pnpm fetch` downloads every package from the lockfile alone, so Docker reuses that layer when only source files change. The stage then runs an offline install, `pnpm build`, and `pnpm deploy --prod`, which copies the server with only its production dependencies into a plain folder. The `@airway/*` packages are bundled into the server, and the web build sits in its `dist/public/`.
 2. **Runtime**, on distroless `nodejs26-debian13:nonroot`: the base image contains only Node and its libraries, without a shell or a package manager. It runs as UID 65532 and starts the server with `node --import ./dist/instrument.js dist/main.js`.
 
-Both base images are pinned by digest, and Renovate updates the digests. The runtime image's name includes the Node major version, so a maintainer changes the name by hand when Node's major version changes. The pnpm version in the Dockerfile matches `mise.toml`, and Renovate updates both in one PR. The image is built for `linux/amd64` only; [#77](https://github.com/bojanrajkovic/airway/issues/77) tracks arm64 support.
+Both base images are pinned by digest, and Renovate updates the digests. The runtime image's name includes the Node major version, so Renovate runs `scripts/renovate/distroless-node.sh` to change the name when Node's major version changes. The pnpm version in the Dockerfile matches `mise.toml`, and Renovate updates both in one PR. The image is built for `linux/amd64` only; [#77](https://github.com/bojanrajkovic/airway/issues/77) tracks arm64 support.
 
 The build args `VERSION` and `GIT_SHA` become `AIRWAY_VERSION` and `AIRWAY_GIT_SHA`, which telemetry reports ([Observability](observability.md#telemetry-startup)).
 

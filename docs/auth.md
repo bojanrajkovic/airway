@@ -59,8 +59,6 @@ When a token check fails, the server responds with a JSON body that contains the
 | `wrong_audience` | 403 | `aud` isn't the channel's host |
 | `provider_unavailable` | 503 | the identity provider couldn't be reached; with Pomerium, the JWKS couldn't be fetched or read. The token may be valid, so the status is a server error |
 
-Every token failure returns 403 or 503. The web app reloads the page on a 401, which sends an expired proxy session back through sign-in. A 401 from airway would cause a reload loop, because the proxy session is still valid.
-
 ## Testing token checks
 
 `packages/server/tests/support/tokens.ts` stands in for Pomerium. `testIssuer()` generates an ES256 key, serves its JWKS from a local HTTP server for the file's tests, and mints Pomerium-shaped tokens. The middleware tests run the real check against it, the JWKS fetch included. Everything else, including local dev, runs with `AIRWAY_AUTH=none`.

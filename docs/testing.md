@@ -107,4 +107,4 @@ If you use Podman, start its socket with `systemctl --user start podman.socket`,
 
 ## The lint fixture test
 
-`tests/lint.test.ts` checks that the rules that its fixtures break still report. `tests/fixtures/lint/violations.ts` breaks the TypeScript rules, and `packages/web/tests/fixtures/lint/violations.tsx` breaks the React rules that Oxlint turns off by default. [Development](development.md#lint-and-format) explains why the test exists and how to update it.
+`tests/lint.test.ts` checks that the rules that its fixtures break still report. `tests/fixtures/lint/violations.ts` breaks the TypeScript rules, and `packages/web/tests/fixtures/lint/violations.tsx` breaks the React rules that Oxlint turns off by default. [Development](development.md#lint-and-format) explains why the test exists.

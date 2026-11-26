@@ -54,18 +54,6 @@
         "fileFilters": ["Dockerfile"],
         "executionMode": "branch"
       }
-    },
-    {
-      "description": "Never automerge these, even minor and patch updates: the ORM and driver change the SQL airway runs, the MCP SDK changes what agents see, and ECharts changes every chart",
-      "matchPackageNames": [
-        "drizzle-orm",
-        "drizzle-kit",
-        "drizzle-zod",
-        "pg",
-        "@modelcontextprotocol/*",
-        "echarts"
-      ],
-      "automerge": false
     }
   ]
 }
