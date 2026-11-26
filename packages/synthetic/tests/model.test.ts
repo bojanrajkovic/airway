@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { AIRSENSE, step, type EdfFileType } from "@airway/edf/airsense";
-import { syntheticNights, type SyntheticNight } from "../src/model.ts";
+import { syntheticNights, type NightStrLabel, type SyntheticNight } from "../src/model.ts";
 
 const { nights } = syntheticNights({ seed: 7, nights: 30 })._unsafeUnwrap();
 const { nights: adults } = syntheticNights({
@@ -63,29 +63,19 @@ describe("syntheticNights", () => {
   it.each(nights.map((night) => [night.night.toString(), night] as const))(
     "%s scores AHI with the integer formula and counts two mask events per session",
     (_date, night) => {
-      const usage = night.str.get("OnDuration") ?? 0;
+      const usage = night.str["OnDuration"];
       const tenths = (n: number): number => Math.floor((600 * n) / usage) / 10;
       const apneas = counts(night, "obstructive_apnea", "central_apnea", "unclassified_apnea");
 
-      expect(night.str.get("AHI")).toBeCloseTo(tenths(apneas + counts(night, "hypopnea")), 9);
-      expect(night.str.get("OAI")).toBeCloseTo(tenths(counts(night, "obstructive_apnea")), 9);
-      expect(night.str.get("MaskEvents")).toBe(2 * night.periods.length);
+      expect(night.str["AHI"]).toBeCloseTo(tenths(apneas + counts(night, "hypopnea")), 9);
+      expect(night.str["OAI"]).toBeCloseTo(tenths(counts(night, "obstructive_apnea")), 9);
+      expect(night.str["MaskEvents"]).toBe(2 * night.periods.length);
     },
   );
 
-  it("sets every STR.edf signal except Date, MaskOn, MaskOff, and Crc16", () => {
-    const expected = AIRSENSE.str.signals
-      .map((signal) => signal.label)
-      .filter((label) => !["Date", "MaskOn", "MaskOff", "Crc16"].includes(label));
-
-    for (const night of nights) {
-      expect(new Set(night.str.keys())).toEqual(new Set(expected));
-    }
-  });
-
   it("makes every value a whole number of steps above its signal's minimum", () => {
     for (const night of nights) {
-      for (const [label, value] of night.str) {
+      for (const [label, value] of Object.entries(night.str)) {
         expect(onStep(AIRSENSE.str, label, value), label).toBe(true);
       }
 
@@ -132,7 +122,7 @@ describe("syntheticNights", () => {
 
   it("keeps each pause's duration within the range for its kind", () => {
     for (const night of nights) {
-      const breath = 60 / (night.str.get("RespRate.50") ?? 1);
+      const breath = 60 / night.str["RespRate.50"];
 
       for (const pause of night.pauses) {
         if (pause.kind === "machine_apnea") {
@@ -151,12 +141,12 @@ describe("syntheticNights", () => {
     const [night] = nights;
     const leak = night?.segments.flatMap((segment) => [...segment.pldSeries["Leak.2s"]]);
 
-    expect(night?.str.get("Leak.50")).toBeCloseTo(median(leak ?? []), 1);
+    expect(night?.str["Leak.50"]).toBeCloseTo(median(leak ?? []), 1);
   });
 
   it("generates a short night, a high-AHI night, and every kind of pause within 30 nights", () => {
-    const usage = nights.map((night) => night.str.get("OnDuration") ?? 0);
-    const ahi = nights.map((night) => night.str.get("AHI") ?? 0);
+    const usage = nights.map((night) => night.str["OnDuration"]);
+    const ahi = nights.map((night) => night.str["AHI"]);
     const kinds = new Set(nights.flatMap((night) => night.pauses.map((pause) => pause.kind)));
 
     expect(Math.min(...usage)).toBeLessThan(300);
@@ -238,8 +228,8 @@ describe("syntheticNights", () => {
   });
 
   it("generates a slower respiratory rate and a larger tidal volume for an adult than for a child", () => {
-    const mid = (list: SyntheticNight[], label: string): number =>
-      median(list.map((night) => night.str.get(label) ?? 0));
+    const mid = (list: SyntheticNight[], label: NightStrLabel): number =>
+      median(list.map((night) => night.str[label]));
 
     expect(mid(adults, "RespRate.50")).toBeLessThan(mid(nights, "RespRate.50"));
     expect(mid(adults, "TidVol.50")).toBeGreaterThan(mid(nights, "TidVol.50"));

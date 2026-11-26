@@ -49,6 +49,15 @@ export type MaskPeriod = { on: Temporal.Instant; off: Temporal.Instant };
 /** Maps each PLD label to its 2 s series. */
 export type PldSeries = EdfSamples<DataLabel<typeof AIRSENSE.pld>>;
 
+// Date, MaskOn, and MaskOff depend on the device clock, so strFile fills them in.
+const CLOCK_LABELS = ["Date", "MaskOn", "MaskOff"] as const;
+/** Resolves to every STR.edf data label except Date, MaskOn, and MaskOff. */
+export type NightStrLabel = Exclude<DataLabel<typeof AIRSENSE.str>, (typeof CLOCK_LABELS)[number]>;
+export type NightStr = Readonly<Record<NightStrLabel, number>>;
+
+export const isNightStrLabel = (label: DataLabel<typeof AIRSENSE.str>): label is NightStrLabel =>
+  !(CLOCK_LABELS as readonly string[]).includes(label);
+
 /** The stretch of time that one BRP file covers, a whole number of minutes long. */
 export type Segment = {
   start: Temporal.Instant;
@@ -120,11 +129,10 @@ export type SyntheticNight = {
   /** The night's EVE files in time order; none when the night has no segments. */
   eventFiles: readonly EventFile[];
   /**
-   * STR.edf's values for the night by label, rounded to each signal's step. A value is NaN where
-   * the machine writes -1. The map omits Date, MaskOn, MaskOff, and Crc16, because they depend on
-   * the device clock or the file.
+   * Maps each STR.edf label to the night's value, rounded to the signal's step. A value is NaN where
+   * the machine writes -1.
    */
-  str: ReadonlyMap<string, number>;
+  str: NightStr;
 };
 
 const DEFAULT_START = Temporal.PlainDate.from("2030-01-07");
@@ -234,9 +242,9 @@ export function syntheticNights(options: SyntheticOptions): Result<Synthetic, Ed
 
   return ok({
     nights: nights.map((night) => {
-      patientHours += (night.str.get("OnDuration") ?? 0) / 60;
+      patientHours += night.str["OnDuration"] / 60;
 
-      return { ...night, str: new Map(night.str).set("PatientHours", Math.floor(patientHours)) };
+      return { ...night, str: { ...night.str, PatientHours: Math.floor(patientHours) } };
     }),
     zone,
   });
@@ -719,7 +727,7 @@ type StrInputs = {
 function strValues(
   r: Random,
   { breathing, periods, segments, events, usage }: StrInputs,
-): Map<string, number> {
+): NightStr {
   const night = (label: DataLabel<typeof AIRSENSE.pld>): Float64Array => {
     const parts = segments.map((segment) => segment.pldSeries[label]);
     const values = new Float64Array(parts.reduce((sum, part) => sum + part.length, 0));
@@ -751,67 +759,73 @@ function strValues(
   const ipap95 = quantile(press, 0.95) + r.uniform(-0.2, 0.2);
   const ipapMax = max(press) + r.uniform(0.2, 1);
 
-  const values: [string, number][] = [
-    ["MaskEvents", 2 * periods.length],
-    ["Duration", usage + r.int(2, 11)],
-    ["OnDuration", usage],
-    ["Mode", 1],
-    ...Object.entries(breathing.settings),
-    ["S.AS.MinPress", breathing.pressure.min],
-    ["S.AS.MaxPress", breathing.pressure.max],
-    ["S.EPR.Level", breathing.epr],
-    ["HeatedTube", 1],
-    ["Humidifier", 1],
-    ["BlowPress.95", quantile(press, 0.95) + r.uniform(0.5, 1.5)],
-    ["BlowPress.5", quantile(press, 0.05) + r.uniform(0.5, 1.5)],
-    ["Flow.95", r.normal(0.5, 0.05)],
-    ["Flow.5", r.normal(0.05, 0.01)],
-    ["BlowFlow.50", r.normal(30, 3)],
-    ["AmbHumidity.50", r.normal(10, 1)],
-    ["HumTemp.50", r.normal(30, 1)],
-    ["HTubeTemp.50", r.normal(27, 1)],
-    ["HTubePow.50", r.normal(40, 5)],
-    ["HumPow.50", r.normal(35, 5)],
+  const values: Omit<NightStr, "PatientHours"> = {
+    MaskEvents: 2 * periods.length,
+    Duration: usage + r.int(2, 11),
+    OnDuration: usage,
+    Mode: 1,
+    ...breathing.settings,
+    "S.AS.MinPress": breathing.pressure.min,
+    "S.AS.MaxPress": breathing.pressure.max,
+    "S.EPR.Level": breathing.epr,
+    HeatedTube: 1,
+    Humidifier: 1,
+    "BlowPress.95": quantile(press, 0.95) + r.uniform(0.5, 1.5),
+    "BlowPress.5": quantile(press, 0.05) + r.uniform(0.5, 1.5),
+    "Flow.95": r.normal(0.5, 0.05),
+    "Flow.5": r.normal(0.05, 0.01),
+    "BlowFlow.50": r.normal(30, 3),
+    "AmbHumidity.50": r.normal(10, 1),
+    "HumTemp.50": r.normal(30, 1),
+    "HTubeTemp.50": r.normal(27, 1),
+    "HTubePow.50": r.normal(40, 5),
+    "HumPow.50": r.normal(35, 5),
     // Without an oximeter, the machine writes -1.
-    ["SpO2.50", Number.NaN],
-    ["SpO2.95", Number.NaN],
-    ["SpO2.Max", Number.NaN],
-    ["SpO2Thresh", Number.NaN],
-    ["MaskPress.50", quantile(mask, 0.5) + r.uniform(-0.3, 0.3)],
-    ["MaskPress.95", quantile(mask, 0.95) + r.uniform(-0.3, 0.3)],
-    ["MaskPress.Max", max(mask) + r.uniform(0.5, 2)],
-    ["TgtIPAP.50", ipap50],
-    ["TgtIPAP.95", ipap95],
-    ["TgtIPAP.Max", ipapMax],
-    ["TgtEPAP.50", ipap50 - epr],
-    ["TgtEPAP.95", ipap95 - epr],
-    ["TgtEPAP.Max", ipapMax - epr],
-    ["Leak.50", quantile(leak, 0.5)],
-    ["Leak.95", quantile(leak, 0.95)],
-    ["Leak.70", quantile(leak, 0.7)],
-    ["Leak.Max", max(leak) + r.uniform(0.04, 0.3)],
-    ["MinVent.50", quantile(vent, 0.5)],
-    ["MinVent.95", quantile(vent, 0.95)],
-    ["MinVent.Max", max(vent) + r.uniform(0.5, 2)],
-    ["RespRate.50", quantile(resp, 0.5)],
-    ["RespRate.95", quantile(resp, 0.95) + r.uniform(0.4, 3)],
-    ["RespRate.Max", max(resp) + r.uniform(2, 6)],
-    ["TidVol.50", quantile(tidal, 0.5)],
-    ["TidVol.95", quantile(tidal, 0.95)],
-    ["TidVol.Max", max(tidal) + r.uniform(0.04, 0.2)],
-    ["AHI", index(apneas + hypopneas)],
-    ["HI", index(hypopneas)],
-    ["AI", index(apneas)],
-    ["OAI", index(count(["obstructive_apnea"]))],
-    ["CAI", index(count(["central_apnea"]))],
-    ["UAI", index(count(["unclassified_apnea"]))],
-    ["RIN", index(count(["arousal"]))],
-    ["CSR", 0],
-    ["Fault.Device", 0],
-    ["Fault.Alarm", 0],
-    ["Fault.Humidifier", 0],
-    ["Fault.HeatedTube", 0],
-  ];
+    "SpO2.50": Number.NaN,
+    "SpO2.95": Number.NaN,
+    "SpO2.Max": Number.NaN,
+    SpO2Thresh: Number.NaN,
+    "MaskPress.50": quantile(mask, 0.5) + r.uniform(-0.3, 0.3),
+    "MaskPress.95": quantile(mask, 0.95) + r.uniform(-0.3, 0.3),
+    "MaskPress.Max": max(mask) + r.uniform(0.5, 2),
+    "TgtIPAP.50": ipap50,
+    "TgtIPAP.95": ipap95,
+    "TgtIPAP.Max": ipapMax,
+    "TgtEPAP.50": ipap50 - epr,
+    "TgtEPAP.95": ipap95 - epr,
+    "TgtEPAP.Max": ipapMax - epr,
+    "Leak.50": quantile(leak, 0.5),
+    "Leak.95": quantile(leak, 0.95),
+    "Leak.70": quantile(leak, 0.7),
+    "Leak.Max": max(leak) + r.uniform(0.04, 0.3),
+    "MinVent.50": quantile(vent, 0.5),
+    "MinVent.95": quantile(vent, 0.95),
+    "MinVent.Max": max(vent) + r.uniform(0.5, 2),
+    "RespRate.50": quantile(resp, 0.5),
+    "RespRate.95": quantile(resp, 0.95) + r.uniform(0.4, 3),
+    "RespRate.Max": max(resp) + r.uniform(2, 6),
+    "TidVol.50": quantile(tidal, 0.5),
+    "TidVol.95": quantile(tidal, 0.95),
+    "TidVol.Max": max(tidal) + r.uniform(0.04, 0.2),
+    AHI: index(apneas + hypopneas),
+    HI: index(hypopneas),
+    AI: index(apneas),
+    OAI: index(count(["obstructive_apnea"])),
+    CAI: index(count(["central_apnea"])),
+    UAI: index(count(["unclassified_apnea"])),
+    RIN: index(count(["arousal"])),
+    CSR: 0,
+    "Fault.Device": 0,
+    "Fault.Alarm": 0,
+    "Fault.Humidifier": 0,
+    "Fault.HeatedTube": 0,
+  };
 
-  return new Map(values.map(([label, value]) => [label, snapStr(label, value)]));
+  // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the labels are the keys of `values`, but Object.entries and Object.fromEntries type them as string
+  const snapped = Object.fromEntries(
+    Object.entries(values).map(([label, value]) => [label, snapStr(label, value)]),
+  ) as Omit<NightStr, "PatientHours">;
+
+  // syntheticNights replaces PatientHours with the running total.
+  return { ...snapped, PatientHours: 0 };
 }

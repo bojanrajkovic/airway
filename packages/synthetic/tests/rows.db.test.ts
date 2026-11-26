@@ -24,7 +24,7 @@ test("builds rows with exactly the columns of each derived table", async ({ data
   }
 
   // Changes a setting on the second night so that synthesize builds a settings_changes row.
-  const raised = { ...second, str: new Map(second.str).set("S.AS.MaxPress", 14) };
+  const raised = { ...second, str: { ...second.str, "S.AS.MaxPress": 14 } };
   const { rows } = synthesize([first, raised], zone, {
     patient: "child",
     arrivedAt: Temporal.Instant.from("2030-03-01T12:00:00Z"),

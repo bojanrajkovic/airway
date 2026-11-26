@@ -134,12 +134,12 @@ function usedDay(night: SyntheticNight, zone: string): UsedStrDay {
     day: night.night,
     used: true,
     ...maskSlots(night, zone),
-    maskEvents: night.str.get("MaskEvents") ?? 0,
+    maskEvents: night.str["MaskEvents"],
     signals: Object.fromEntries(
-      STR_NIGHT_COLUMNS.map(([label, column]) => [column, value(night.str.get(label))]),
+      STR_NIGHT_COLUMNS.map(([label, column]) => [column, value(night.str[label])]),
     ),
     settings: Object.fromEntries(
-      STR_SETTINGS.map(([label, setting]) => [setting, value(night.str.get(label))]),
+      STR_SETTINGS.map(([label, setting]) => [setting, value(night.str[label])]),
     ),
   };
 }

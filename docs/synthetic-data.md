@@ -40,7 +40,7 @@ if (model.isErr()) {
 }
 
 const { nights, zone } = model.value;
-// nights[0].night is 2030-01-07; nights[0].str.get("AHI") is the machine's AHI for it.
+// nights[0].night is 2030-01-07; nights[0].str["AHI"] is the machine's AHI for it.
 // zone is America/Chicago, so the files' device clock runs at -06:00.
 ```
 
@@ -57,7 +57,7 @@ Each night holds:
   | `dip` | under 2 breaths | no | nothing |
 
 - `eventFiles`: the night's EVE files, each with its start time and whether a CSL file accompanies it. A night has one EVE file. It starts 3 to 35 s before the night's first segment, as on the real card, so ingest has to measure onsets from the EVE header's start time. The 3 to 35 s offset comes from a separate generator, seeded alongside the first segment's generator, so every other value stays the same. A night with no segments has an empty list.
-- `str`: the night's STR.edf values by label, rounded to each signal's step. `NaN` marks values that the machine writes as -1, such as SpO2 without an oximeter. `strFile` fills in Date, MaskOn, and MaskOff, which depend on the device clock, and the writer adds each record's Crc16.
+- `str`: a record of the night's STR.edf values by label, rounded to each signal's step. `NaN` marks values that the machine writes as -1, such as SpO2 without an oximeter. `strFile` fills in Date, MaskOn, and MaskOff, which depend on the device clock, and the writer adds each record's Crc16.
 
 Unused days are days with no night in the list.
 

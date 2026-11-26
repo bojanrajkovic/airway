@@ -162,7 +162,7 @@ function unusedDays({ random, breathing, first, zone }: EdgeCaseContext): Built 
 function settingsChange({ random, breathing, first, zone }: EdgeCaseContext): Built {
   const before = randomNight(random, breathing, evening(first, zone));
   const after = randomNight(random, breathing, evening(first.add({ days: 1 }), zone));
-  const raised = new Map(after.str).set("S.AS.MaxPress", breathing.pressure.max + 1);
+  const raised = { ...after.str, "S.AS.MaxPress": breathing.pressure.max + 1 };
 
   return ok({ nights: [before, { ...after, str: raised }] });
 }

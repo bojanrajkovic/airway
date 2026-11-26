@@ -1,4 +1,5 @@
 import type { EVENT_TYPES } from "@airway/contract/derived/values";
+import type { StrSetting } from "@airway/edf/columns";
 
 // These round numbers are invented. They resemble how a child and an adult breathe on an AutoSet
 // machine.
@@ -29,6 +30,9 @@ export const APNEAS: ReadonlySet<(typeof EVENT_TYPES)[number]> = new Set<Machine
  */
 export type WeightedRanges = readonly { weight: number; min: number; max: number }[];
 
+/** Resolves to every S.* setting in STR.edf except the three that `Breathing` stores as `pressure` and `epr`. */
+type OtherSetting = Exclude<StrSetting, "S.AS.MinPress" | "S.AS.MaxPress" | "S.EPR.Level">;
+
 export type Breathing = {
   /** Mask-on periods per night. */
   periods: WeightedRanges;
@@ -54,7 +58,7 @@ export type Breathing = {
    * Maps the label of every other S.* setting in STR.edf to its value. The model copies each value
    * into STR.edf unchanged.
    */
-  settings: Readonly<Record<string, number>>;
+  settings: Readonly<Record<OtherSetting, number>>;
 };
 
 // These are the codes for the on/off and choice settings. The values are invented, and each one
@@ -73,7 +77,7 @@ const CODES = {
   "S.ClimateControl": 1,
   "S.HumEnable": 1,
   "S.TempEnable": 1,
-};
+} satisfies Partial<Record<OtherSetting, number>>;
 
 const comfort = {
   "S.RampTime": 20,
@@ -81,7 +85,7 @@ const comfort = {
   "S.AS.StartPress": 4,
   "S.HumLevel": 4,
   "S.Temp": 27,
-};
+} satisfies Partial<Record<OtherSetting, number>>;
 
 export const BREATHING: Readonly<Record<Patient, Breathing>> = {
   // Children take faster, smaller breaths, so a pause lasts 2 breaths well before it lasts 10 s.

@@ -29,7 +29,7 @@ describe("synthesize", () => {
     );
 
     for (const [i, row] of rows.nights.entries()) {
-      expect(row.signals["ahi"]).toBe(nights[i]?.str.get("AHI"));
+      expect(row.signals["ahi"]).toBe(nights[i]?.str["AHI"]);
       expect(row.ahi_check).toBe("match");
       expect(row.rule_set).toBe("pediatric");
     }
@@ -138,7 +138,7 @@ describe("synthesize", () => {
     const edited = run([first, { ...second, segments: [], eventFiles: [] }, ...rest]).rows;
 
     expect(edited.daily_usage.find((row) => row.day.equals(second.night))?.usage).toBe(
-      second.str.get("OnDuration"),
+      second.str["OnDuration"],
     );
 
     const nightRows: readonly { night: Temporal.PlainDate | null }[] = [
@@ -159,9 +159,9 @@ describe("synthesize", () => {
     const gap = run([first, third].filter((night) => night !== undefined)).rows;
 
     expect(gap.daily_usage.map((row) => row.usage)).toEqual([
-      first?.str.get("OnDuration"),
+      first?.str["OnDuration"],
       0,
-      third?.str.get("OnDuration"),
+      third?.str["OnDuration"],
     ]);
   });
 
@@ -172,13 +172,13 @@ describe("synthesize", () => {
       throw new Error("expected four nights");
     }
 
-    const raised = { ...second, str: new Map(second.str).set("S.AS.MaxPress", 14) };
+    const raised = { ...second, str: { ...second.str, "S.AS.MaxPress": 14 } };
 
     expect(run([first, raised]).rows.settings_changes).toEqual([
       {
         night: second.night,
         setting: "max_pressure",
-        old_value: first.str.get("S.AS.MaxPress"),
+        old_value: first.str["S.AS.MaxPress"],
         new_value: 14,
       },
     ]);
@@ -193,7 +193,7 @@ describe("synthesize", () => {
 
     const raise = (night: SyntheticNight): SyntheticNight => ({
       ...night,
-      str: new Map(night.str).set("S.AS.MaxPress", 14),
+      str: { ...night.str, "S.AS.MaxPress": 14 },
     });
     const folderless = { ...raise(second), segments: [], eventFiles: [], events: [] };
     const { rows } = run([first, folderless, raise(third)]);
@@ -203,7 +203,7 @@ describe("synthesize", () => {
       {
         night: second.night,
         setting: "max_pressure",
-        old_value: first.str.get("S.AS.MaxPress"),
+        old_value: first.str["S.AS.MaxPress"],
         new_value: 14,
       },
     ]);

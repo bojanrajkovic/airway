@@ -16,13 +16,14 @@ import {
   type EdfWriteError,
   type PerFileHeader,
 } from "@airway/edf/write";
-import type {
-  EventFile,
-  FileDamage,
-  MachineEvent,
-  PldSeries,
-  Segment,
-  SyntheticNight,
+import {
+  isNightStrLabel,
+  type EventFile,
+  type FileDamage,
+  type MachineEvent,
+  type PldSeries,
+  type Segment,
+  type SyntheticNight,
 } from "./model.ts";
 import { APNEAS } from "./patients.ts";
 import { renderBrp } from "./signals.ts";
@@ -289,10 +290,8 @@ export function strFile(
       put("MaskOff", day * SLOTS + slot, minutes);
     });
     for (const { label } of dataSignals(AIRSENSE.str)) {
-      const value = night.str.get(label);
-
-      if (value !== undefined) {
-        put(label, day, value);
+      if (isNightStrLabel(label)) {
+        put(label, day, night.str[label]);
       }
     }
   }

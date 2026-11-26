@@ -62,7 +62,7 @@ describe("readStr", () => {
         used: true,
         maskOn: tenSlots(maskOn),
         maskOff: tenSlots(maskOff),
-        maskEvents: night.str.get("MaskEvents"),
+        maskEvents: night.str["MaskEvents"],
         signals: row?.signals,
       });
     }
