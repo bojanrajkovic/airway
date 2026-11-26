@@ -16,12 +16,14 @@ beforeAll(() => {
   createRequire(import.meta.url)("pg");
 });
 
+type Settings = { timeout: string; path: string };
+
 let pools: Pools | undefined = undefined;
 
 /** Clears the spans that creating the test's database recorded, then creates pools on it. */
 function poolsFor(databaseUrl: string): Pools {
   spans.reset();
-  pools = createPools({ databaseUrl, readerDatabaseUrl: databaseUrl }, pino({ level: "silent" }));
+  pools = createPools({ databaseUrl }, pino({ level: "silent" }));
 
   return pools;
 }
@@ -47,30 +49,35 @@ describe("createPools", () => {
   });
 
   test("rejects an int8 above 2^53 instead of rounding it", async ({ databaseUrl }) => {
-    const { owner } = poolsFor(databaseUrl);
+    const { write } = poolsFor(databaseUrl);
 
-    await expect(owner.pool.query("select 9007199254740993::int8 as big")).rejects.toThrow(
+    await expect(write.pool.query("select 9007199254740993::int8 as big")).rejects.toThrow(
       RangeError,
     );
   });
 
-  test("sets a statement_timeout on each reader pool but not on the owner pool", async ({
+  test("sets statement_timeout and search_path on the query pools and leaves the write pool's defaults", async ({
     databaseUrl,
   }) => {
-    const { owner, api, agent } = poolsFor(databaseUrl);
-    const timeout = async (pool: Pools["api"]): Promise<unknown> =>
-      (await pool.query<{ statement_timeout: string }>("show statement_timeout")).rows[0]
-        ?.statement_timeout;
+    const { write, api, agent } = poolsFor(databaseUrl);
+    const settings = async (pool: Pools["api"]): Promise<Settings | undefined> =>
+      (
+        await pool.query<Settings>(
+          "select current_setting('statement_timeout') as timeout, current_setting('search_path') as path",
+        )
+      ).rows[0];
 
-    expect(await timeout(api)).toBe("10s");
-    expect(await timeout(agent)).toBe("15s");
-    expect(await timeout(owner.pool)).toBe("0");
+    expect(await settings(api)).toEqual({ timeout: "10s", path: "derived" });
+    expect(await settings(agent)).toEqual({ timeout: "15s", path: "derived" });
+    const writes = await settings(write.pool);
+    expect(writes?.timeout).toBe("0");
+    expect(writes?.path).not.toBe("derived");
   });
 
-  test("runs Drizzle on the owner pool", async ({ databaseUrl }) => {
-    const { owner } = poolsFor(databaseUrl);
+  test("runs Drizzle on the write pool", async ({ databaseUrl }) => {
+    const { write } = poolsFor(databaseUrl);
 
-    const { rows } = await owner.db.execute<{ one: number }>("select 1 as one");
+    const { rows } = await write.db.execute<{ one: number }>("select 1 as one");
 
     expect(rows).toEqual([{ one: 1 }]);
   });

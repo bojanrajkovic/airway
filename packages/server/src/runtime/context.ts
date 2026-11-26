@@ -12,6 +12,6 @@ export type AppContext = {
   logger: Logger;
   /** Returns the current time. Tests pass a clock that returns a fixed instant. */
   clock: () => Temporal.Instant;
-  /** `db` has one database pool each for the owner, the API, and the agent. */
+  /** Contains one database pool for writes, one for the web API, and one for agents. */
   db: Pools;
 };

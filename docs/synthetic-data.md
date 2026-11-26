@@ -209,7 +209,7 @@ test("counts a night with 12 mask-on periods", async ({ databaseUrl }) => {
 });
 ```
 
-`loadDerived` creates the schema with `derivedTables` and COPYs each table, parent tables first. It then builds the indexes and the foreign keys of `samples` and `breaths`, fills `period_percentiles` with the same statement that ingest uses, writes `meta`, and grants SELECT to `airway_reader`. Signal values go in as decimal text rounded to their column's decimals, as ingest writes them, so `leak = 0.4` matches. On an error it rolls back and throws Postgres's error, so the test fails with that error. A 30-night load takes about 3.5 seconds.
+`loadDerived` creates the schema with `derivedTables` and COPYs each table, parent tables first. It then builds the indexes and the foreign keys of `samples` and `breaths`, fills `period_percentiles` with the same statement that ingest uses, and writes `meta`. Signal values go in as decimal text rounded to their column's decimals, as ingest writes them, so `leak = 0.4` matches. On an error it rolls back and throws Postgres's error, so the test fails with that error. A 30-night load takes about 3.5 seconds.
 
 ## pnpm synth
 

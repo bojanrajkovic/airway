@@ -6,8 +6,7 @@ In development, `pnpm dev` loads `.env.example`, then `.env` if it exists, so yo
 
 | Variable | Required | Format | What it's for |
 |---|---|---|---|
-| `DATABASE_URL` | yes | `postgres://` URL | The owner role's connection |
-| `AIRWAY_READER_DATABASE_URL` | yes | `postgres://` URL | The read-only reader role's connection |
+| `DATABASE_URL` | yes | `postgres://` URL | Connects airway to Postgres. The URL's user must be able to create schemas. |
 | `AIRWAY_PATIENT_NAME` | yes | 1 to 80 characters | Shown in the app's header and the MCP instructions |
 | `AIRWAY_PATIENT_BIRTH_DATE` | yes | `YYYY-MM-DD` | Picks the scoring rules ([Scoring](scoring.md)) |
 | `AIRWAY_ADULT_RULES_FROM_13` | no, `false` | `true` or `false` | Scores ages 13 to 17 with adult rules |

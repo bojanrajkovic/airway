@@ -3,7 +3,6 @@ import { parseConfig } from "../src/config.ts";
 
 const VALID = {
   DATABASE_URL: "postgres://airway:secret@db.test:5432/airway",
-  AIRWAY_READER_DATABASE_URL: "postgres://airway_reader:secret@db.test:5432/airway",
   AIRWAY_PATIENT_NAME: "Test Patient",
   AIRWAY_PATIENT_BIRTH_DATE: "2012-06-15",
   AIRWAY_TIME_ZONE: "America/Chicago",

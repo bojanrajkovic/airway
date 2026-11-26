@@ -38,12 +38,7 @@ export default defineConfig({
       },
       // Each telemetry file runs isolated, so its SDK records only that file's spans.
       { extends: true, test: { name: "telemetry", include: TELEMETRY } },
-      // Once per run, global setup creates the owner and reader roles that the database tests
-      // connect as.
-      {
-        extends: true,
-        test: { name: "db", include: DB, globalSetup: ["packages/testing/src/roles.ts"] },
-      },
+      { extends: true, test: { name: "db", include: DB } },
       { extends: true, test: { name: "image", include: IMAGE } },
       {
         extends: true,

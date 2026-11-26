@@ -108,15 +108,3 @@ test("loads only a daily_usage row for a night with no segments", async ({ datab
 
   expect(counts).toEqual({ usage: 1, segments: 0 });
 });
-
-test("grants the reader SELECT on the loaded schema", async ({ databaseUrl, readerUrl }) => {
-  const { nights } = syntheticNights({ seed: 7, nights: 1 })._unsafeUnwrap();
-
-  await load(databaseUrl, nights, "derived");
-
-  const count = await withClient(readerUrl, async (client) =>
-    Count.parse((await client.query("select count(*) from derived.nights")).rows),
-  );
-
-  expect(count).toEqual([{ count: 1 }]);
-});
