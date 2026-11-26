@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { Session } from "@airway/contract/derived/sessions";
 import { EventSource, SessionSource } from "@airway/contract/derived/values";
 import { readHeader } from "@airway/edf/header";
+import { EdgeCaseName } from "@airway/synthetic/cases";
 import { scoreNight, toEvents, type FileAnnotations } from "../../src/ingest/events.ts";
 import { caseNight, editEve, folderContext, writeFolder } from "../support/cpap-folder.ts";
 
@@ -94,7 +95,7 @@ describe("toEvents", () => {
 
 describe("scoreNight", () => {
   it("reads all three EVE files and builds the event rows and night row that the synthetic case expects", async () => {
-    const { input, files, rows } = caseNight("split-files");
+    const { input, files, rows } = caseNight(EdgeCaseName.SplitFiles);
     const ctx = folderContext(await writeFolder(files));
 
     expect(input.files).toHaveLength(3);
@@ -108,7 +109,7 @@ describe("scoreNight", () => {
   });
 
   it("scores a night with a header-only EVE file the same as the night without that file", async () => {
-    const { input, files } = caseNight("split-files");
+    const { input, files } = caseNight(EdgeCaseName.SplitFiles);
     const wholeCtx = folderContext(await writeFolder(files));
     const whole = (await scoreNight(wholeCtx, input))._unsafeUnwrap();
     const counts = await Promise.all(
@@ -145,7 +146,7 @@ describe("scoreNight", () => {
   });
 
   it("fails the night when an EVE file's annotations don't parse", async () => {
-    const { input, files } = caseNight("split-files");
+    const { input, files } = caseNight(EdgeCaseName.SplitFiles);
     // Replaces the leading "+" of the first time-stamped annotation list with "x". An onset must start with "+" or "-".
     const corrupt = (bytes: Uint8Array): Uint8Array => {
       const copy = bytes.slice();

@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import { chmod, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { FileKind } from "@airway/contract/derived/values";
+import { EdgeCaseName } from "@airway/synthetic/cases";
 import { inMemoryTelemetry } from "@airway/testing/telemetry";
 import { beforeEach, describe, expect, it } from "vitest";
 import type { SeenFile } from "../../src/ingest/readiness.ts";
@@ -96,7 +97,9 @@ describe("checkVersions", () => {
 
   it("rejects a truncated BRP file and logs one warning with its record counts", async () => {
     const { logger, lines } = capturingLogger();
-    const ctx = folderContext(await writeFolder(syntheticFolder(0, ["damaged-files"])), { logger });
+    const ctx = folderContext(await writeFolder(syntheticFolder(0, [EdgeCaseName.DamagedFiles])), {
+      logger,
+    });
     const seen = new Map<string, SeenFile>();
 
     await poll(ctx, seen, at(0));

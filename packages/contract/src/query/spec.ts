@@ -1,6 +1,6 @@
 import { err, ok, Result } from "neverthrow";
 import { z } from "zod";
-import { valuesOf } from "../enum.ts";
+import { isOneOf, valuesOf } from "../enum.ts";
 import { DATASETS } from "../registry/datasets.ts";
 import {
   Comparison,
@@ -223,11 +223,6 @@ function filterSchema(column: Column) {
 
 const ORDERED_KINDS: readonly Column["kind"][] = ["number", "integer", "timestamp", "date"];
 const namesOf = (columns: readonly Column[]): string[] => columns.map(({ name }) => name);
-/** Narrows text to one of a fixed list of values. */
-export const isOneOf = <Value extends string>(
-  values: readonly Value[],
-  value: string,
-): value is Value => values.some((one) => one === value);
 
 /** Returns the columns that a calculation can take, which is an empty list for COUNT. */
 export function columnsFor({ columns }: Dataset, op: CalculationOp): string[] {

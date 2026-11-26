@@ -2,9 +2,10 @@ import { describe, expect, it } from "vitest";
 import type { DerivedRows, SessionRow } from "@airway/contract/derived/rows";
 import type { Session } from "@airway/contract/derived/sessions";
 import { FileKind } from "@airway/contract/derived/values";
-import type { EdgeCaseName } from "@airway/synthetic/cases";
+import { EdgeCaseName } from "@airway/synthetic/cases";
 import type { CpapFile } from "@airway/synthetic/cpap-data";
 import { syntheticNights } from "@airway/synthetic/model";
+import { Patient } from "@airway/synthetic/patients";
 import { synthesize } from "@airway/synthetic/synthesize";
 import { planSegments, type NightFiles, type NightSegments } from "../../src/ingest/segments.ts";
 import { segmentFiles, usedDays } from "../support/cpap-folder.ts";
@@ -16,7 +17,10 @@ type Case = { inputs: NightFiles[]; files: CpapFile[]; rows: DerivedRows };
 
 function edgeCase(name: EdgeCaseName): Case {
   const { nights, zone } = syntheticNights({ seed: 7, nights: 0, cases: [name] })._unsafeUnwrap();
-  const { files, rows } = synthesize(nights, zone, { patient: "child", arrivedAt })._unsafeUnwrap();
+  const { files, rows } = synthesize(nights, zone, {
+    patient: Patient.Child,
+    arrivedAt,
+  })._unsafeUnwrap();
   const inputs = usedDays(files).flatMap((day): NightFiles[] =>
     rows.nights.some(({ night }) => night.equals(day.day))
       ? [{ night: day.day, zone, day, files: segmentFiles(files, day.day) }]
@@ -54,12 +58,12 @@ const fileSegments = (plan: NightSegments): [string, number][] =>
 
 describe("planSegments", () => {
   it.each<EdgeCaseName>([
-    "noon-edge",
-    "many-periods",
-    "split-files",
-    "damaged-files",
-    "fall-back",
-    "spring-forward",
+    EdgeCaseName.NoonEdge,
+    EdgeCaseName.ManyPeriods,
+    EdgeCaseName.SplitFiles,
+    EdgeCaseName.DamagedFiles,
+    EdgeCaseName.FallBack,
+    EdgeCaseName.SpringForward,
   ])("returns the sessions, segments, and file segments that synthesize expects for %s", (name) => {
     const { inputs, rows } = edgeCase(name);
 
@@ -83,7 +87,7 @@ describe("planSegments", () => {
   });
 
   describe("split-files", () => {
-    const { inputs } = edgeCase("split-files");
+    const { inputs } = edgeCase(EdgeCaseName.SplitFiles);
     const [input] = inputs;
     const plan = input === undefined ? undefined : planSegments(input);
 
@@ -107,7 +111,7 @@ describe("planSegments", () => {
   });
 
   describe("damaged-files", () => {
-    const { inputs } = edgeCase("damaged-files");
+    const { inputs } = edgeCase(EdgeCaseName.DamagedFiles);
     const [input] = inputs;
     const plan = input === undefined ? undefined : planSegments(input);
 

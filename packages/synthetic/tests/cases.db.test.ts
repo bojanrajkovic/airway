@@ -4,6 +4,7 @@ import { z } from "zod";
 import { test } from "@airway/testing/postgres";
 import { loadDerived } from "../src/load.ts";
 import { syntheticNights } from "../src/model.ts";
+import { Patient } from "../src/patients.ts";
 import { synthesize } from "../src/synthesize.ts";
 
 const arrivedAt = Temporal.Instant.from("2030-03-01T12:00:00Z");
@@ -16,7 +17,7 @@ test(
   async ({ databaseUrl }) => {
     const model = syntheticNights({ seed: 7, nights: 0, cases: "all" })._unsafeUnwrap();
     const { rows } = synthesize(model.nights, model.zone, {
-      patient: "child",
+      patient: Patient.Child,
       arrivedAt,
     })._unsafeUnwrap();
     const client = new pg.Client(databaseUrl);

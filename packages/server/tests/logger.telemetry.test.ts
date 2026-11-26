@@ -3,6 +3,7 @@ import { inMemoryTelemetry } from "@airway/testing/telemetry";
 import { trace } from "@opentelemetry/api";
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
+import { LogLevel } from "../src/config.ts";
 import { createLogger, type Logger } from "../src/logger.ts";
 
 inMemoryTelemetry();
@@ -17,7 +18,7 @@ describe("createLogger", () => {
         done();
       },
     });
-    write(createLogger("info", sink));
+    write(createLogger(LogLevel.Info, sink));
 
     return z.record(z.string(), z.unknown()).parse(JSON.parse(line));
   }

@@ -28,9 +28,13 @@ export type WaveformWindow = z.infer<typeof WaveformWindow>;
 export const WaveformNight = z.strictObject({ night: PlainDate });
 export type WaveformNight = z.infer<typeof WaveformNight>;
 
-/** The waveform viewer plots these signals. */
-export const WAVEFORM_SIGNALS = ["flow", "pressure", "leak", "flow_limitation"] as const;
-export type WaveformSignal = (typeof WAVEFORM_SIGNALS)[number];
+/** Lists the signals that the waveform viewer plots. */
+export enum WaveformSignal {
+  Flow = "flow",
+  Pressure = "pressure",
+  Leak = "leak",
+  FlowLimitation = "flow_limitation",
+}
 
 /**
  * Describes one signal's values from one recording file. Values are evenly spaced from `start`,

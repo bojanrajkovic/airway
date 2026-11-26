@@ -1,3 +1,4 @@
+import { EdgeCaseName } from "@airway/synthetic/cases";
 import { inMemoryTelemetry } from "@airway/testing/telemetry";
 import { beforeEach, describe, expect, it } from "vitest";
 import { syntheticNights } from "@airway/synthetic/model";
@@ -19,7 +20,7 @@ function damagedNight(): NightFiles {
   const { nights, zone } = syntheticNights({
     seed: 7,
     nights: 0,
-    cases: ["damaged-files"],
+    cases: [EdgeCaseName.DamagedFiles],
   })._unsafeUnwrap();
   const files = cpapData(nights, zone)._unsafeUnwrap();
   const bytes = files.find(({ path }) => path === "STR.edf")?.bytes ?? new Uint8Array();

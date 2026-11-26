@@ -4,8 +4,10 @@ import type { StrSetting } from "@airway/edf/columns";
 // These round numbers are invented. They resemble how a child and an adult breathe on an AutoSet
 // machine.
 
-export const PATIENTS = ["child", "adult"] as const;
-export type Patient = (typeof PATIENTS)[number];
+export enum Patient {
+  Child = "child",
+  Adult = "adult",
+}
 
 /** Lists the event types that the machine scores. */
 export const MACHINE_EVENT_TYPES = [
@@ -104,7 +106,7 @@ export const BREATHING: Readonly<Record<Patient, Breathing>> = {
   // A child takes the mask off often and briefly, so some nights have more mask-on periods than
   // STR.edf's 10 slots. File gaps fall on both sides of the 90 s limit that ingest uses to join
   // files into a session.
-  child: {
+  [Patient.Child]: {
     periods: [
       { weight: 5, min: 1, max: 10 },
       { weight: 1, min: 11, max: 20 },
@@ -133,7 +135,7 @@ export const BREATHING: Readonly<Record<Patient, Breathing>> = {
   },
   // An adult has few periods and short gaps, so the sessions that ingest builds always match the
   // mask-on periods.
-  adult: {
+  [Patient.Adult]: {
     periods: [{ weight: 1, min: 1, max: 6 }],
     fileGaps: [{ weight: 1, min: 5, max: 90 }],
     rate: { mean: 14, sd: 1 },

@@ -7,9 +7,10 @@ import {
   recordBytes,
   type ReadableEdfFileHeaders,
 } from "@airway/edf/header";
-import type { EdgeCaseName } from "@airway/synthetic/cases";
+import { EdgeCaseName } from "@airway/synthetic/cases";
 import { maskSlots, strFile } from "@airway/synthetic/files";
 import { syntheticNights, type Synthetic } from "@airway/synthetic/model";
+import { Patient } from "@airway/synthetic/patients";
 import { synthesize } from "@airway/synthetic/synthesize";
 import { readStr } from "../../src/ingest/str.ts";
 
@@ -36,7 +37,7 @@ function edgeCase(name: EdgeCaseName): Case {
   const model = syntheticNights({ seed: 7, nights: 0, cases: [name] })._unsafeUnwrap();
   const bytes = strFile(model.nights, model.zone)._unsafeUnwrap();
   const { rows } = synthesize(model.nights, model.zone, {
-    patient: "child",
+    patient: Patient.Child,
     arrivedAt,
   })._unsafeUnwrap();
 
@@ -45,7 +46,7 @@ function edgeCase(name: EdgeCaseName): Case {
 
 describe("readStr", () => {
   it("reads each used day's values and mask slots, and marks the days between as unused", () => {
-    const { nights, zone, bytes, rows } = edgeCase("unused-days");
+    const { nights, zone, bytes, rows } = edgeCase(EdgeCaseName.UnusedDays);
     const { days, warnings } = readStr(bytes)._unsafeUnwrap();
 
     expect(warnings).toEqual([]);
@@ -69,7 +70,7 @@ describe("readStr", () => {
   });
 
   it("reads settings that show the one max_pressure change", () => {
-    const { nights, bytes, rows } = edgeCase("settings-change");
+    const { nights, bytes, rows } = edgeCase(EdgeCaseName.SettingsChange);
     const { days } = readStr(bytes)._unsafeUnwrap();
     const [first] = nights;
 
@@ -82,7 +83,7 @@ describe("readStr", () => {
   });
 
   it("warns when a record's Date is -1, and dates the day by its record index", () => {
-    const { bytes } = edgeCase("unused-days");
+    const { bytes } = edgeCase(EdgeCaseName.UnusedDays);
     const file = readable(bytes);
     const changed = bytes.slice();
     // Date is the first signal, so it's the first int16 of record 1.

@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import { test as base, describe, expect } from "vitest";
 import { EventType, FileKind, SessionSource } from "@airway/contract/derived/values";
 import { syntheticNights, type SyntheticNight } from "../src/model.ts";
+import { Patient } from "../src/patients.ts";
 import { synthesize, type Synthesized } from "../src/synthesize.ts";
 
 const zone = "America/New_York";
@@ -9,7 +10,7 @@ const arrivedAt = Temporal.Instant.from("2030-03-01T12:00:00Z");
 const { nights } = syntheticNights({ seed: 7, nights: 4 })._unsafeUnwrap();
 
 const run = (list: readonly SyntheticNight[]): Synthesized =>
-  synthesize(list, zone, { patient: "child", arrivedAt })._unsafeUnwrap();
+  synthesize(list, zone, { patient: Patient.Child, arrivedAt })._unsafeUnwrap();
 // Builds a fresh folder and rows from `nights` for each test that uses `synthesized`.
 const test = base.extend<{ synthesized: Synthesized }>({
   synthesized: async ({}, use) => {

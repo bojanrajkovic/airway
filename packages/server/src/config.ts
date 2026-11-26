@@ -4,8 +4,14 @@ import type { PatientProfile } from "@airway/contract/profile";
 import { err, ok, type Result } from "neverthrow";
 import { z } from "zod";
 
-const LOG_LEVELS = ["fatal", "error", "warn", "info", "debug", "trace"] as const;
-export type LogLevel = (typeof LOG_LEVELS)[number];
+export enum LogLevel {
+  Fatal = "fatal",
+  Error = "error",
+  Warn = "warn",
+  Info = "info",
+  Debug = "debug",
+  Trace = "trace",
+}
 
 /**
  * The server authenticates requests in one of two modes. In `pomerium` mode, it verifies the token
@@ -71,7 +77,7 @@ const Env = z.object({
     .default("15:00")
     .transform((time) => Temporal.PlainTime.from(time)),
   PORT: z.coerce.number().int().min(1).max(65_535).default(3000),
-  LOG_LEVEL: z.enum(LOG_LEVELS).default("info"),
+  LOG_LEVEL: z.enum(LogLevel).default(LogLevel.Info),
 });
 
 // Every deployment must set `AIRWAY_AUTH`. A deployment that leaves it unset stops instead of

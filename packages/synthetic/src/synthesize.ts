@@ -33,7 +33,7 @@ import {
   type SyntheticFileError,
 } from "./files.ts";
 import type { SyntheticNight } from "./model.ts";
-import type { Patient } from "./patients.ts";
+import { Patient } from "./patients.ts";
 import { breaths } from "./signals.ts";
 
 export type SynthesizeOptions = {
@@ -47,8 +47,8 @@ export type SynthesizeOptions = {
 export type Synthesized = { files: CpapFile[]; rows: DerivedRows };
 
 const RULE_SETS: Readonly<Record<Patient, RuleSet>> = {
-  child: RuleSet.Pediatric,
-  adult: RuleSet.Adult,
+  [Patient.Child]: RuleSet.Pediatric,
+  [Patient.Adult]: RuleSet.Adult,
 };
 
 const value = (n: number | undefined): number | null =>
