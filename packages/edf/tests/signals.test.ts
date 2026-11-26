@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { isReadable, readHeader, type ReadableEdfFile } from "../src/header.ts";
+import { isReadable, readHeader } from "../src/header.ts";
 import { readSignals, type RecordRange } from "../src/signals.ts";
+import { readable } from "./readable.ts";
 import { crc16, flow, plain, withSamples, type HeaderFields, type SignalFields } from "./bytes.ts";
 
 // Leak's digital range is 0 to 100, so a digital -1 reads as NaN.
@@ -17,16 +18,6 @@ const fields = (records: number): HeaderFields =>
   plain({ records: records.toString(), signals: [flow, leak, crc16] });
 // Each record has two Flow samples, one Leak sample, and a Crc16 sample that the reader skips.
 const record = (n: number): number[] => [n, -n, n, 0x7f7f];
-
-function readable(bytes: Uint8Array): ReadableEdfFile {
-  const file = readHeader(bytes)._unsafeUnwrap();
-
-  if (!isReadable(file)) {
-    throw new Error(`expected a readable file, got ${JSON.stringify(file.size)}`);
-  }
-
-  return file;
-}
 
 describe("readSignals", () => {
   it("scales digital values to physical units", () => {

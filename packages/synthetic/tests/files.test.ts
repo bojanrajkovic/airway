@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { nightFiles, strFile, writtenDuration, type NightFile } from "../src/files.ts";
 import { syntheticNights } from "../src/model.ts";
-import { readBackAnnotations, readBackEdf } from "@airway/testing/edf-readback";
+import { readSignals } from "@airway/edf/signals";
+import { annotationsOf, readable } from "./edf.ts";
 
 const zone = "America/New_York";
 const { nights } = syntheticNights({ seed: 7, nights: 4 })._unsafeUnwrap();
@@ -29,9 +30,7 @@ describe("nightFiles", () => {
     expect(segment).toBeDefined();
     expect(brp?.start).toEqual(segment?.start.toZonedDateTimeISO("-05:00").toPlainDateTime());
     expect(pld?.start).toEqual(brp?.start.add({ seconds: 1 }));
-    expect(readBackEdf(brp?.bytes ?? new Uint8Array(256)).startTime).toBe(
-      brp?.start.toPlainTime().toString().replaceAll(":", "."),
-    );
+    expect(readable(brp?.bytes ?? new Uint8Array(256)).header.start).toEqual(brp?.start);
   });
 
   it("writes one 60 s record per minute of each segment", () => {
@@ -39,7 +38,7 @@ describe("nightFiles", () => {
     const brp = written.find((file) => file.kind === "brp");
     const minutes = segment === undefined ? -1 : segment.start.until(segment.end).total("minutes");
 
-    expect(readBackEdf(brp?.bytes ?? new Uint8Array(256)).records).toBe(minutes);
+    expect(readable(brp?.bytes ?? new Uint8Array(256)).size.records).toBe(minutes);
   });
 
   it("writes each event to EVE at the time the event ends, after the recording-start annotation", () => {
@@ -49,7 +48,7 @@ describe("nightFiles", () => {
       onset: Math.round((start?.until(event.at).total("seconds") ?? 0) + event.duration),
       duration: writtenDuration(event),
     }));
-    const annotations = readBackAnnotations(eve?.bytes ?? new Uint8Array(256));
+    const annotations = annotationsOf(eve?.bytes ?? new Uint8Array(256));
 
     expect(annotations[0]?.label).toBe("Recording starts");
     expect(annotations.slice(1).map(({ onset, duration }) => ({ onset, duration }))).toEqual(
@@ -59,7 +58,7 @@ describe("nightFiles", () => {
 
   it("writes a 0 duration for hypopneas and arousals, and a duration of at least 10 s for apneas", () => {
     const eve = written.find((file) => file.kind === "eve");
-    const annotations = readBackAnnotations(eve?.bytes ?? new Uint8Array(256)).slice(1);
+    const annotations = annotationsOf(eve?.bytes ?? new Uint8Array(256)).slice(1);
     const byLabel = (labels: readonly string[]): number[] =>
       annotations.filter(({ label }) => labels.includes(label)).map(({ duration }) => duration);
 
@@ -82,7 +81,7 @@ describe("nightFiles", () => {
     const later = (first?.events ?? []).filter(
       (event) => split !== undefined && Temporal.Instant.compare(event.at, split) >= 0,
     );
-    const onsets = readBackAnnotations(eves[1]?.bytes ?? new Uint8Array(256))
+    const onsets = annotationsOf(eves[1]?.bytes ?? new Uint8Array(256))
       .slice(1)
       .map(({ onset }) => onset);
 
@@ -97,32 +96,36 @@ describe("nightFiles", () => {
 
   it("writes every pulse sample in SAD as missing", () => {
     const sad = written.find((file) => file.kind === "sad");
-    const pulse = readBackEdf(sad?.bytes ?? new Uint8Array(256)).digital.get("Pulse.1s");
+    const bytes = sad?.bytes ?? new Uint8Array(256);
+    const pulse = readSignals(bytes, readable(bytes), ["Pulse.1s"])._unsafeUnwrap()["Pulse.1s"];
 
-    expect(pulse?.every((value) => value === -1)).toBe(true);
+    expect(pulse.every((value) => Number.isNaN(value))).toBe(true);
   });
 });
 
 describe("strFile", () => {
   // Leaving out the second night makes it an unused day.
-  const read = readBackEdf(
-    strFile(
-      nights.filter((_night, i) => i !== 1 && i !== 3),
-      zone,
-    )._unsafeUnwrap(),
-  );
-  const date = read.digital.get("Date");
-  const maskOn = read.digital.get("MaskOn");
+  const bytes = strFile(
+    nights.filter((_night, i) => i !== 1 && i !== 3),
+    zone,
+  )._unsafeUnwrap();
+  const file = readable(bytes);
+  // A value that the file stores as -1 reads as NaN.
+  const {
+    Date: date,
+    MaskOn: maskOn,
+    OnDuration: onDuration,
+  } = readSignals(bytes, file, ["Date", "MaskOn", "OnDuration"])._unsafeUnwrap();
 
   it("has one record per day from the first night to the last, with all 81 signals", () => {
-    expect(read.records).toBe(3);
-    expect(read.signals).toHaveLength(81);
+    expect(file.size.records).toBe(3);
+    expect(file.header.signals).toHaveLength(81);
   });
 
-  it("writes -1 for every value of an unused day except its Date", () => {
-    expect(date?.[1]).toBe(Temporal.PlainDate.from("1970-01-01").until("2030-01-08").days);
-    expect(read.digital.get("OnDuration")?.[1]).toBe(-1);
-    expect([...(maskOn?.subarray(10, 20) ?? [])].every((value) => value === -1)).toBe(true);
+  it("writes every value of an unused day as missing, except its Date", () => {
+    expect(date[1]).toBe(Temporal.PlainDate.from("1970-01-01").until("2030-01-08").days);
+    expect(onDuration[1]).toBeNaN();
+    expect([...maskOn.subarray(10, 20)].every((value) => Number.isNaN(value))).toBe(true);
   });
 
   it("counts Date in days since 1970 and mask-on slots in device minutes since noon", () => {
@@ -135,9 +138,9 @@ describe("strFile", () => {
             noon.until(period.on.toZonedDateTimeISO("-05:00").toPlainDateTime()).total("minutes"),
           );
 
-    expect(date?.[2]).toBe(Temporal.PlainDate.from("1970-01-01").until("2030-01-09").days);
-    expect(maskOn?.[20]).toBe(minutes);
-    expect(maskOn?.[20 + (third?.periods.length ?? 0)]).toBe(-1);
+    expect(date[2]).toBe(Temporal.PlainDate.from("1970-01-01").until("2030-01-09").days);
+    expect(maskOn[20]).toBe(minutes);
+    expect(maskOn[20 + (third?.periods.length ?? 0)]).toBeNaN();
   });
 
   it("writes the same file whatever order the nights come in", () => {

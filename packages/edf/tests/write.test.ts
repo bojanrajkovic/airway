@@ -2,7 +2,8 @@ import crc16ccitt from "crc/calculators/crc16ccitt";
 import { describe, expect, it } from "vitest";
 import { AIRSENSE, type EdfFileType } from "../src/airsense.ts";
 import { writeAnnotations, writeSignals, type PerFileHeader } from "../src/write.ts";
-import { readBackAnnotations, readBackEdf } from "@airway/testing/edf-readback";
+import { readAnnotations } from "../src/annotations.ts";
+import { readable } from "./readable.ts";
 
 const header: PerFileHeader = {
   start: Temporal.PlainDateTime.from("2030-01-07T22:15:03"),
@@ -25,6 +26,13 @@ function filled(file: EdfFileType, records: number, value = 1): Map<string, Floa
 const ascii = (bytes: Uint8Array, from: number, width: number): string =>
   new TextDecoder().decode(bytes.subarray(from, from + width));
 
+// Returns `count` stored int16 values, starting at byte `from`.
+function stored(bytes: Uint8Array, from: number, count: number): number[] {
+  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+
+  return Array.from({ length: count }, (_, i) => view.getInt16(from + 2 * i, true));
+}
+
 describe("writeSignals", () => {
   const bytes = writeSignals(AIRSENSE.pld, header, filled(AIRSENSE.pld, 3))._unsafeUnwrap();
 
@@ -39,9 +47,7 @@ describe("writeSignals", () => {
   });
 
   it("writes the signal headers as the list declares them", () => {
-    const read = readBackEdf(bytes);
-
-    expect(AIRSENSE.pld.signals).toMatchObject(read.signals);
+    expect(AIRSENSE.pld.signals).toMatchObject(readable(bytes).header.signals);
   });
 
   it("is exactly the header plus the records", () => {
@@ -52,11 +58,11 @@ describe("writeSignals", () => {
 
   it("pads text by bytes, so the fields after a UTF-8 °C stay in place", () => {
     const str = writeSignals(AIRSENSE.str, header, filled(AIRSENSE.str, 1))._unsafeUnwrap();
-    const read = readBackEdf(str);
-    const temp = read.signals.find((signal) => signal.label === "S.Temp");
+    const { signals } = readable(str).header;
+    const temp = signals.find((signal) => signal.label === "S.Temp");
 
     expect(temp).toMatchObject({ unit: "°C", physicalMin: "16.00", digitalMax: 300 });
-    expect(read.signals.at(-1)?.label).toBe("Crc16");
+    expect(signals.at(-1)?.label).toBe("Crc16");
   });
 
   it("rounds to the step and clamps to the digital range", () => {
@@ -64,17 +70,18 @@ describe("writeSignals", () => {
     const flow = values.get("Flow.40ms");
 
     flow?.set([0.1234, -5, 9]);
-    const read = readBackEdf(writeSignals(AIRSENSE.brp, header, values)._unsafeUnwrap());
+    const brp = writeSignals(AIRSENSE.brp, header, values)._unsafeUnwrap();
 
-    // Flow's step is 0.002 L/s, and 0 L/s is digital 0.
-    expect([...(read.digital.get("Flow.40ms")?.subarray(0, 3) ?? [])]).toEqual([62, -1000, 1500]);
+    // Flow's step is 0.002 L/s, and 0 L/s is digital 0. Flow's samples follow the 1024-byte header.
+    expect(stored(brp, 1024, 3)).toEqual([62, -1000, 1500]);
   });
 
   it("writes NaN as -1 where -1 is outside the digital range", () => {
     const values = filled(AIRSENSE.sad, 1, Number.NaN);
-    const read = readBackEdf(writeSignals(AIRSENSE.sad, header, values)._unsafeUnwrap());
+    const sad = writeSignals(AIRSENSE.sad, header, values)._unsafeUnwrap();
 
-    expect(read.digital.get("Pulse.1s")?.every((value) => value === -1)).toBe(true);
+    // Pulse's 60 samples follow the 1024-byte header.
+    expect(stored(sad, 1024, 60).every((value) => value === -1)).toBe(true);
   });
 
   it.each([
@@ -143,12 +150,11 @@ describe("writeAnnotations", () => {
   const bytes = writeAnnotations(AIRSENSE.eve, header, annotations)._unsafeUnwrap();
 
   it("round-trips annotations, one per record", () => {
-    expect(readBackAnnotations(bytes)).toEqual(annotations);
-    expect(readBackEdf(bytes)).toMatchObject({
-      reserved: "EDF+D",
-      records: 3,
-      recordDuration: "0.00",
-    });
+    const file = readable(bytes);
+
+    expect(readAnnotations(bytes, file)._unsafeUnwrap()).toEqual(annotations);
+    expect(file.header).toMatchObject({ format: "EDF+D", recordSeconds: 0 });
+    expect(file.size.records).toBe(3);
   });
 
   it("is exactly the header plus 40-byte records", () => {
