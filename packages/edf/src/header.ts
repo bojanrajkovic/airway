@@ -44,7 +44,8 @@ export type EdfReadError =
    */
   | { kind: "header_too_short"; headerBytes: number }
   | { kind: "bad_field"; field: string; value: string }
-  | { kind: "read_failed"; path: string; message: string }
+  /** `cause` is the error that the file system threw. */
+  | { kind: "read_failed"; path: string; cause: unknown }
   | { kind: "missing_signal"; label: string }
   /** The file's format differs from the format of the file type that the caller expects. */
   | { kind: "format_mismatch"; expected: EdfHeader["format"]; got: EdfHeader["format"] }

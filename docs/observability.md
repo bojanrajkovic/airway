@@ -10,7 +10,7 @@ flowchart LR
 
 ## Logs
 
-The server logs JSON lines to stdout with pino, through the root logger from `packages/server/src/logger.ts`. Each line includes `service: "airway"` and writes its level as a name, such as `"info"`, so log queries can filter on the level. `LOG_LEVEL` sets the lowest level logged. A line written inside a span also carries `trace_id` and `span_id`.
+The server logs JSON lines to stdout with pino, through the root logger from `packages/server/src/logger.ts`. Each line includes `service: "airway"` and writes its level as a name, such as `"info"`, so log queries can filter on the level. `LOG_LEVEL` sets the lowest level logged. A line written inside a span also carries `trace_id` and `span_id`. When a logged `error` has a `cause` that is an `Error`, the logger writes the cause with its type, code, message, and stack.
 
 Each module logs through a child logger bound to the module's name, such as `ctx.logger.child({ module: "http" })`. The module adds the IDs of the work it's doing.
 

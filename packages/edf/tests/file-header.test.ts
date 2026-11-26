@@ -67,12 +67,13 @@ describe("readEdfFile", () => {
     expect(read.samples["Flow.40ms"]).toHaveLength(2);
   });
 
-  it("returns read_failed with the path for a file it can't read", async () => {
+  it("returns read_failed with the path and the cause for a file it can't read", async () => {
     const path = join(dir, "absent.edf");
 
     expect((await readEdfFile(path, flowFile))._unsafeUnwrapErr()).toMatchObject({
       kind: "read_failed",
       path,
+      cause: { code: "ENOENT" },
     });
   });
 
