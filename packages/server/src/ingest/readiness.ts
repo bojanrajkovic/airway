@@ -1,24 +1,28 @@
 import type { EdfFile, EdfReadError } from "@airway/edf/header";
 
-/** How long a file's size and ctime must hold before it's imported. */
+/** Ingest imports a file once its size and ctime have stayed the same for this long. */
 export const STABLE_FOR = Temporal.Duration.from({ minutes: 2 });
 
-/** A file's header, as last read: parsed, failed, or not EDF (Identification.tgt and .crc files). */
+/**
+ * Says how the last read of a file's header ended. `read` means the header parsed, and `failed`
+ * means the read or the parse failed. `not_edf` marks Identification.tgt and .crc files, which
+ * aren't EDF files.
+ */
 export type HeaderRead =
   | { kind: "read"; file: EdfFile }
   | { kind: "failed"; error: EdfReadError }
   | { kind: "not_edf" };
 
-/** What ingest remembers about one path between polls. */
+/** Ingest remembers these fields about each path between polls. */
 export type SeenFile = {
   size: number;
   ctime: Temporal.Instant;
-  /** When this size and ctime were first seen. */
+  /** When ingest first saw this size and ctime. */
   since: Temporal.Instant;
   header: HeaderRead;
-  /** Set once the file is ready and hashed; cleared when it changes. */
+  /** Ingest hashes the file once it's ready, and clears the hash when the file changes. */
   sha256: string | null;
-  /** Whether this version's rejection has been logged. */
+  /** True once ingest has logged that it rejected this version of the file. */
   rejectionLogged: boolean;
 };
 
@@ -30,10 +34,13 @@ export type Readiness =
   | { state: "rejected"; reason: RejectReason };
 
 /**
- * Whether a file can be imported. It waits until its size and ctime have held for STABLE_FOR, so a
- * half-written file isn't judged by a partial header. Then its header decides: a file the size check
- * rejects, or whose header can't be parsed, is rejected; anything else is ready. `previous` is the
- * file's state before this poll, used only to say why it waits.
+ * Returns whether ingest can import a file:
+ *
+ * - `waiting` until the file's size and ctime have stayed the same for STABLE_FOR, because a
+ *   half-written file can have a partial header. The reason is `size_changed` when the size differs
+ *   from `previous`, and `too_soon` otherwise.
+ * - `rejected` when reading the header failed, or when the size check rejected the file.
+ * - `ready` otherwise.
  */
 export function checkReadiness(
   previous: SeenFile | undefined,

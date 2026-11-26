@@ -7,9 +7,8 @@ import { identifier } from "./identity.ts";
 export type AuthorEnv = { Variables: { author: Author } };
 
 /**
- * Lets a request through only with an author, and sets it as `c.var.author`. An identity problem is
- * a 403 and an identity provider that can't be reached a 503; never a 401, which only Pomerium sends when a
- * session expires (docs/auth.md explains why). The body names the failure's kind.
+ * Sets `c.var.author` and calls the next handler when identification succeeds. Otherwise responds
+ * with `{ error: kind }` and status 503 for `provider_unavailable`, or 403 for any other failure.
  */
 export function requireAuthor(ctx: AppContext, channel: Channel): MiddlewareHandler<AuthorEnv> {
   const identify = identifier(ctx);

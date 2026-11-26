@@ -8,13 +8,12 @@ import { instrumentations } from "../src/instrument.ts";
 
 const { spans } = inMemoryTelemetry({ instrumentations: await instrumentations() });
 
-// Inbound patching is on the Server prototype, so a server created before the SDK starts is traced.
 const server = http.createServer((_req, res) => res.end("ok"));
 let origin = "";
 
 // Runs after the helper's beforeAll starts the SDK.
 beforeAll(async () => {
-  // As the preload does: the instrumentation patches node:http when it's required after the start.
+  // Like the preload, require node:http after the SDK starts so the instrumentation patches it.
   createRequire(import.meta.url)("node:http");
   await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
 

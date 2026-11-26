@@ -16,17 +16,20 @@ describe("toAuthor", () => {
     });
   });
 
-  it.each([undefined, "", "  "])("falls back to the email's local part for name %j", (name) => {
-    expect(toAuthor({ email: "sam@example.test", name }, "mcp")).toEqual({
-      email: "sam@example.test",
-      name: "sam",
-      channel: "mcp",
-    });
-  });
+  it.each([undefined, "", "  "])(
+    "falls back to the email's local part when the name is %j",
+    (name) => {
+      expect(toAuthor({ email: "sam@example.test", name }, "mcp")).toEqual({
+        email: "sam@example.test",
+        name: "sam",
+        channel: "mcp",
+      });
+    },
+  );
 });
 
 describe("identifier with auth off", () => {
-  it("names the configured local person on the request's channel, with no headers", async () => {
+  it("returns the configured local person, on the request's channel, when the headers are empty", async () => {
     const identify = identifier(testContext());
 
     expect((await identify(new Headers(), "mcp"))._unsafeUnwrap()).toEqual({
@@ -38,7 +41,7 @@ describe("identifier with auth off", () => {
 });
 
 describe("identifier with Pomerium", () => {
-  it("logs why a token was refused, with jose's error and without the token", async () => {
+  it("logs the failure kind and jose's error for a refused token, and keeps the token out of the log line", async () => {
     const lines: string[] = [];
     const sink = new Writable({
       write(chunk: Buffer, _encoding, done) {

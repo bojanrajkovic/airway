@@ -8,15 +8,16 @@ const LOG_LEVELS = ["fatal", "error", "warn", "info", "debug", "trace"] as const
 export type LogLevel = (typeof LOG_LEVELS)[number];
 
 /**
- * How requests are authenticated. `pomerium` verifies the identity proxy's signed token; `none`
- * treats every request as the configured local person.
+ * The server authenticates requests in one of two modes. In `pomerium` mode, it verifies the token
+ * that the identity proxy signed. In `none` mode, it treats every request as coming from the
+ * configured local person.
  */
 export type AuthConfig =
   | {
       mode: "pomerium";
-      /** The UI's public hostname: the `aud` and `iss` of tokens on /trpc. */
+      /** The UI's public hostname. The `aud` and `iss` claims of tokens on /trpc must equal it. */
       uiHost: string;
-      /** The MCP route's public hostname: the `aud` and `iss` of tokens on /mcp. */
+      /** The MCP route's public hostname. The `aud` and `iss` claims of tokens on /mcp must equal it. */
       mcpHost: string;
       jwksUrl: string;
     }
@@ -26,26 +27,23 @@ export type Config = {
   databaseUrl: string;
   readerDatabaseUrl: string;
   patient: PatientProfile;
-  /**
-   * The IANA zone night boundaries, alert times, and every displayed time use. Its winter offset
-   * converts the CPAP's clock, which stays on winter time all year.
-   */
+  /** The home IANA time zone. docs/configuration.md describes its uses. */
   timeZone: string;
   cpapDataPath: string;
-  /** The home time by which a used night's folder should have arrived before it counts as missing. */
+  /** The home time of day after which a used night's missing folder counts as missing. */
   dataMissingCutoff: Temporal.PlainTime;
   port: number;
   logLevel: LogLevel;
   auth: AuthConfig;
 };
 
-// The places Intl knows, by their ICU names. Fixed offsets such as -05:00, UTC, and Etc/GMT+5 aren't
-// listed; they have no daylight saving time, so they'd put night boundaries an hour off for half
-// the year.
+// The ICU names of the place zones that Intl supports. Intl's list excludes fixed offsets such as
+// -05:00, UTC, and Etc/GMT+5. A fixed offset never shifts for daylight saving time, so it would put
+// night boundaries an hour off for half the year.
 const PLACES = new Set(Intl.supportedValuesOf("timeZone"));
 
-// A place's zone name, such as America/Chicago. Intl resolves aliases and current names to the ICU
-// name first, so Asia/Kolkata and US/Eastern pass.
+// Returns whether `zone` is a place's zone name, such as America/Chicago. Intl resolves an alias or
+// a current name to its ICU name before the lookup, so Asia/Kolkata and US/Eastern pass.
 function isTimeZone(zone: string): boolean {
   try {
     return PLACES.has(
@@ -74,7 +72,8 @@ const Env = z.object({
   LOG_LEVEL: z.enum(LOG_LEVELS).default("info"),
 });
 
-// Required with no default, so a deployment that forgets it stops instead of running open.
+// Every deployment must set `AIRWAY_AUTH`. A deployment that leaves it unset stops instead of
+// serving requests without authentication.
 const Auth = z.discriminatedUnion(
   "AIRWAY_AUTH",
   [
@@ -93,7 +92,7 @@ const Auth = z.discriminatedUnion(
   { error: "must be pomerium or none" },
 );
 
-/** Parses airway's settings from `env`. Each problem names its key and what's wrong with it. */
+/** Parses airway's settings from `env`. Each error names a key and says what's wrong with it. */
 export function parseConfig(env: Record<string, string | undefined>): Result<Config, string[]> {
   const result = z.intersection(Env, Auth).safeParse(env);
 
@@ -137,7 +136,6 @@ export function parseConfig(env: Record<string, string | undefined>): Result<Con
   });
 }
 
-/** The process's settings. The only code in airway's server that reads `process.env`. */
 export function loadConfig(): Result<Config, string[]> {
   return parseConfig(process.env);
 }

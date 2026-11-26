@@ -3,18 +3,20 @@ import { context, SpanStatusCode, trace, type Span } from "@opentelemetry/api";
 import { suppressTracing } from "@opentelemetry/core";
 import { Err, ResultAsync, type Result } from "neverthrow";
 
-// The trace API hands out a proxy, so a tracer taken at module load follows the SDK once it starts.
+// The trace API returns a proxy, so a tracer created at module load works once the SDK starts.
 const tracer = trace.getTracer("airway");
 
-/** A service's error: one case of the service's error union, named by `kind`. */
+/** A service's error is one case of the service's error union, and `kind` names the case. */
 export type Tagged = { kind: string };
 
 /**
- * Runs `fn` in an active span named `name`, ends the span when `fn` returns, and returns its value.
- * A neverthrow `Err` marks the span failed with its `kind` as `error.type`. A throw marks it failed,
- * records the exception with its class as `error.type`, and rethrows. The code that returns an
- * `Err` logs it, and the HTTP app's error handler logs throws. `fn` sets its own attributes on
- * `span`.
+ * Runs `fn` in an active span named `name`, ends the span when `fn` returns, and returns `fn`'s
+ * result. `fn` sets its own attributes on `span`.
+ *
+ * - When `fn` returns an `Err`, `inSpan` marks the span failed and sets `error.type` to the error's
+ *   `kind`.
+ * - When `fn` throws, `inSpan` marks the span failed, records the exception, sets `error.type` to
+ *   the exception's class, and rethrows.
  */
 export function inSpan<T, E extends Tagged>(
   name: string,
@@ -31,7 +33,7 @@ export function inSpan<T>(name: string, fn: (span: Span) => T): T {
   });
 }
 
-/** Like `inSpan`, for work that returns a `ResultAsync`: the span ends when it settles. */
+/** Runs `fn` in a span, as `inSpan` does, and ends the span when the `ResultAsync` settles. */
 export function inSpanAsync<T, E extends Tagged>(
   name: string,
   fn: (span: Span) => ResultAsync<T, E>,
@@ -47,7 +49,7 @@ export function inSpanAsync<T, E extends Tagged>(
   );
 }
 
-// The overloads only let a `Tagged` error reach an `Err` here.
+// The overloads guarantee that any `Err` checked here wraps a `Tagged` error.
 const isFailure = (value: unknown): value is Err<unknown, Tagged> => value instanceof Err;
 
 function finish<T>(span: Span, value: T): T {
@@ -61,7 +63,10 @@ function finish<T>(span: Span, value: T): T {
   return value;
 }
 
-/** Records the error on `span` (class, message, and stack), marks it failed, ends it, and rethrows. */
+/**
+ * Records the error on `span` (class, message, and stack), marks the span failed, ends it, and
+ * rethrows the error.
+ */
 function fail(span: Span, error: unknown): never {
   span.recordException(error instanceof Error ? error : String(error));
   span.setStatus({ code: SpanStatusCode.ERROR });
@@ -71,7 +76,7 @@ function fail(span: Span, error: unknown): never {
   throw error;
 }
 
-/** Runs `fn` with tracing off, so an idle poll's I/O records no spans. */
+/** Runs `fn` with tracing off, to keep an idle poll's I/O out of the traces. */
 export function untraced<T>(fn: () => T): T {
   return context.with(suppressTracing(context.active()), fn);
 }

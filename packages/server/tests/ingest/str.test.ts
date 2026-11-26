@@ -20,7 +20,7 @@ function readable(bytes: Uint8Array): ReadableEdfFile {
   return file;
 }
 
-// STR.edf has 10 slots a day and writes -1, read as NaN, in each unused one.
+// Pads `slots` to STR.edf's 10 slots with NaN.
 const tenSlots = (slots: readonly number[]): number[] =>
   Array.from({ length: 10 }, (_, i) => slots[i] ?? Number.NaN);
 

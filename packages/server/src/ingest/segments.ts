@@ -8,22 +8,25 @@ import type { AppContext } from "../runtime/context.ts";
 import { inSpan } from "../telemetry.ts";
 import type { ReadyFile } from "./versions.ts";
 
-/** A ready BRP or PLD file, with the header and size check that readiness accepted. */
+/** A ready BRP or PLD file, with the header and size check that the readiness check accepted. */
 export type SegmentFile = ReadyFile & {
   kind: "brp" | "pld";
   edf: EdfFile & { size: Exclude<FileSizeCheck, { verdict: "reject" }> };
 };
 
-/** One night's inputs: its STR.edf day and its ready BRP and PLD files. */
+/** The inputs for one night are its STR.edf day and its ready BRP and PLD files. */
 export type NightFiles = {
   night: Temporal.PlainDate;
-  /** The home time zone, whose winter offset converts the device clock. */
+  /** The home time zone. */
   zone: string;
   day: UsedStrDay;
   files: readonly SegmentFile[];
 };
 
-/** One BRP file's stretch of recording, numbered from 1 in time order, with the PLD files on it. */
+/**
+ * The stretch of time that one BRP file recorded, with the PLD files attached to it. Segments are
+ * numbered from 1 in time order.
+ */
 export type NightSegment = Span & {
   segment: number;
   session: number;
@@ -32,8 +35,8 @@ export type NightSegment = Span & {
 };
 
 /**
- * A warning about a file planSegments left out. A header-only file gets `header_only`, and a PLD
- * file that doesn't match any segment gets `unattached_pld`.
+ * A warning about a file that planSegments left out. The kind is `header_only` for a header-only
+ * file, and `unattached_pld` for a PLD file that doesn't match any segment.
  */
 export type SegmentWarning =
   | { kind: "header_only"; path: string; fileKind: SegmentFile["kind"] }
@@ -62,11 +65,13 @@ const overlap = (a: Span, b: Span): number =>
   );
 
 /**
- * A night's segments and sessions. Each BRP file with records is a segment. Each PLD file with
- * records attaches to the segment it overlaps most, the earlier one on a tie, so both halves of a
- * split PLD land on one segment. `buildSessions` then builds the sessions from the night's STR.edf
- * slots and the segments. planSegments leaves out a header-only file or a PLD file that doesn't
- * match any segment, and emits a warning.
+ * Plans a night's segments and sessions:
+ *
+ * - Each BRP file with records is a segment.
+ * - Each PLD file with records is assigned to the segment that it overlaps most, or to the earlier
+ *   segment on a tie, so both halves of a split PLD file are assigned to the same segment.
+ * - `buildSessions` builds the sessions from the night's STR.edf slots and the segments.
+ * - A header-only file, or a PLD file that doesn't overlap any segment, is left out with a warning.
  */
 export function planSegments({ night, zone, day, files }: NightFiles): NightSegments {
   const warnings = files.flatMap((file): SegmentWarning[] =>

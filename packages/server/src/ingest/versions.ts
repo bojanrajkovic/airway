@@ -11,10 +11,10 @@ import { readEdfFile } from "./edf.ts";
 import { checkReadiness, type HeaderRead, type RejectReason, type SeenFile } from "./readiness.ts";
 import type { Scan, ScannedFile } from "./scan.ts";
 
-/** What identifies an imported file: a new size or hash is a new version. */
+/** Identifies one version of an imported file. A new size or hash makes a new version. */
 export type FileVersion = Pick<FileRow, "path" | "size" | "sha256">;
 
-/** A ready file, with its hash and, for an EDF file, its header. */
+/** A file that's ready to import, with its hash. `edf` is the header of an EDF file. */
 export type ReadyFile = ScannedFile & FileVersion & { edf: EdfFile | null };
 
 export type RejectedFile = ScannedFile & { reason: RejectReason };
@@ -25,11 +25,12 @@ export type FileStates = { ready: ReadyFile[]; waiting: ScannedFile[]; rejected:
 type HashError = { kind: "hash_failed"; path: string; message: string };
 
 /**
- * Updates `seen`, the poller's memory of each path, from this poll's scan, and sorts the files by
- * readiness. A file's header is read only when its size or ctime changed, and a ready file is
- * hashed only once per version, so an unchanged folder costs only the scan. Paths missing from the
- * scan are forgotten. A rejected file is logged once per version. A file that can't be hashed is
- * logged and forgotten, so it waits and the next poll starts it over.
+ * Updates `seen` from this poll's scan and sorts the scanned files by readiness.
+ *
+ * - A file's header is read only when its size or ctime changed.
+ * - A ready file is hashed once per version.
+ * - A rejected file is logged once per version.
+ * - Paths missing from the scan are removed from `seen`.
  */
 export function checkVersions(
   ctx: AppContext,
@@ -109,8 +110,9 @@ async function sort(
 }
 
 /**
- * The path's state after this scan: the same entry if nothing changed, or a fresh one. A header
- * that couldn't be read for an I/O reason is read again on every poll, keeping its clock.
+ * Returns the previous entry when the file's size and ctime are unchanged, and a new entry
+ * otherwise. When an I/O error stopped the header read, every poll reads the header again and
+ * keeps the entry's `since`.
  */
 async function update(
   ctx: AppContext,
@@ -178,7 +180,7 @@ function logRejection(
   logger.warn({ path: file.path, reason, size: file.size, ...counts, ...error }, "file rejected");
 }
 
-/** The SHA-256 of a file in the CPAP data folder, streamed, in hex. */
+/** Streams a file from the CPAP data folder and returns its SHA-256 in hex. */
 function hash(ctx: AppContext, path: string): ResultAsync<string, HashError> {
   return inSpanAsync("ingest.hash", (span) => {
     span.setAttribute("airway.file.path", path);

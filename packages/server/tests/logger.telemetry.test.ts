@@ -8,7 +8,7 @@ import { createLogger, type Logger } from "../src/logger.ts";
 inMemoryTelemetry();
 
 describe("createLogger", () => {
-  /** What one log call wrote, parsed. */
+  /** Runs `write` on a new logger and returns the JSON line it wrote. */
   function logLine(write: (log: Logger) => void): Record<string, unknown> {
     let line = "";
     const sink = new Writable({

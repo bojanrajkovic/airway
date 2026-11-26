@@ -23,13 +23,13 @@ export type TestIssuer = {
   jwksUrl: () => string;
   /** A signed token for Sam, issued at `now`. */
   mint: (now: Temporal.Instant, options: MintOptions) => Promise<string>;
-  /** An `alg: none` token with the same claims, which must never be accepted. */
+  /** An `alg: none` token with the same claims as `mint`'s. */
   unsigned: (now: Temporal.Instant, host: string) => string;
 };
 
 /**
- * Serves a JWKS on a local port for the file's tests, and mints tokens against it. Call it at the
- * top level of a test file.
+ * Serves a JWKS on a local port for the file's tests, and mints tokens signed with its key. Call
+ * it at the top level of a test file.
  */
 export function testIssuer(): TestIssuer {
   let keys: { signing: CryptoKey; foreign: CryptoKey } | undefined = undefined;
@@ -67,7 +67,7 @@ export function testIssuer(): TestIssuer {
     jwksUrl: () => url,
     mint: async (now, { host, expiresAt, foreignKey = false, noName = false }) => {
       if (keys === undefined) {
-        throw new Error("mint() runs inside a test, after the issuer starts");
+        throw new Error("mint() was called before the issuer started; call it inside a test");
       }
 
       const issuedAt = Math.floor(now.epochMilliseconds / 1000);

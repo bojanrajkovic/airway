@@ -1,11 +1,11 @@
-// Reads whole EDF files back for the writer's and the synthetic files' tests, and assumes they're
-// well formed. It stays separate from ingest's reader on purpose, so one misreading of the format can't pass both
-// sides' tests.
+// Reads whole EDF files back in the tests for the EDF writer and for the synthetic files. This
+// reader assumes every file is well formed. It stays separate from ingest's reader on purpose, so
+// one misreading of the format can't pass the tests on both the writing side and the reading side.
 
 const decoder = new TextDecoder();
 
-// Same shape as @airway/edf's SignalHeader. Importing it would make @airway/testing and
-// @airway/edf depend on each other.
+// ParsedSignal has the same shape as @airway/edf's SignalHeader. Importing SignalHeader would make
+// @airway/testing and @airway/edf depend on each other.
 export type ParsedSignal = {
   label: string;
   unit: string;
@@ -27,7 +27,7 @@ export type ParsedEdf = {
   records: number;
   recordDuration: string;
   signals: ParsedSignal[];
-  /** Each signal's stored int16 values across all records, by label. */
+  /** Maps each signal's label to the int16 values stored for that signal across all records. */
   digital: Map<string, Int16Array>;
 };
 
@@ -106,7 +106,7 @@ export function readBackEdf(bytes: Uint8Array): ParsedEdf {
 
 export type ReadAnnotation = { onset: number; duration: number; label: string };
 
-/** The annotations in an EDF+ file, without the timekeeping entries. */
+/** Returns the annotations in an EDF+ file and skips the timekeeping entries. */
 export function readBackAnnotations(bytes: Uint8Array): ReadAnnotation[] {
   const file = readBackEdf(bytes);
   const [signal] = file.signals;
@@ -118,7 +118,7 @@ export function readBackAnnotations(bytes: Uint8Array): ReadAnnotation[] {
     const start = file.headerBytes + record * recordBytes;
     const text = decoder.decode(bytes.subarray(start, start + annotationBytes));
 
-    // Each entry ends in \x14\0; an entry with no label after its times is timekeeping.
+    // Each entry ends in \x14\0. A timekeeping entry consists only of its times.
     for (const entry of text.split("\0").filter((part) => part.startsWith("+"))) {
       const [times = "", label] = entry.split("\x14");
       const [onset = "", duration = ""] = times.split("\x15");

@@ -4,7 +4,7 @@ import { ADMIN_URL, ROLE_PASSWORD, ROLES, runAsAdmin } from "./roles.ts";
 
 type PostgresFixtures = { databaseUrl: string; readerUrl: string };
 
-// ADMIN_URL's host, with another role and database.
+// Returns ADMIN_URL changed to connect as `role` to `database`.
 function urlFor(role: string, database: string): string {
   const url = new URL(ADMIN_URL);
   url.username = role;
@@ -15,9 +15,10 @@ function urlFor(role: string, database: string): string {
 }
 
 /**
- * Vitest's `test`, plus two fixtures for an empty database that's created the first time a test in
- * the file asks for it, shared by the file's other tests, and dropped (closing any connections
- * still open) when the file finishes:
+ * Extends Vitest's `test` with two fixtures that connect to the same empty database. `databaseUrl`
+ * creates the database the first time a test in the file asks for it, and the file's other tests
+ * share it. When the file finishes, `databaseUrl` drops the database and closes any connections
+ * that are still open.
  *
  * - `databaseUrl` connects as the owner role, which owns the database and isn't a superuser.
  * - `readerUrl` connects to the same database as the read-only reader role.
@@ -25,7 +26,7 @@ function urlFor(role: string, database: string): string {
 export const test = base.extend<PostgresFixtures>({
   databaseUrl: [
     async ({}, use) => {
-      // The name is ours, never input, so it's safe to put in the statement directly.
+      // This fixture generates the name, so it's safe to put in the statement directly.
       const name = `airway_test_${randomUUID().replaceAll("-", "")}`;
       await runAsAdmin(`create database ${name} owner ${ROLES.owner}`);
 

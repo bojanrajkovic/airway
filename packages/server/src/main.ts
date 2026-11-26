@@ -20,11 +20,10 @@ const config = result.value;
 const logger = createLogger(config.logLevel);
 
 if (config.auth.mode === "none") {
-  logger.warn("authentication is off: every request acts as the configured local author");
+  logger.warn("authentication is off, so every request acts as the configured local author");
 }
 
-// Everything opened below registers its cleanup here, and shutdown closes it in reverse order: the
-// listener stops taking requests before the pools close.
+// Shutdown disposes these in reverse order, so the listener stops before the pools close.
 const resources = new AsyncDisposableStack();
 const ctx: AppContext = {
   config,
@@ -33,7 +32,7 @@ const ctx: AppContext = {
   db: resources.use(createPools(config, logger)),
 };
 
-// The listener comes first, so the pod answers /healthz while later startup work runs.
+// Start the listener first, so the pod answers /healthz while later startup work runs.
 const builtWebRoot = fileURLToPath(new URL("./public/", import.meta.url));
 const webRoot = existsSync(builtWebRoot) ? builtWebRoot : undefined;
 

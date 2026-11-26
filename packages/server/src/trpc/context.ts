@@ -4,18 +4,18 @@ import type { AuthorEnv } from "../auth/middleware.ts";
 import type { Logger } from "../logger.ts";
 import type { AppContext } from "../runtime/context.ts";
 
-/** What every procedure gets as `ctx`. */
+/** tRPC passes this to every procedure as `ctx`. */
 export type TrpcContext = {
   app: AppContext;
-  /** Who called, set by requireAuthor before tRPC runs. */
+  /** requireAuthor sets this to the caller before tRPC runs. */
   author: Author;
   /** Aborts when the client goes away, so long queries can stop. */
   signal: AbortSignal;
-  /** Bound to the procedure's path by the base procedure. */
+  /** The base procedure binds the procedure's path to this logger. */
   log: Logger;
 };
 
-/** Builds a request's tRPC context from the Hono request requireAuthor already let through. */
+/** Builds the tRPC context for a Hono request that requireAuthor has authenticated. */
 export function createContext(app: AppContext, c: Context<AuthorEnv>): TrpcContext {
   return {
     app,

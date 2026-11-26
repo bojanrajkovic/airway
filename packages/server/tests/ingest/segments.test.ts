@@ -10,7 +10,7 @@ import { segmentFiles, usedDays } from "../support/cpap-folder.ts";
 
 const arrivedAt = Temporal.Instant.from("2030-03-01T12:00:00Z");
 
-// An edge case's planSegments input for each imported night, and the rows synthetic expects.
+// Test inputs and expected rows for one edge case.
 type Case = { inputs: NightFiles[]; files: CpapFile[]; rows: DerivedRows };
 
 function edgeCase(name: EdgeCaseName): Case {
@@ -25,11 +25,11 @@ function edgeCase(name: EdgeCaseName): Case {
   return { inputs, files, rows };
 }
 
-// The sessions synthesize expects, in buildSessions' shape.
+// Converts the session rows that synthesize expects to buildSessions' shape.
 const asSessions = (rows: readonly SessionRow[]): Session[] =>
   rows.map(({ session, ts, ended_at, source }) => ({ session, start: ts, end: ended_at, source }));
 
-// What a night's plan would write to the segments table.
+// Returns the rows that a night's plan would write to the segments table.
 function asRows({ night }: NightFiles, plan: NightSegments): Pick<DerivedRows, "segments"> {
   return {
     segments: plan.segments.map(({ segment, session, start, end }) => ({
@@ -59,7 +59,7 @@ describe("planSegments", () => {
     "damaged-files",
     "fall-back",
     "spring-forward",
-  ])("gives the sessions, segments, and file segments synthesize expects for %s", (name) => {
+  ])("returns the sessions, segments, and file segments that synthesize expects for %s", (name) => {
     const { inputs, rows } = edgeCase(name);
 
     expect(inputs).not.toHaveLength(0);
@@ -90,7 +90,7 @@ describe("planSegments", () => {
       expect(plan?.segments.some(({ plds }) => plds.length === 2)).toBe(true);
     });
 
-    it("gives a BRP file with no PLD a segment with no PLD files", () => {
+    it("plans a segment with an empty PLD list for a BRP file that has no PLD", () => {
       expect(plan?.segments.some(({ plds }) => plds.length === 0)).toBe(true);
     });
 
@@ -110,7 +110,7 @@ describe("planSegments", () => {
     const [input] = inputs;
     const plan = input === undefined ? undefined : planSegments(input);
 
-    it("leaves out each header-only BRP and PLD file with a warning", () => {
+    it("skips each header-only BRP and PLD file and warns about it", () => {
       const headerOnly = input?.files.filter(({ edf }) => edf.size.verdict === "skip") ?? [];
 
       expect(new Set(headerOnly.map(({ kind }) => kind))).toEqual(new Set(["brp", "pld"]));
@@ -119,7 +119,7 @@ describe("planSegments", () => {
       );
     });
 
-    it("ends a segment after every record on disk when its header undercounts", () => {
+    it("ends a segment after the last record on disk when the BRP header undercounts the records", () => {
       const undercounted = plan?.segments.find(({ brp }) =>
         brp.edf.size.verdict === "read" ? brp.edf.size.header === "undercounted" : false,
       );

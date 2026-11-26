@@ -5,11 +5,17 @@ import type { FILE_KINDS } from "@airway/contract/derived/values";
 import type { AppContext } from "../runtime/context.ts";
 import { inSpanAsync } from "../telemetry.ts";
 
-/** A file ingest reads, as one stat call saw it. `path` is relative to the CPAP data folder. */
+/**
+ * Describes a file that ingest reads. `size` and `ctime` come from one stat call, and `path` is
+ * relative to the CPAP data folder.
+ */
 export type ScannedFile = {
   path: string;
   kind: (typeof FILE_KINDS)[number];
-  /** The DATALOG folder's date; null for STR.edf and Identification.tgt. */
+  /**
+   * `night` is the date of the file's DATALOG folder. It's null for STR.edf and
+   * Identification.tgt.
+   */
   night: Temporal.PlainDate | null;
   size: number;
   ctime: Temporal.Instant;
@@ -17,7 +23,7 @@ export type ScannedFile = {
 
 export const SKIP_REASONS = ["sad", "csl", "crc", "other", "folder"] as const;
 
-/** What a scan found, and how many entries it passed over, by reason. */
+/** Holds the files that a scan found, and counts the entries that it skipped for each reason. */
 export type Scan = {
   files: ScannedFile[];
   skipped: Record<(typeof SKIP_REASONS)[number], number>;
@@ -25,8 +31,9 @@ export type Scan = {
 
 export type ScanError = { kind: "read_failed"; path: string; message: string };
 
-// A night file's kind or skip reason, by the last 8 characters of its name. A file ingest reads
-// keeps its .crc companion, so the checksum can be checked at import.
+// These two tables map the last 8 characters of a night file's name to the file's kind or skip
+// reason. The scan also lists the .crc file of each file that ingest reads, so that import can
+// verify the checksum.
 const NIGHT_FILES: Readonly<Record<string, ScannedFile["kind"]>> = {
   "_BRP.edf": "brp",
   "_PLD.edf": "pld",
@@ -47,7 +54,7 @@ const ROOT_FILES: Readonly<Record<string, ScannedFile["kind"]>> = {
   "Identification.crc": "crc",
 };
 
-/** A DATALOG folder name as a night, or null when it isn't a real YYYYMMDD date. */
+/** Parses a DATALOG folder name as a night. Returns null when the name isn't a YYYYMMDD date. */
 function nightOf(name: string): Temporal.PlainDate | null {
   if (!/^\d{8}$/v.test(name)) {
     return null;
@@ -61,11 +68,20 @@ function nightOf(name: string): Temporal.PlainDate | null {
 }
 
 /**
- * Lists the CPAP data folder's STR.edf, Identification.tgt, and each DATALOG/YYYYMMDD folder's
- * BRP, PLD, and EVE files, with the .crc companion of each, without opening any of them. SAD and
- * CSL files and their .crc files, other entries, and folders that aren't dates are counted and
- * skipped. A missing DATALOG folder means no nights yet. Any read error fails the scan, and the
- * next poll tries again.
+ * Lists the files that ingest reads in the CPAP data folder, each with its .crc file:
+ *
+ * - STR.edf
+ * - Identification.tgt
+ * - the BRP, PLD, and EVE files in each DATALOG/YYYYMMDD folder
+ *
+ * The scan reads only each file's size and ctime, with one stat call per file. It treats a missing
+ * DATALOG folder as empty. Any read error fails the scan, and the next poll tries again.
+ *
+ * The scan skips and counts these entries:
+ *
+ * - SAD and CSL files and their .crc files
+ * - DATALOG folders whose names aren't dates
+ * - every other entry
  */
 export function scanCpapData(ctx: AppContext): ResultAsync<Scan, ScanError> {
   const root = ctx.config.cpapDataPath;
@@ -118,7 +134,7 @@ async function walk(root: string): Promise<Scan> {
     }
   }
 
-  // No DATALOG folder yet means no nights yet.
+  // The scan treats a missing DATALOG folder as empty.
   const folders = hasDatalog ? await readdir(join(root, "DATALOG"), { withFileTypes: true }) : [];
 
   for (const folder of folders) {

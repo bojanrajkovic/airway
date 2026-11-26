@@ -4,7 +4,10 @@ import pg from "pg";
 import type { Config } from "../config.ts";
 import type { Logger } from "../logger.ts";
 
-/** An int8 as a number. Throws instead of rounding one past 2^53, such as a corrupt counter. */
+/**
+ * Parses an int8 as a number. Throws on a value past 2^53, such as a corrupt counter, instead of
+ * rounding it.
+ */
 function parseInt8(text: string): number {
   const value = Number(text);
   if (!Number.isSafeInteger(value)) {
@@ -22,8 +25,8 @@ const PARSERS = new Map<number, (text: string) => unknown>([
 ]);
 
 /**
- * Set on each pool rather than on pg's global `types`, so other pg clients in the process (such as
- * the test database fixture) keep pg's defaults.
+ * Each pool gets these parsers in its own config. Other pg clients in the process, such as the
+ * test database fixture, read pg's global `types` and keep pg's defaults.
  */
 const types: pg.CustomTypesConfig = {
   // airway reads results as text, pg's default, so only text parsers are needed.
@@ -36,7 +39,7 @@ const types: pg.CustomTypesConfig = {
 };
 
 export type Pools = AsyncDisposable & {
-  /** The owner role: every write, through Drizzle. No statement timeout. */
+  /** The owner role, which makes every write through Drizzle. Its statements have no timeout. */
   owner: { pool: pg.Pool; db: NodePgDatabase };
   /** The read-only reader role, for the web API's queries. */
   api: pg.Pool;
@@ -64,8 +67,7 @@ export function createPools(
       ...(timeoutMs === undefined ? {} : { statement_timeout: timeoutMs }),
     });
     // pg emits this when an idle connection drops, and crashes the process if nothing listens. The
-    // pool replaces the connection on its next query. The message isn't logged: a database error's
-    // message can hold data.
+    // pool replaces the connection on its next query.
     created.on("error", (error) => {
       log.warn(
         { pool: name, code: "code" in error ? String(error.code) : error.name },

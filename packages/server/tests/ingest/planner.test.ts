@@ -6,7 +6,7 @@ import { planNights } from "../../src/ingest/planner.ts";
 import type { ScannedFile } from "../../src/ingest/scan.ts";
 import type { FileStates, FileVersion, ReadyFile } from "../../src/ingest/versions.ts";
 
-// Three synthetic nights; STR.edf has a record for each and none after.
+// The model has three synthetic nights. STR.edf's records stop at the third night.
 const model = syntheticNights({ seed: 3, nights: 3 })._unsafeUnwrap();
 const [first, second, third] = model.nights.map(({ night }) => night);
 const strEdf = readHeader(strFile(model.nights, model.zone)._unsafeUnwrap())._unsafeUnwrap();
@@ -56,7 +56,7 @@ describe("planNights", () => {
     expect(plan.nights).toEqual([first]);
   });
 
-  it("holds a whole night while one of its files waits", () => {
+  it("holds back a whole night while one of its files is waiting", () => {
     const plan = planNights(
       states({
         ready: [str, brp(first, 1), brp(second)],
@@ -80,7 +80,7 @@ describe("planNights", () => {
     expect(plan).toMatchObject({ nights: [first], waiting: [], rejected: [truncated] });
   });
 
-  it("re-plans an imported night when a .crc arrives after it, without touching the STR.edf tables", () => {
+  it("re-plans an imported night when a .crc file arrives after the import, and leaves rewriteStrTables false", () => {
     const crc: ReadyFile = { ...brp(first, 1), path: "DATALOG/x/1_BRP.crc", kind: "crc" };
     const imported = [str, brp(first, 1)].map(version);
     const plan = planNights(states({ ready: [str, brp(first, 1), crc] }), imported);
@@ -88,21 +88,21 @@ describe("planNights", () => {
     expect(plan).toMatchObject({ nights: [first], rewriteStrTables: false });
   });
 
-  it("re-plans an imported night when its rejected file later turns ready", () => {
-    // The first import left the rejected BRP out, so it has no imported version.
+  it("re-plans an imported night when its rejected file later becomes ready", () => {
+    // The first import skipped the rejected BRP file, so `imported` lists only the other two.
     const imported = [str, brp(first, 1)].map(version);
     const plan = planNights(states({ ready: [str, brp(first, 1), brp(first, 2)] }), imported);
 
     expect(plan.nights).toEqual([first]);
   });
 
-  it("changes nothing when an imported file leaves the folder", () => {
+  it("skips a night after one of its imported files disappears from the folder", () => {
     const imported = [str, brp(first, 1), brp(first, 2)].map(version);
 
     expect(planNights(states({ ready: [str, brp(first, 1)] }), imported).nights).toEqual([]);
   });
 
-  it("holds a night STR.edf has no record for, and every night while STR.edf isn't ready", () => {
+  it("holds back a night that is missing from STR.edf, and holds back every night while STR.edf is waiting", () => {
     const withStr = planNights(states({ ready: [str, brp(third), brp(afterStr)] }), [version(str)]);
     expect(withStr).toMatchObject({ nights: [third], waiting: [afterStr] });
 
@@ -113,7 +113,7 @@ describe("planNights", () => {
     expect(waitingStr).toMatchObject({ nights: [], waiting: [first] });
   });
 
-  it("asks for the STR.edf tables when STR.edf or Identification.tgt has a new version", () => {
+  it("sets rewriteStrTables when STR.edf or Identification.tgt has a new version", () => {
     const identification: ReadyFile = {
       ...ready("Identification.tgt", null),
       kind: "identification",

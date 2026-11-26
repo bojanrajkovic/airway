@@ -16,20 +16,20 @@ import type { AppContext } from "../runtime/context.ts";
 import { inSpanAsync } from "../telemetry.ts";
 import type { ReadyFile } from "./versions.ts";
 
-/** An EVE file that passed the readiness check. `edf` is the header that check read. */
+/** An EVE file that passed the readiness check. `edf` is the header that the check read. */
 export type EveFile = ReadyFile & { kind: "eve"; edf: EdfFile };
 
-/** Everything `scoreNight` reads for one night. `sessions` comes from `buildNight`. */
+/** The input to `scoreNight` for one night. `buildNight` produces `sessions`. */
 export type NightEvents = {
   night: Temporal.PlainDate;
-  /** The home time zone, whose winter offset converts the device clock. */
+  /** The home time zone. */
   zone: string;
   day: UsedStrDay;
   files: readonly EveFile[];
   sessions: Pick<Sessions, "sessions" | "approximate">;
 };
 
-/** Why an EVE file failed to read or parse, and the file's path. */
+/** The error from reading or parsing an EVE file, with the file's path. */
 export type EventFileError = EdfReadError & { path: string };
 
 /** `nightRow`'s result, plus the night's event rows. */
@@ -67,13 +67,13 @@ const EVENT_TYPE_OF: ReadonlyMap<string, EventType> = new Map([
 const RECORDING_STARTS = "recording starts";
 
 /**
- * Converts a night's EVE annotations into event rows sorted by time, and places each row in a
- * session with `assignEvents`. Label matching ignores case. `toEvents` drops "Recording starts"
- * and turns any label it doesn't recognize into an `other` event, with the original text in its
- * `label`. `unknownLabels` lists each of those labels once per file, with the number of times it
- * appears in that file. An onset marks the end of an event, so a row's `ts` is the annotation's
- * onset minus its duration. The machine writes a duration of 0 for the events it doesn't time,
- * such as hypopneas and arousals, and `toEvents` stores that 0 as null.
+ * Converts a night's EVE annotations into event rows sorted by time, and uses `assignEvents` to
+ * place each row in a session. Label matching ignores case. `toEvents` drops "Recording starts",
+ * turns any label that it doesn't recognize into an `other` event, and keeps the original text in
+ * the event's `label`. `unknownLabels` lists each of those labels once per file, with the number
+ * of times it appears in that file. An onset marks the end of an event, so a row's `ts` is the
+ * annotation's onset minus its duration. The machine writes a duration of 0 for the events that
+ * it doesn't time, such as hypopneas and arousals, and `toEvents` stores that 0 as null.
  */
 export function toEvents(
   night: Temporal.PlainDate,
@@ -147,7 +147,7 @@ function readEve(
   );
 }
 
-// Adds a span event and a warn log for each unknown label and for an AHI mismatch.
+// Adds a span event and logs a warning for each unknown label and for an AHI mismatch.
 function report(span: OtelSpan, logger: Logger, placed: PlacedEvents, scored: ScoredNight): void {
   for (const { label, path, count } of placed.unknownLabels) {
     span.addEvent("ingest.unknown_event_label", {
@@ -172,9 +172,10 @@ function report(span: OtelSpan, logger: Logger, placed: PlacedEvents, scored: Sc
 /**
  * Reads a night's EVE files, places the events in the night's sessions, and builds the night's
  * row, all inside an `ingest.events` span. The span records the night, the number of EVE files, the
- * number of events, and the result of the AHI check. Each unknown label and any AHI mismatch add a
- * span event and a `warn` log. If an EVE file fails to read or parse, `scoreNight` returns an
- * `EventFileError` and adds an `ingest.event_file_failed` span event and an `error` log.
+ * number of events, and the result of the AHI check. `scoreNight` adds a span event and logs a
+ * warning for each unknown label and for an AHI mismatch. If an EVE file fails to read or parse,
+ * `scoreNight` returns an `EventFileError`, adds an `ingest.event_file_failed` span event, and logs
+ * the error.
  */
 export function scoreNight(
   ctx: AppContext,

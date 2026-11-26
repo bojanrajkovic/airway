@@ -14,7 +14,8 @@ beforeEach(() => {
   spans.reset();
 });
 
-// The damaged-files night, which has header-only files and a PLD file with no BRP file.
+// Returns the damaged-files night, which has header-only files and a PLD file that's missing
+// its BRP file.
 function damagedNight(): NightFiles {
   const { nights, zone } = syntheticNights({
     seed: 7,
@@ -52,7 +53,7 @@ describe("buildNight", () => {
     });
   });
 
-  it("adds a span event and a warn log for each warning, with the file's path", () => {
+  it("adds a span event and writes a warn log for each warning, and both carry the warning's file path", () => {
     const { logger, lines } = capturingLogger();
     const input = damagedNight();
     const planned = buildNight(testContext({ logger }), input);

@@ -3,10 +3,10 @@ import type { Result, ResultAsync } from "neverthrow";
 import type { Tagged } from "../telemetry.ts";
 
 /**
- * A service's result as a procedure's return value: the `Ok` value, or a `TRPCError` with the code
+ * Returns the `Ok` value of a service's result, or throws a `TRPCError` with the code that
  * `codeFor` picks for the `Err`. Each service has one `codeFor` covering its whole error union, so
- * a new case fails to compile until it's mapped. The error carries only its code: the service
- * already logged the details, and they aren't the client's.
+ * a new case fails to compile until it's mapped. The `TRPCError` includes only the code, because
+ * the service already logged the details and the client doesn't need them.
  */
 export async function toTRPC<T, E extends Tagged>(
   result: Result<T, E> | ResultAsync<T, E>,
