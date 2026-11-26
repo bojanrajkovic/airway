@@ -10,7 +10,7 @@ import { segmentFiles, usedDays } from "../support/cpap-folder.ts";
 
 const arrivedAt = Temporal.Instant.from("2030-03-01T12:00:00Z");
 
-// Test inputs and expected rows for one edge case.
+// Describes one edge case's test inputs and expected rows.
 type Case = { inputs: NightFiles[]; files: CpapFile[]; rows: DerivedRows };
 
 function edgeCase(name: EdgeCaseName): Case {

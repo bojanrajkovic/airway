@@ -6,7 +6,7 @@ import { parseExploreQuery, toExploreUrl } from "../../src/query/link.ts";
 import { parseSpec } from "../../src/query/spec.ts";
 
 const events = { v: 1, dataset: "events", nights: { last: 7 } };
-/** The decoded `q` of a link, as a router hands it over. */
+/** Returns a link's `q`, decoded the way a router decodes it. */
 const queryOf = (url: string): string =>
   new URL(url, "http://airway.test").searchParams.get("q") ?? "";
 

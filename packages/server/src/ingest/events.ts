@@ -17,28 +17,31 @@ import type { AppContext } from "../runtime/context.ts";
 import { inSpanAsync } from "../telemetry.ts";
 import type { ReadyFile } from "./versions.ts";
 
-/** An EVE file that passed the readiness check. `edf` is the header that the check read. */
+/**
+ * Describes an EVE file that passed the readiness check. `edf` is the header that the check
+ * read.
+ */
 export type EveFile = ReadyFile & { kind: "eve"; edf: EdfFile };
 
-/** The input to `scoreNight` for one night. `buildNight` produces `sessions`. */
+/** Describes one night's input to `scoreNight`. `buildNight` produces `sessions`. */
 export type NightEvents = {
   night: Temporal.PlainDate;
-  /** The home time zone. */
+  /** `toInstant` reads each EVE header's device-clock start in this home time zone. */
   zone: string;
   day: UsedStrDay;
   files: readonly EveFile[];
   sessions: Pick<Sessions, "sessions" | "approximate">;
 };
 
-/** The error from reading or parsing an EVE file, with the file's path. */
+/** Adds the file's path to the error from reading or parsing an EVE file. */
 export type EventFileError = EdfReadError & { path: string };
 
-/** `nightRow`'s result, plus the night's event rows. */
+/** Adds the night's event rows to the result of `nightRow`. */
 export type ScoredEvents = ScoredNight & { events: EventRow[] };
 
 /**
- * The annotations that `readEve` read from one EVE file. Each onset is the number of seconds after
- * `start`, which is the file's start time.
+ * Describes the annotations that `readEve` read from one EVE file. Each onset is the number of
+ * seconds after `start`, which is the file's start time.
  */
 export type FileAnnotations = {
   path: string;
@@ -47,8 +50,7 @@ export type FileAnnotations = {
 };
 
 /**
- * An EVE label that airway doesn't recognize, with the file's path and the number of times the
- * label appears in that file.
+ * Records how many times an EVE label that airway doesn't recognize appears in one EVE file.
  */
 export type UnknownLabel = { label: string; path: string; count: number };
 

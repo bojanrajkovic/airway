@@ -14,12 +14,12 @@ import type { Scan, ScannedFile } from "./scan.ts";
 /** Identifies one version of an imported file. A new size or hash makes a new version. */
 export type FileVersion = Pick<FileRow, "path" | "size" | "sha256">;
 
-/** A file that's ready to import, with its hash. `edf` is the header of an EDF file. */
+/** Describes a file that's ready to import, with its hash. `edf` is the header of an EDF file. */
 export type ReadyFile = ScannedFile & FileVersion & { edf: EdfFile | null };
 
 export type RejectedFile = ScannedFile & { reason: RejectReason };
 
-/** Each scanned file, sorted by readiness. */
+/** Groups the scanned files by readiness. */
 export type FileStates = { ready: ReadyFile[]; waiting: ScannedFile[]; rejected: RejectedFile[] };
 
 type HashError = { kind: "hash_failed"; path: string; message: string };

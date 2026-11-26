@@ -6,10 +6,10 @@ import type { EVENT_TYPES } from "./values.ts";
 
 type EventType = (typeof EVENT_TYPES)[number];
 
-/** The event-row fields that `nightRow` and `ahiCheck` read. */
+/** Picks the event-row fields that `nightRow` and `ahiCheck` read. */
 export type NightEvent = Pick<EventRow, "type" | "outside_mask_on">;
 
-/** The event types that count toward the AHI. */
+/** `ahiCheck` counts these event types toward the AHI. */
 const AHI_EVENTS: ReadonlySet<EventType> = new Set([
   "obstructive_apnea",
   "central_apnea",
@@ -18,8 +18,8 @@ const AHI_EVENTS: ReadonlySet<EventType> = new Set([
 ]);
 
 /**
- * The result of comparing the AHI that airway computes from the night's events with the machine's
- * AHI. Both values are in tenths.
+ * Describes the result of comparing the AHI that airway computes from the night's events with the
+ * machine's AHI. Both values are in tenths.
  */
 export type AhiCheck =
   | { outcome: "match"; tenths: number }

@@ -1,4 +1,5 @@
-// The server's Postgres connections. docs/server.md (Database pools) describes the roles and limits.
+// Creates the server's Postgres connection pools. docs/server.md (Database pools) describes the
+// roles and limits.
 import { drizzle, type NodePgDatabase } from "drizzle-orm/node-postgres";
 import pg from "pg";
 import type { Config } from "../config.ts";
@@ -17,7 +18,7 @@ function parseInt8(text: string): number {
   return value;
 }
 
-/** airway's parsers for Postgres text values, by type OID. */
+/** Maps each Postgres type OID to airway's parser for text values of that type. */
 const PARSERS = new Map<number, (text: string) => unknown>([
   [20, parseInt8], // int8
   [1082, (text) => Temporal.PlainDate.from(text)], // date
@@ -39,11 +40,14 @@ const types: pg.CustomTypesConfig = {
 };
 
 export type Pools = AsyncDisposable & {
-  /** The owner role, which makes every write through Drizzle. Its statements have no timeout. */
+  /**
+   * Connects as the owner role, which makes every write through Drizzle. Its statements have no
+   * timeout.
+   */
   owner: { pool: pg.Pool; db: NodePgDatabase };
-  /** The read-only reader role, for the web API's queries. */
+  /** Connects as the read-only reader role, for the web API's queries. */
   api: pg.Pool;
-  /** The read-only reader role, for agents' queries over MCP. */
+  /** Connects as the read-only reader role, for agents' queries over MCP. */
   agent: pg.Pool;
 };
 

@@ -1,6 +1,6 @@
 // Builds EDF bytes from literal field text, so the reader's tests never depend on the writer.
 
-/** One signal's header fields, as text. */
+/** Describes one signal's header fields as text. */
 export type SignalFields = {
   label: string;
   unit: string;
@@ -11,7 +11,9 @@ export type SignalFields = {
   samples: string;
 };
 
-/** The main header's fields, as text. `headerBytes` defaults to 256 per signal plus 256. */
+/**
+ * Describes the main header's fields as text. `headerBytes` defaults to 256 per signal plus 256.
+ */
 export type HeaderFields = {
   version?: string;
   patient?: string;
@@ -71,7 +73,10 @@ export function file(fields: HeaderFields, bodyBytes: number): Uint8Array {
   return bytes;
 }
 
-/** A Flow signal that stores 0.02 L/s per step over -32768..32767, with 2 samples per record. */
+/**
+ * Defines a Flow signal that stores 0.02 L/s per step over -32768..32767, with 2 samples per
+ * record.
+ */
 export const flow: SignalFields = {
   label: "Flow.40ms",
   unit: "L/s",
@@ -133,7 +138,7 @@ export const annotationSignal = (samples: number): SignalFields => ({
   samples: samples.toString(),
 });
 
-// The number of annotation bytes in each record of annotated().
+// Sets the number of annotation bytes in each record of annotated().
 const TAL_BYTES = 64;
 
 /** Returns the fields of an EDF+D header with a 64-byte annotation signal and a Crc16 signal. */

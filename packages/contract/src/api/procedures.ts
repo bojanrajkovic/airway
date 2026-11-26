@@ -12,9 +12,12 @@ const cell = z.union([z.number(), z.string(), z.boolean(), Instant, PlainDate, z
 /** `query.rows` takes the bucket and the group that a user clicked in a query's chart. */
 export const BucketSelection = z.strictObject({
   spec: querySpec,
-  /** The `bucket` value of the clicked series row. */
+  /** `bucket` matches the `bucket` value of the series row that the user clicked. */
   bucket: z.union([Instant, PlainDate]),
-  /** The group's value for each breakdown, in the order that the query lists its breakdowns. */
+  /**
+   * `breakdowns` contains the group's value for each breakdown, in the order that the query lists
+   * its breakdowns.
+   */
   breakdowns: z.array(cell),
 });
 export type BucketSelection = z.infer<typeof BucketSelection>;
@@ -39,10 +42,10 @@ export type BucketRows = {
   truncated: boolean;
 };
 
-/** A row of the `notes` table, which includes the note's author. */
+/** Resolves to a row of the `notes` table, which includes the note's author. */
 export type Note = typeof notes.$inferSelect;
 
-/** A finding's result, computed from the derived tables of one `derived_version`. */
+/** Describes a finding's result, computed from the derived tables of one `derived_version`. */
 export type Snapshot = { derivedVersion: number; ranAt: Temporal.Instant; result: SnapshotResult };
 
 /**

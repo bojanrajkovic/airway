@@ -1,4 +1,4 @@
-/** What a file's header says about its size, and the size on disk. */
+/** Combines the size fields from a file's header with the file's size on disk. */
 export type FileSizeInputs = {
   size: number;
   headerBytes: number;

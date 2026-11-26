@@ -99,8 +99,8 @@ export function usedDays(files: readonly CpapFile[]): UsedStrDay[] {
 }
 
 /**
- * A synthetic edge case set up for `scoreNight`. `input` is the case's first imported night,
- * `files` is its CPAP data folder, and `rows` contains the expected derived rows.
+ * Describes a synthetic edge case set up for `scoreNight`. `input` is the case's first imported
+ * night, `files` is its CPAP data folder, and `rows` contains the expected derived rows.
  */
 export type CaseNight = { input: NightEvents; files: CpapFile[]; rows: DerivedRows };
 
@@ -163,7 +163,7 @@ export function folderContext(root: string, overrides: Partial<AppContext> = {})
   return { ...ctx, config: { ...ctx.config, cpapDataPath: root } };
 }
 
-/** A logger and the parsed JSON of each line it has written. */
+/** Pairs a logger with the parsed JSON of each line it has written. */
 export type CapturedLogs = { logger: Logger; lines: Record<string, unknown>[] };
 
 const logLine = z.record(z.string(), z.unknown());

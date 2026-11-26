@@ -3,7 +3,7 @@ import type { MiddlewareHandler } from "hono";
 import type { AppContext } from "../runtime/context.ts";
 import { identifier } from "./identity.ts";
 
-/** Hono variables a route behind `requireAuthor` can read. */
+/** Declares the Hono variables that `requireAuthor` sets for the routes behind it. */
 export type AuthorEnv = { Variables: { author: Author } };
 
 /**

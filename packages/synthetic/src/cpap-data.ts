@@ -4,8 +4,8 @@ import { DEVICE, nightFiles, strFile, type NightFile, type SyntheticFileError } 
 import type { SyntheticNight } from "./model.ts";
 
 /**
- * A file in the CPAP data folder. `path` starts at the folder's root, and `bytes` is the file's
- * contents.
+ * Describes a file in the CPAP data folder. `path` starts at the folder's root, and `bytes` is
+ * the file's contents.
  */
 export type CpapFile = { path: string; bytes: Uint8Array };
 
@@ -50,8 +50,8 @@ const fileName = ({ kind, start }: NightFile): string =>
   `${compact(start.toPlainDate())}_${start.toPlainTime().toString().replaceAll(":", "").slice(0, 6)}_${kind.toUpperCase()}`;
 
 /**
- * One of a night's EDF files. `path` starts at the folder's root and leaves off the .edf
- * extension.
+ * Extends `NightFile` with the file's DATALOG path. `path` starts at the folder's root and leaves
+ * off the .edf extension.
  */
 export type DatalogFile = NightFile & { path: string };
 

@@ -163,10 +163,13 @@ function specOf(dataset: Dataset): fc.Arbitrary<QuerySpecInput> {
   );
 }
 
-/** A valid spec as a person or an agent might write it. Each optional part may be missing. */
+/**
+ * Generates a valid spec as a person or an agent might write it. Each optional part may be
+ * missing.
+ */
 export const specInput: fc.Arbitrary<QuerySpecInput> = fc.oneof(...DATASETS.map(specOf));
 
-/** A valid parsed spec. */
+/** Generates a spec with `specInput` and parses it, so every default is filled in. */
 export const spec: fc.Arbitrary<QuerySpec> = specInput.map((input) =>
   parseSpec(input).match(
     (parsed) => parsed,

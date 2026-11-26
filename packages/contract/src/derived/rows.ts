@@ -75,7 +75,7 @@ export type SegmentRow = {
 export type EventRow = {
   night: Temporal.PlainDate;
   session: number | null;
-  /** The event's start. When `duration` is null, `ts` is the event's end. */
+  /** `ts` is the event's start, or the event's end when `duration` is null. */
   ts: Temporal.Instant;
   duration: number | null;
   type: (typeof EVENT_TYPES)[number];

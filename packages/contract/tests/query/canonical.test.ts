@@ -6,7 +6,7 @@ import { parseSpec, type QuerySpec } from "../../src/query/spec.ts";
 
 const parsed = (input: unknown): QuerySpec => parseSpec(input)._unsafeUnwrap();
 
-/** The same value with every object's keys in the opposite order. */
+/** Returns `value` with every object's keys in the opposite order. */
 function reversed(value: unknown): unknown {
   if (Array.isArray(value)) {
     return value.map(reversed);

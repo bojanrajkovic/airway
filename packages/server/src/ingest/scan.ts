@@ -23,7 +23,7 @@ export type ScannedFile = {
 
 export const SKIP_REASONS = ["sad", "csl", "crc", "other", "folder"] as const;
 
-/** Holds the files that a scan found, and counts the entries that it skipped for each reason. */
+/** Lists the files that a scan found, and counts the entries that it skipped for each reason. */
 export type Scan = {
   files: ScannedFile[];
   skipped: Record<(typeof SKIP_REASONS)[number], number>;

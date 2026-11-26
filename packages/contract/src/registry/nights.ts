@@ -66,7 +66,7 @@ export const nights: Omit<Dataset, "columns"> & {
   columns: [
     night,
 
-    // The machine's statistics, from STR.edf.
+    // These columns come from the machine's statistics in STR.edf.
     perNight(signal("usage", "Time with the mask on.")),
     perNight(signal("machine_on", "Time the machine was running.")),
     perNight(signal("mask_events", "How many times the mask went on or came off.")),
@@ -91,7 +91,7 @@ export const nights: Omit<Dataset, "columns"> & {
     ...machineStatistics("humidifier_power", "humidifier heater power", ["p50"]),
     ...machineStatistics("tube_power", "heated tube power", ["p50"]),
 
-    // The numbers that airway derives.
+    // airway derives these columns.
     perNight(metric("sessions", count("sessions"), "Mask-on periods.")),
     perNight(
       metric(
