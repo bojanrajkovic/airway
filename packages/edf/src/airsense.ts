@@ -1,5 +1,5 @@
 import { EventType } from "@airway/contract/derived/values";
-import type { EdfSignalHeader } from "./header.ts";
+import { EdfFormat, type EdfSignalHeader } from "./header.ts";
 
 /**
  * Describes one of the kinds of file that store samples, which are BRP, PLD, SAD, and STR.edf.
@@ -7,7 +7,7 @@ import type { EdfSignalHeader } from "./header.ts";
  * signal headers in file order, ending with `Crc16`.
  */
 export type EdfSignalFileType<L extends string = string> = {
-  header: { format: "EDF"; recordSeconds: number };
+  header: { format: EdfFormat.Edf; recordSeconds: number };
   signals: readonly EdfSignalHeader<L>[];
 };
 
@@ -16,7 +16,7 @@ export type EdfSignalFileType<L extends string = string> = {
  * file is EDF+D and declares a record length of 0 seconds.
  */
 export type EdfAnnotationFileType<L extends string = string> = {
-  header: { format: "EDF+D"; recordSeconds: 0 };
+  header: { format: EdfFormat.EdfPlusD; recordSeconds: 0 };
   signals: readonly EdfSignalHeader<L>[];
 };
 
@@ -94,13 +94,13 @@ export const FLOW = signal("Flow.40ms", ["L/s", "-2.00", "3.00", -1000, 1500], 1
 
 /** BRP files store flow and pressure at 25 Hz, in 60 s records. */
 const brp = {
-  header: { format: "EDF", recordSeconds: 60 },
+  header: { format: EdfFormat.Edf, recordSeconds: 60 },
   signals: [FLOW, signal("Press.40ms", ["cmH2O", "0.00", "40.00", 0, 2000], 1500), crc16],
 } satisfies EdfSignalFileType;
 
 /** PLD files store one value every 2 s for each signal, in 60 s records. */
 const pld = {
-  header: { format: "EDF", recordSeconds: 60 },
+  header: { format: EdfFormat.Edf, recordSeconds: 60 },
   signals: [
     signal("MaskPress.2s", ["cmH2O", "0.00", "40.00", 0, 2000], 30),
     signal("Press.2s", ["cmH2O", "0.00", "30.00", 0, 1500], 30),
@@ -120,7 +120,7 @@ const pld = {
  * missing.
  */
 const sad = {
-  header: { format: "EDF", recordSeconds: 60 },
+  header: { format: EdfFormat.Edf, recordSeconds: 60 },
   signals: [
     signal("Pulse.1s", ["bpm", "18.00", "300.00", 18, 300], 60),
     signal("SpO2.1s", ["%", "0.00", "100.00", 0, 100], 60),
@@ -131,7 +131,7 @@ const sad = {
 const annotations = (
   samplesPerRecord: number,
 ): EdfAnnotationFileType<"EDF Annotations" | "Crc16"> => ({
-  header: { format: "EDF+D", recordSeconds: 0 },
+  header: { format: EdfFormat.EdfPlusD, recordSeconds: 0 },
   signals: [
     signal("EDF Annotations", ["", "0.00", "86400.00", -32768, 32767], samplesPerRecord),
     crc16,
@@ -148,7 +148,7 @@ const csl = annotations(15);
 
 /** STR.edf is the daily summary, with one 86,400 s record per day. */
 const str = {
-  header: { format: "EDF", recordSeconds: 86_400 },
+  header: { format: EdfFormat.Edf, recordSeconds: 86_400 },
   signals: [
     signal("Date", ["", "0.00", "24836.00", 0, 24836], 1),
     signal("MaskOn", ["min.", "0.00", "1440.00", 0, 1440], 10),

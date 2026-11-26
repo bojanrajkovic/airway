@@ -8,6 +8,7 @@ import {
 } from "./airsense.ts";
 import { readAnnotations, type EdfAnnotation } from "./annotations.ts";
 import {
+  EdfFormat,
   isReadable,
   readHeader,
   type EdfFileHeaders,
@@ -106,7 +107,7 @@ export function readEdf(
 
       const base: EdfFileBase = { header, signals, records: size.records, warnings };
 
-      if (type.header.format === "EDF+D") {
+      if (type.header.format === EdfFormat.EdfPlusD) {
         // Skips parsing for a file that holds only a header.
         return (isReadable(headers) ? readAnnotations(bytes, headers) : ok([])).map(
           (annotations) => ({ ...base, annotations }),
