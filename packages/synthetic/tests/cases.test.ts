@@ -141,8 +141,8 @@ describe("edge cases", () => {
         {
           night: nights[1]?.night,
           setting: "max_pressure",
-          old_value: nights[0]?.str.get("S.AS.MaxPress"),
-          new_value: nights[1]?.str.get("S.AS.MaxPress"),
+          old_value: nights[0]?.str["S.AS.MaxPress"],
+          new_value: nights[1]?.str["S.AS.MaxPress"],
         },
       ]);
     });

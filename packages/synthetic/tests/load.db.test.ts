@@ -61,7 +61,7 @@ test(
     expect(rows).toEqual(
       nights.map((night) => ({
         night: night.night.toString(),
-        ahi: night.str.get("AHI"),
+        ahi: night.str["AHI"],
         samples:
           night.segments.reduce(
             (sum, { start, end }) => sum + start.until(end).total("seconds"),
