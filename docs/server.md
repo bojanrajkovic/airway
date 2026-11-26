@@ -111,8 +111,6 @@ Each call runs in a span named `trpc.<path>` and records its duration on the `rp
 
 MCP's `save_finding` calls the findings service directly, which is why the catalog omits `findings.save`.
 
-`tests/trpc/procedures.test.ts` checks the router's types against the catalog, and `tsc --project tests` runs those checks. Every procedure that the router serves must have exactly the kind, input, and output of its catalog entry. An inferred return type fails that check when it's narrower than the catalog's type, such as `null` where the catalog says `string | null`. Annotate each handler's return type with the output type from the catalog. The test also lists the procedures that the router doesn't serve yet. A PR that adds a procedure to the router removes that procedure from the list.
-
 ## The web build
 
 `pnpm build` builds the web app into `packages/server/dist/public/`, next to the server bundle, where `main.ts` looks for it. With no build there, as in `pnpm dev`, the server serves only the API, and Vite serves the web app.

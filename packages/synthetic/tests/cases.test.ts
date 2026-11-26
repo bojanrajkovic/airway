@@ -225,12 +225,16 @@ describe("edge cases", () => {
       expect(samples.at(-1)?.ts).toEqual(samples[0]?.ts.add({ seconds: 2 * 1799 }));
     });
 
-    it("writes three EVE files and two CSL files, with each event in one of them", () => {
-      const eves = written.filter((file) => file.kind === "eve");
-      const annotations = eves.flatMap((file) => readBackAnnotations(file.bytes).slice(1));
-
-      expect(eves).toHaveLength(3);
+    it("writes three EVE files and two CSL files", () => {
+      expect(written.filter((file) => file.kind === "eve")).toHaveLength(3);
       expect(written.filter((file) => file.kind === "csl")).toHaveLength(2);
+    });
+
+    it("writes each event to one EVE annotation and one events row", () => {
+      const annotations = written
+        .filter((file) => file.kind === "eve")
+        .flatMap((file) => readBackAnnotations(file.bytes).slice(1));
+
       expect(annotations).toHaveLength(night.events.length);
       expect(rows.events).toHaveLength(night.events.length);
     });

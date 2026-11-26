@@ -83,3 +83,26 @@ test("gives the reader the deployment's settings", async ({ readerUrl }) => {
     tempFileLimit: "1GB",
   });
 });
+
+test("denies the reader access to a table that the owner hasn't granted it", async ({
+  databaseUrl,
+  readerUrl,
+}) => {
+  const owner = new pg.Client(databaseUrl);
+  await owner.connect();
+
+  try {
+    await owner.query("create schema other; create table other.secrets (value text)");
+  } finally {
+    await owner.end();
+  }
+
+  const reader = new pg.Client(readerUrl);
+  await reader.connect();
+
+  try {
+    await expect(reader.query("select * from other.secrets")).rejects.toThrow(/permission denied/v);
+  } finally {
+    await reader.end();
+  }
+});
