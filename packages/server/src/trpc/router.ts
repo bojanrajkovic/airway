@@ -7,7 +7,7 @@ export const appRouter = router({
 });
 
 /**
- * The API's shape, for the web app's tRPC client. The web app imports it as a type, so server code
- * stays out of the web bundle.
+ * Describes the API's shape for the web app's tRPC client. The web app imports it as a type, so
+ * server code stays out of the web bundle.
  */
 export type AppRouter = typeof appRouter;

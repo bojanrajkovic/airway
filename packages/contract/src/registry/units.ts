@@ -1,12 +1,13 @@
 /**
- * A column's unit and number of decimal places. For a machine signal, both come from the signal's
- * EDF header. For a computed column, the registry sets both.
+ * Describes a column's unit and number of decimal places. For a machine signal, both come from the
+ * signal's EDF header. For a computed column, the registry sets both.
  */
 export type ColumnUnit = { unit: string; decimals: number };
 
 type Conversion = { unit: string; factor: number };
 
-// Stored units the app shows as something else. Any other unit is shown as stored.
+// Maps each stored unit that the app converts to its display unit. The app shows any other unit
+// as stored.
 const DISPLAY: Record<string, Conversion> = {
   "L/s": { unit: "L/min", factor: 60 },
   L: { unit: "mL", factor: 1000 },
@@ -25,7 +26,10 @@ const GUARD_DECIMALS = 6;
 export const round = (value: number, decimals: number): number =>
   Math.round(value * 10 ** (decimals + GUARD_DECIMALS)) / 10 ** (decimals + GUARD_DECIMALS);
 
-/** The decimals needed to write every multiple of `step`, an EDF signal's physical step. */
+/**
+ * Returns the number of decimals needed to write every multiple of `step`, an EDF signal's
+ * physical step.
+ */
 export function decimalsForStep(step: number): number {
   for (let decimals = 0; decimals < MAX_DECIMALS; decimals += 1) {
     const scaled = step * 10 ** decimals;
@@ -38,7 +42,10 @@ export function decimalsForStep(step: number): number {
   return MAX_DECIMALS;
 }
 
-/** How the app shows a stored unit: L/s as L/min, L as mL, and anything else as itself. */
+/**
+ * Returns the unit that the app shows for a stored unit: L/s as L/min, L as mL, and anything else
+ * as itself.
+ */
 export function displayUnit(stored: ColumnUnit): ColumnUnit {
   const { unit, factor } = conversionFor(stored.unit);
 

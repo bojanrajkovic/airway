@@ -11,7 +11,10 @@ import * as sdkMetrics from "@opentelemetry/sdk-metrics";
 import { NodeSDK } from "@opentelemetry/sdk-node";
 import { loadModule, normalizeSync } from "libpg-query";
 
-/** Health check paths, which aren't traced. Their requests would make up most spans and request metrics. */
+/**
+ * The HTTP instrumentation skips requests to these health check paths, which would otherwise make
+ * up most spans and request metrics.
+ */
 const PROBE_PATHS = new Set(["/healthz"]);
 
 /** Replaces each literal in `sql` with `$1`, `$2`, and so on. Returns "" for invalid SQL. */

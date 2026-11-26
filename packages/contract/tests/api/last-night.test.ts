@@ -3,7 +3,7 @@ import { describe, expect, test } from "vitest";
 import { dataMissing, lastNightKey } from "../../src/api/last-night.ts";
 import type { DailyUsageRow } from "../../src/derived/rows.ts";
 
-// Two zones with daylight saving time on different dates, and a DST-change day in each.
+// Each zone changes to daylight saving time on a different date, and its tests run on that day.
 const ZONES = [
   ["America/New_York", "2030-03-10"],
   ["Europe/Berlin", "2030-03-31"],

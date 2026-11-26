@@ -84,7 +84,7 @@ const REACT = [
   "void-dom-elements-no-children",
   "void-use-memo",
 ];
-// Off on purpose:
+// The rule lists omit these rules on purpose:
 // - react-in-jsx-scope: the automatic JSX runtime adds the import that JSX needs.
 // - jsx-no-literals: it's for translated apps, and airway isn't translated.
 // - forbid-component-props: by default it bans className, which React Aria components take.

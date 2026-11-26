@@ -65,7 +65,8 @@ export type DimensionColumn = Described &
     | { role: "dimension"; kind: "enum"; values: readonly [string, ...string[]] }
   );
 /**
- * The ways to combine a nights metric's nightly values into one value for a week or month.
+ * Each value is a way to combine a nights metric's nightly values into one value for a week or
+ * month.
  * docs/trends.md describes each one.
  */
 export const COMBINE = ["rate", "median", "max", "mean"] as const;
@@ -79,19 +80,19 @@ export type MetricColumn = Described & {
 };
 
 /**
- * A metric of the `nights` dataset. Only nights are combined into weeks and months, so only a
- * nights metric sets `combine`.
+ * Adds `combine` to a metric of the `nights` dataset. Only nights are combined into weeks and
+ * months, so only a nights metric sets `combine`.
  */
 export type NightsMetric = MetricColumn & { combine: Combine };
 export type Column = TimeColumn | DimensionColumn | MetricColumn;
 
 export type Dataset = {
-  /** The name of the dataset and of its table in the derived schema. */
+  /** Identifies the dataset and its table in the derived schema. */
   name: string;
   description: string;
   /**
-   * The shortest time step that a query can bucket the dataset's rows into. A `nights` row covers a
-   * whole night, so its grain is `night`.
+   * `grain` is the shortest time step that a query can bucket the dataset's rows into. A `nights`
+   * row covers a whole night, so its grain is `night`.
    */
   grain: "2s" | "night";
   columns: readonly [Column, ...Column[]];
@@ -143,11 +144,11 @@ export function time(name: string, kind: TimeColumn["kind"], description: string
 }
 
 const EQUALITY = ["=", "!="] as const;
-/** Operations that compare a column with one value. */
+/** These operations compare a column with one value. */
 export const COMPARISONS = [...EQUALITY, ">", ">=", "<", "<="] as const;
-/** Operations that compare a column with a list of values. */
+/** These operations compare a column with a list of values. */
 export const MEMBERSHIP = ["in", "not-in"] as const;
-/** Operations that check whether a column has a value. */
+/** These operations check whether a column has a value. */
 export const NULL_CHECKS = ["exists", "does-not-exist"] as const;
 export type Comparison = (typeof COMPARISONS)[number];
 export type FilterOperation =

@@ -1,5 +1,5 @@
-// An OpenTelemetry SDK that records into memory, for tests that assert on spans or metrics. Such
-// tests are named `*.telemetry.test.ts`, so they run in the `telemetry` project, one file at a time.
+// Records OpenTelemetry spans and metrics into memory, for tests that assert on them. Such tests
+// are named `*.telemetry.test.ts`, so they run in the `telemetry` project, one file at a time.
 import * as metrics from "@opentelemetry/sdk-metrics";
 import { NodeSDK, type NodeSDKConfiguration } from "@opentelemetry/sdk-node";
 import * as tracing from "@opentelemetry/sdk-trace";

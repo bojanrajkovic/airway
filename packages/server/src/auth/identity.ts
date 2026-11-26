@@ -5,7 +5,7 @@ import type { AppContext } from "../runtime/context.ts";
 import { inSpanAsync } from "../telemetry.ts";
 import { pomeriumVerifier } from "./pomerium.ts";
 
-/** The reason identification failed. Only `provider_unavailable` is a server error. */
+/** Describes why identification failed. Only `provider_unavailable` is a server error. */
 export type IdentityFailure = {
   kind:
     | "missing_identity"
@@ -14,11 +14,10 @@ export type IdentityFailure = {
     | "wrong_audience"
     | "wrong_issuer"
     | "provider_unavailable";
-  /** The error that caused the failure, if any. */
   cause?: unknown;
 };
 
-/** The email and optional name that an identity provider verified for a request. */
+/** Contains the email and optional name that an identity provider verified for a request. */
 export type Identity = { email: string; name?: string | undefined };
 
 /**

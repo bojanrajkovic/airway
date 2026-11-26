@@ -10,7 +10,7 @@ import {
   type Dataset,
 } from "../registry/define.ts";
 
-/** The time steps a query can bucket by, shortest first. */
+/** Orders the time steps that a query can bucket by, shortest first. */
 export const GRANULARITIES = [
   "2s",
   "30s",
@@ -25,8 +25,9 @@ export const GRANULARITIES = [
 export type Granularity = (typeof GRANULARITIES)[number];
 
 /**
- * The most nights a query can cover at each step: a night, a week, a fortnight, a month, a
- * quarter, a year, and then ten years. A fine step over a long range would be millions of buckets.
+ * Sets the most nights that a query can cover at each step: a night, a week, a fortnight, a
+ * month, a quarter, a year, and then ten years. A fine step over a long range would be millions of
+ * buckets.
  * We picked these round spans by hand. They limit what a spec may ask for, and `auto` then picks
  * a step within them.
  */
@@ -45,7 +46,7 @@ export const MAX_NIGHTS: Record<Granularity, number> = {
 /** A query covers the most recent n nights, or the nights between two dates, both included. */
 export type Nights = { last: number } | { from: string; to: string };
 
-/** How many nights a range covers. */
+/** Returns the number of nights that a range covers. */
 export function nightCount(nights: Nights): number {
   return "last" in nights
     ? nights.last
@@ -91,11 +92,11 @@ export const LIMITS = {
   filters: 20,
   breakdowns: 3,
   havings: 10,
-  /** Values in one `in` or `not-in` list. */
+  /** Caps the values in one `in` or `not-in` list. */
   list: 50,
-  /** Groups a query returns. */
+  /** Caps the groups that a query returns. */
   limit: 1000,
-  /** Nights a query covers: ten years. */
+  /** Caps the nights that a query covers at ten years. */
   nights: 3660,
 } as const;
 export const DEFAULT_LIMIT = 100;
@@ -161,7 +162,7 @@ function valueSchema(column: Column): z.ZodType<Scalar, Scalar> {
 }
 
 /**
- * The schema for a filter on one column. It has up to three shapes, picked by `op`:
+ * Builds the schema for a filter on one column. It has up to three shapes, picked by `op`:
  *
  * - a comparison (`=`, `>`, and so on) with one value
  * - a null check (`exists`, `does-not-exist`) with no value
@@ -224,10 +225,10 @@ export function columnsFor({ columns }: Dataset, op: CalculationOp): string[] {
 }
 
 /**
- * The schema for one calculation in a dataset. It has four shapes, picked by `op`, and each shape
- * lists the columns that `columnsFor` returns for its operations. COUNT takes no column, and
- * COUNT_DISTINCT takes any column. SUM, AVG, and the percentiles take a metric. MIN and MAX take a
- * column with an order.
+ * Builds the schema for one calculation in a dataset. The schema has four shapes, picked by `op`,
+ * and each shape lists the columns that `columnsFor` returns for its operations. COUNT takes no
+ * column, and COUNT_DISTINCT takes any column. SUM, AVG, and the percentiles take a metric. MIN and
+ * MAX take a column with an order.
  */
 // oxlint-disable-next-line typescript/explicit-function-return-type -- zod infers this schema's type; writing it out would repeat the schema
 function calculationSchema(dataset: Dataset) {
@@ -263,7 +264,7 @@ export function calculationKind(
   return kind === "integer" || kind === "timestamp" || kind === "date" ? kind : "number";
 }
 
-/** How long each step is, in seconds. A month counts as 30 days. */
+/** Maps each step to its length in seconds. A month counts as 30 days. */
 export const STEP_SECONDS: Record<Granularity, number> = {
   "2s": 2,
   "30s": 30,
@@ -285,7 +286,7 @@ export const AUTO_BUCKETS = 300;
 export const bucketCount = (nights: Nights, step: Granularity): number =>
   (nightCount(nights) * STEP_SECONDS.night) / STEP_SECONDS[step];
 
-/** The fields of a spec that decide how it's bucketed. */
+/** Describes the fields of a spec that decide how it's bucketed. */
 type Bucketing = { nights: Nights; granularity?: Granularity | "auto" | undefined };
 
 /**
@@ -320,7 +321,7 @@ function mapNonEmpty<Item, Mapped>(
   return [map(first), ...rest.map((item) => map(item))];
 }
 
-/** The fields of one dataset's spec, each checked on its own. */
+/** Builds the schema for the fields of one dataset's spec, each checked on its own. */
 // oxlint-disable-next-line typescript/explicit-function-return-type -- zod infers this schema's type; writing it out would repeat the schema
 function fieldsSchema(dataset: Dataset) {
   const columns = z.enum(namesOf(dataset.columns));
@@ -370,9 +371,9 @@ function fieldsSchema(dataset: Dataset) {
   });
 }
 
-/** A spec whose fields each passed their own checks, before the checks across fields. */
+/** Describes a spec whose fields each passed their own checks, before the checks across fields. */
 type Fields = z.output<ReturnType<typeof fieldsSchema>>;
-/** Something wrong with a spec, at a path such as `["orders", 1]`. */
+/** Describes a problem with a spec, at a path such as `["orders", 1]`. */
 type Problem = { path: (string | number)[]; message: string };
 
 const nightsText = (count: number): string =>
@@ -418,7 +419,7 @@ function repeatProblems({ calculations, breakdowns, orders }: Fields): Problem[]
   ];
 }
 
-/** An order that names neither a calculation nor a breakdown of the same spec. */
+/** Reports each order that refers to neither a calculation nor a breakdown of the same spec. */
 function orderProblems({ calculations, breakdowns, orders }: Fields): Problem[] {
   const labels = calculations.map(calculationLabel);
   const names = (op: CalculationOp | undefined, column: string | undefined): boolean =>
@@ -473,7 +474,10 @@ function havingProblems(dataset: Dataset, { calculations, havings }: Fields): Pr
   });
 }
 
-/** The schema for one dataset's spec. It checks each field, then runs the checks across fields. */
+/**
+ * Builds the schema for one dataset's spec. The schema checks each field, then runs the checks
+ * across fields.
+ */
 // oxlint-disable-next-line typescript/explicit-function-return-type -- zod infers this schema's type; writing it out would repeat the schema
 function specSchema(dataset: Dataset) {
   return fieldsSchema(dataset).superRefine((fields, context) => {
@@ -495,16 +499,16 @@ function specSchema(dataset: Dataset) {
  * defines, with operations and values that each column's kind allows.
  */
 export const querySpec = z.discriminatedUnion("dataset", mapNonEmpty(DATASETS, specSchema));
-/** A query as it's written: only `v`, `dataset`, and `nights` are required. */
+/** Describes a query as it's written. Only `v`, `dataset`, and `nights` are required. */
 export type QuerySpecInput = z.input<typeof querySpec>;
-/** A query after parsing, with every default filled in. */
+/** Describes a query after parsing, with every default filled in. */
 export type QuerySpec = z.output<typeof querySpec>;
 export type Calculation = QuerySpec["calculations"][number];
 export type Filter = QuerySpec["filters"][number];
 export type Order = QuerySpec["orders"][number];
 export type Having = QuerySpec["havings"][number];
 
-/** Where a spec is wrong, such as `filters[0].op`, and what's allowed there. */
+/** Describes where a spec is wrong, such as `filters[0].op`, and what's allowed there. */
 export type SpecIssue = { path: string; message: string };
 
 const pathText = (path: readonly PropertyKey[]): string =>

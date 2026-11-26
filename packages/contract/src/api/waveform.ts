@@ -3,7 +3,7 @@ import { Instant, PlainDate } from "../dates.ts";
 import type { EVENT_TYPES } from "../derived/values.ts";
 
 /**
- * The most buckets that one `waveform.window` request can ask for. The viewer asks for one bucket
+ * Caps the buckets that one `waveform.window` request can ask for. The viewer asks for one bucket
  * per pixel of the plot's width.
  */
 export const MAX_WAVEFORM_BUCKETS = 4000;
@@ -28,35 +28,35 @@ export type WaveformWindow = z.infer<typeof WaveformWindow>;
 export const WaveformNight = z.strictObject({ night: PlainDate });
 export type WaveformNight = z.infer<typeof WaveformNight>;
 
-/** The signals that the waveform viewer plots. */
+/** The waveform viewer plots these signals. */
 export const WAVEFORM_SIGNALS = ["flow", "pressure", "leak", "flow_limitation"] as const;
 export type WaveformSignal = (typeof WAVEFORM_SIGNALS)[number];
 
 /**
- * One signal's values from one recording file. Values are evenly spaced from `start`, `step`
- * milliseconds apart. When a bucket contains more than two samples, the piece lists each bucket's
- * lowest value in `min` and highest value in `max`. Otherwise the piece lists the raw samples in
- * `values`.
+ * Describes one signal's values from one recording file. Values are evenly spaced from `start`,
+ * `step` milliseconds apart. When a bucket contains more than two samples, the piece lists each
+ * bucket's lowest value in `min` and highest value in `max`. Otherwise the piece lists the raw
+ * samples in `values`.
  */
 export type WaveformPiece = { start: Temporal.Instant; step: number } & (
   | { kind: "range"; min: number[]; max: number[] }
   | { kind: "samples"; values: number[] }
 );
 
-/** One signal's values in its stored unit, with one piece per recording file. */
+/** Describes one signal's values in its stored unit, with one piece per recording file. */
 export type WaveformSeries = { unit: string; pieces: WaveformPiece[] };
 
 type EventType = (typeof EVENT_TYPES)[number];
 /**
- * An event that the machine flagged. `duration` is in seconds, and it's null for an event that
- * lacks a duration.
+ * Describes an event that the machine flagged. `duration` is in seconds, and it's null for an
+ * event that lacks a duration.
  */
 export type WaveformEvent = { ts: Temporal.Instant; type: EventType; duration: number | null };
 
 /** `waveform.window` returns each signal's values over the window, keyed by signal name. */
 export type WaveformData = {
   signals: Record<WaveformSignal, WaveformSeries>;
-  /** The events that overlap the window. */
+  /** `events` contains every event that overlaps the window. */
   events: WaveformEvent[];
 };
 

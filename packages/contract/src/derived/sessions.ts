@@ -2,26 +2,26 @@ import { toInstant } from "../clock.ts";
 import type { UsedStrDay } from "./str.ts";
 import type { SESSION_SOURCES } from "./values.ts";
 
-/** A stretch of time, such as a BRP segment or an event. */
+/** Describes a stretch of time, such as a BRP segment or an event. */
 export type Span = { start: Temporal.Instant; end: Temporal.Instant };
 
-/** A mask-on period, numbered from 1 in time order. */
+/** Describes a mask-on period. Sessions are numbered from 1 in time order. */
 export type Session = Span & { session: number; source: (typeof SESSION_SOURCES)[number] };
 
-/** A night's STR.edf slots and mask events, and its BRP segments. */
+/** `buildSessions` reads a night's STR.edf slots and mask events, and its BRP segments. */
 export type SessionInputs = Pick<UsedStrDay, "maskOn" | "maskOff" | "maskEvents"> & {
   night: Temporal.PlainDate;
-  /** The home time zone. */
+  /** `zone` is the home time zone. */
   zone: string;
-  /** The night's BRP segments, in time order. */
+  /** `segments` contains the night's BRP segments, in time order. */
   segments: readonly Span[];
 };
 
 export type Sessions = {
   sessions: Session[];
-  /** The session that each segment belongs to, in the order of `segments`. */
+  /** Maps each segment, in the order of `segments`, to the session that it belongs to. */
   sessionOfSegment: number[];
-  /** True when the number of sessions differs from MaskEvents / 2. */
+  /** `approximate` is true when the number of sessions differs from MaskEvents / 2. */
   approximate: boolean;
 };
 
@@ -103,7 +103,7 @@ export function buildSessions(inputs: SessionInputs): Sessions {
 
 type Candidate = { span: Span; source: Session["source"]; members: number[] };
 
-/** An event's session, and whether the event fell outside every mask-on period. */
+/** Describes an event's session, and whether the event fell outside every mask-on period. */
 export type EventPlace = { session: number | null; outsideMaskOn: boolean };
 
 /** Returns each event's session, as docs/ingest.md describes. */

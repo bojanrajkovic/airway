@@ -4,7 +4,7 @@ import { checkFileSize, type FileSizeCheck } from "./size.ts";
 /** Describes one signal with the values that the file header declares for it. */
 export type SignalHeader = {
   label: string;
-  /** Empty when the header leaves the unit blank. */
+  /** Contains an empty string when the header leaves the unit blank. */
   unit: string;
   /** Stores the header's text exactly as the machine writes it, such as `0.00` or `0`. */
   physicalMin: string;
@@ -27,10 +27,10 @@ export type EdfHeader = {
   patient: string;
   recording: string;
   headerBytes: number;
-  /** -1 when the machine never filled in the record count. */
+  /** Equals -1 when the machine never filled in the record count. */
   declaredRecords: number;
   recordSeconds: number;
-  /** In header order. */
+  /** Contains each signal's header fields, in header order. */
   signals: readonly SignalHeader[];
 };
 
@@ -94,7 +94,7 @@ const MONTHS = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "
 // Latin-1 maps every byte to a character, so a stray high byte can't fail the decode.
 const decoder = new TextDecoder("latin1");
 
-/** Whether a numeric field must be a whole number. */
+/** Sets whether `readNumber` accepts only a whole number or also a decimal. */
 type NumberKind = "integer" | "decimal";
 
 /** Reads a header's fixed-width, space-padded text fields in order. */

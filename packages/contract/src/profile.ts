@@ -3,7 +3,7 @@ export const RULE_SETS = ["pediatric", "adult"] as const;
 export type RuleSet = (typeof RULE_SETS)[number];
 
 export type PatientProfile = {
-  /** Shown in the app's header and in the MCP instructions. */
+  /** The app's header and the MCP instructions show this name. */
   name: string;
   /** `ruleSetFor` picks the rule set from the patient's age, counted from this date. */
   birthDate: Temporal.PlainDate;

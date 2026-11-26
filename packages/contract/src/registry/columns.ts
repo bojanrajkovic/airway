@@ -1,7 +1,7 @@
 import { dimension, homeZone, sql, time, type Column } from "./define.ts";
 import type { ColumnUnit } from "./units.ts";
 
-// Columns and units that more than one dataset uses.
+// More than one dataset uses the columns and units in this file.
 
 export const night = time(
   "night",

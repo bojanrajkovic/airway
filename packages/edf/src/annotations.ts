@@ -1,7 +1,10 @@
 import { err, ok, Result } from "neverthrow";
 import { coversRecords, recordBytes, type EdfReadError, type ReadableEdfFile } from "./header.ts";
 
-/** An EDF+ annotation. `onset` counts seconds from the file's start. `duration` is in seconds. */
+/**
+ * Describes one EDF+ annotation. `onset` counts seconds from the file's start, and `duration` is
+ * in seconds.
+ */
 export type Annotation = { onset: number; duration: number; label: string };
 
 const ANNOTATION_LABEL = "EDF Annotations";

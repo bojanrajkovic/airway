@@ -43,7 +43,7 @@ const ORDER = [
 ] as const satisfies readonly (keyof DerivedRows)[];
 
 type Cell = string | number | boolean | null | Temporal.Instant | Temporal.PlainDate;
-/** Any row in `DerivedRows`. */
+/** Matches any row in `DerivedRows`. */
 type Row = Readonly<Record<string, Cell | SignalValues>>;
 
 const isSignals = (value: Cell | SignalValues): value is SignalValues =>

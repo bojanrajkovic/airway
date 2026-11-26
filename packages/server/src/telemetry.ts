@@ -1,4 +1,5 @@
-// Span helpers for services. docs/observability.md covers what goes on a span and what gets logged.
+// Runs service code in spans. docs/observability.md covers what goes on a span and what gets
+// logged.
 import { context, SpanStatusCode, trace, type Span } from "@opentelemetry/api";
 import { suppressTracing } from "@opentelemetry/core";
 import { Err, ResultAsync, type Result } from "neverthrow";

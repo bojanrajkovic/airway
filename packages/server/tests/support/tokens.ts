@@ -1,5 +1,5 @@
-// A stand-in for Pomerium's token signing: an ES256 key, its JWKS served over HTTP, and tokens shaped
-// like the ones Pomerium sends in X-Pomerium-Jwt-Assertion. Synthetic identities only.
+// Stands in for Pomerium's token signing. It serves an ES256 key's JWKS over HTTP and signs tokens
+// shaped like the ones Pomerium sends in X-Pomerium-Jwt-Assertion, with synthetic identities.
 import http from "node:http";
 import { exportJWK, generateKeyPair, SignJWT, UnsecuredJWT, type CryptoKey } from "jose";
 import { afterAll, beforeAll } from "vitest";
@@ -8,9 +8,9 @@ export const UI_HOST = "airway.example.test";
 export const MCP_HOST = "airway-mcp.example.test";
 
 export type MintOptions = {
-  /** The host the token is for: its `aud` and `iss`. */
+  /** Sets the token's `aud` and `iss` to this host. */
   host: string;
-  /** When it expires. Defaults to five minutes after `now`. */
+  /** Sets the token's expiry. Defaults to five minutes after `now`. */
   expiresAt?: Temporal.Instant;
   /** Sign with a key the JWKS doesn't list. */
   foreignKey?: boolean;
@@ -19,11 +19,11 @@ export type MintOptions = {
 };
 
 export type TestIssuer = {
-  /** The JWKS URL, valid once the file's tests start. */
+  /** Returns the JWKS URL, which is valid once the file's tests start. */
   jwksUrl: () => string;
-  /** A signed token for Sam, issued at `now`. */
+  /** Signs a token for Sam that's issued at `now`. */
   mint: (now: Temporal.Instant, options: MintOptions) => Promise<string>;
-  /** An `alg: none` token with the same claims as `mint`'s. */
+  /** Returns an `alg: none` token with the same claims as `mint`'s. */
   unsigned: (now: Temporal.Instant, host: string) => string;
 };
 

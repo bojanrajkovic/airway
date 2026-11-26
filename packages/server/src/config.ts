@@ -15,9 +15,11 @@ export type LogLevel = (typeof LOG_LEVELS)[number];
 export type AuthConfig =
   | {
       mode: "pomerium";
-      /** The UI's public hostname. The `aud` and `iss` claims of tokens on /trpc must equal it. */
+      /** The `aud` and `iss` claims of tokens on /trpc must equal the UI's public hostname. */
       uiHost: string;
-      /** The MCP route's public hostname. The `aud` and `iss` claims of tokens on /mcp must equal it. */
+      /**
+       * The `aud` and `iss` claims of tokens on /mcp must equal the MCP route's public hostname.
+       */
       mcpHost: string;
       jwksUrl: string;
     }
@@ -27,19 +29,19 @@ export type Config = {
   databaseUrl: string;
   readerDatabaseUrl: string;
   patient: PatientProfile;
-  /** The home IANA time zone. docs/configuration.md describes its uses. */
+  /** `timeZone` is the home IANA time zone. docs/configuration.md describes its uses. */
   timeZone: string;
   cpapDataPath: string;
-  /** The home time of day after which a used night's missing folder counts as missing. */
+  /** After this home time of day, a used night whose folder is absent counts as missing. */
   dataMissingCutoff: Temporal.PlainTime;
   port: number;
   logLevel: LogLevel;
   auth: AuthConfig;
 };
 
-// The ICU names of the place zones that Intl supports. Intl's list excludes fixed offsets such as
-// -05:00, UTC, and Etc/GMT+5. A fixed offset never shifts for daylight saving time, so it would put
-// night boundaries an hour off for half the year.
+// Contains the ICU names of the place zones that Intl supports. Intl's list excludes fixed offsets
+// such as -05:00, UTC, and Etc/GMT+5. A fixed offset never shifts for daylight saving time, so it
+// would put night boundaries an hour off for half the year.
 const PLACES = new Set(Intl.supportedValuesOf("timeZone"));
 
 // Returns whether `zone` is a place's zone name, such as America/Chicago. Intl resolves an alias or

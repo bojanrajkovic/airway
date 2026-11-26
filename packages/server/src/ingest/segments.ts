@@ -8,7 +8,10 @@ import type { AppContext } from "../runtime/context.ts";
 import { inSpan } from "../telemetry.ts";
 import type { ReadyFile } from "./versions.ts";
 
-/** A ready BRP or PLD file, with the header and size check that the readiness check accepted. */
+/**
+ * Narrows `ReadyFile` to a BRP or PLD file whose header and size check the readiness check
+ * accepted.
+ */
 export type SegmentFile = ReadyFile & {
   kind: "brp" | "pld";
   edf: EdfFile & { size: Exclude<FileSizeCheck, { verdict: "reject" }> };
@@ -17,15 +20,15 @@ export type SegmentFile = ReadyFile & {
 /** The inputs for one night are its STR.edf day and its ready BRP and PLD files. */
 export type NightFiles = {
   night: Temporal.PlainDate;
-  /** The home time zone. */
+  /** `toInstant` reads each file header's device-clock start in this home time zone. */
   zone: string;
   day: UsedStrDay;
   files: readonly SegmentFile[];
 };
 
 /**
- * The stretch of time that one BRP file recorded, with the PLD files attached to it. Segments are
- * numbered from 1 in time order.
+ * Describes the stretch of time that one BRP file recorded, with the PLD files attached to it.
+ * Segments are numbered from 1 in time order.
  */
 export type NightSegment = Span & {
   segment: number;
@@ -35,8 +38,8 @@ export type NightSegment = Span & {
 };
 
 /**
- * A warning about a file that planSegments left out. The kind is `header_only` for a header-only
- * file, and `unattached_pld` for a PLD file that doesn't match any segment.
+ * Reports a file that planSegments left out. The kind is `header_only` for a header-only file,
+ * and `unattached_pld` for a PLD file that doesn't match any segment.
  */
 export type SegmentWarning =
   | { kind: "header_only"; path: string; fileKind: SegmentFile["kind"] }

@@ -1,19 +1,19 @@
 import type { ScannedFile } from "./scan.ts";
 import type { FileStates, FileVersion, ReadyFile, RejectedFile } from "./versions.ts";
 
-/** What a poll should import. */
+/** Describes what a poll should import. */
 export type NightPlan = {
   /**
-   * The nights to import, oldest first. Each has a new or changed ready file and isn't in
+   * Ingest imports these nights, oldest first. Each has a new or changed ready file and isn't in
    * `waiting`.
    */
   nights: Temporal.PlainDate[];
   /**
-   * Nights that can't be imported yet, because one of their files is waiting, or because STR.edf
-   * isn't ready or doesn't cover them.
+   * Ingest postpones these nights, because one of their files is waiting, or because STR.edf isn't
+   * ready or doesn't cover them.
    */
   waiting: Temporal.PlainDate[];
-  /** The rejected files. The planner ignores them when it decides whether to import a night. */
+  /** The planner ignores these files when it decides whether to import a night. */
   rejected: RejectedFile[];
   /** STR.edf or Identification.tgt has a new ready version, so their tables need rewriting. */
   rewriteStrTables: boolean;

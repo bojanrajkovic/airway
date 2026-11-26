@@ -13,7 +13,7 @@ beforeEach(() => {
   spans.reset();
 });
 
-/** The attributes of every rpc.server.call.duration point recorded since the last collect. */
+/** Returns the attributes of each rpc.server.call.duration point since the last collect. */
 async function callDurations(): Promise<Record<string, unknown>[]> {
   const { resourceMetrics } = await metricReader.collect();
 

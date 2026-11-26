@@ -8,7 +8,7 @@ const app = createApp(testContext(), { webRoot: undefined });
 
 const Success = z.object({ result: z.object({ data: z.unknown() }) });
 
-/** The data in one tRPC success response, decoded with the shared transformer. */
+/** Decodes the data in a tRPC success response with the shared transformer. */
 const decode = (body: unknown): unknown =>
   transformer.parse(JSON.stringify(Success.parse(body).result.data));
 

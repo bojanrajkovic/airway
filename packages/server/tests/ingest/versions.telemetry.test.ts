@@ -23,8 +23,8 @@ beforeEach(() => {
 });
 
 /**
- * The file states from one poll, and the number of `edf.read_file` and `ingest.hash` spans
- * recorded during that poll.
+ * Describes one poll's file states, and the number of `edf.read_file` and `ingest.hash` spans
+ * that the poll recorded.
  */
 type Poll = FileStates & { reads: number; hashes: number };
 

@@ -6,7 +6,7 @@ const HZ = 25;
 // The pediatric step smooths flow with a 5-sample average, then counts crossings of 0.01 L/s.
 const THRESHOLD = 0.01;
 
-// A night with a pause of each kind, so every kind gets rendered.
+// Finds a night with a pause of each kind, so the tests render every kind.
 const night = syntheticNights({ seed: 7, nights: 30 })
   ._unsafeUnwrap()
   .nights.find((candidate) => {

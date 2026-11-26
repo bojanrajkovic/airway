@@ -4,7 +4,7 @@ import type { EdfFile, EdfReadError } from "@airway/edf/header";
 export const STABLE_FOR = Temporal.Duration.from({ minutes: 2 });
 
 /**
- * Says how the last read of a file's header ended. `read` means the header parsed, and `failed`
+ * Records how the last read of a file's header ended. `read` means the header parsed, and `failed`
  * means the read or the parse failed. `not_edf` marks Identification.tgt and .crc files, which
  * aren't EDF files.
  */
@@ -17,12 +17,12 @@ export type HeaderRead =
 export type SeenFile = {
   size: number;
   ctime: Temporal.Instant;
-  /** When ingest first saw this size and ctime. */
+  /** Ingest sets this when it first sees this size and ctime. */
   since: Temporal.Instant;
   header: HeaderRead;
   /** Ingest hashes the file once it's ready, and clears the hash when the file changes. */
   sha256: string | null;
-  /** True once ingest has logged that it rejected this version of the file. */
+  /** Ingest sets this to true once it has logged that it rejected this version of the file. */
   rejectionLogged: boolean;
 };
 
