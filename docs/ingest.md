@@ -80,7 +80,7 @@ readEdf(bytes, AIRSENSE.brp).map(({ header, signals, records, samples }) => {
 - `readEdf` returns `format_mismatch` when the file's format differs from the type's, `record_length_mismatch` when the record length differs, and `missing_signal` when the file lacks one of the type's signals. A file may declare signals that the type doesn't list.
 - `readEdf` returns `size_rejected` for a file that `checkFileSize` rejects. `readEdf` reads a file that holds only a header as a file with no records.
 
-`readEdfFile(path, type)` in `@airway/edf/file-header` reads a file from disk and passes its bytes to `readEdf`. It returns `read_failed` for a file it can't read.
+`readEdfFile(path, type)` in `@airway/edf/file-header` reads a file from disk and passes its bytes to `readEdf`. It returns `read_failed` for a file it can't read. A `read_failed` error stores the error that the file system threw in `cause`.
 
 `readStr` uses `readEdf`, and the EVE reader uses `readEdfFile`. Each function in the next sections reads one part of a file. The scan uses them to read a header without its records.
 

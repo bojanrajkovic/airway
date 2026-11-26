@@ -87,6 +87,7 @@ describe("scanCpapData", () => {
     expect(result._unsafeUnwrapErr()).toMatchObject({
       kind: "read_failed",
       path: "/nonexistent/cpap-data",
+      cause: { code: "ENOENT" },
     });
   });
 });

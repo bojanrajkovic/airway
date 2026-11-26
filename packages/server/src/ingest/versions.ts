@@ -22,7 +22,7 @@ export type RejectedFile = ScannedFile & { reason: RejectReason };
 /** Groups the scanned files by readiness. */
 export type FileStates = { ready: ReadyFile[]; waiting: ScannedFile[]; rejected: RejectedFile[] };
 
-type HashError = { kind: "hash_failed"; path: string; message: string };
+type HashError = { kind: "hash_failed"; path: string; cause: unknown };
 
 /**
  * Updates `seen` from this poll's scan and sorts the scanned files by readiness.
@@ -195,11 +195,7 @@ function hash(ctx: AppContext, path: string): ResultAsync<string, HashError> {
           })
           .on("error", reject);
       }),
-      (cause): HashError => ({
-        kind: "hash_failed",
-        path,
-        message: cause instanceof Error ? cause.message : String(cause),
-      }),
+      (cause): HashError => ({ kind: "hash_failed", path, cause }),
     );
   });
 }

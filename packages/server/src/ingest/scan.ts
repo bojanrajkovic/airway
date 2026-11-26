@@ -29,7 +29,7 @@ export type Scan = {
   skipped: Record<(typeof SKIP_REASONS)[number], number>;
 };
 
-export type ScanError = { kind: "read_failed"; path: string; message: string };
+export type ScanError = { kind: "read_failed"; path: string; cause: unknown };
 
 // These two tables map the last 8 characters of a night file's name to the file's kind or skip
 // reason. The scan also lists the .crc file of each file that ingest reads, so that import can
@@ -90,7 +90,7 @@ export function scanCpapData(ctx: AppContext): ResultAsync<Scan, ScanError> {
     ResultAsync.fromPromise(walk(root), (cause): ScanError => ({
       kind: "read_failed",
       path: root,
-      message: cause instanceof Error ? cause.message : String(cause),
+      cause,
     })).map((scan) => {
       span.setAttribute("airway.files", scan.files.length);
       for (const reason of SKIP_REASONS) {

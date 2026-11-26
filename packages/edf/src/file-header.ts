@@ -9,11 +9,7 @@ const FIXED_BYTES = 256;
 
 const readFailed =
   (path: string) =>
-  (cause: unknown): EdfReadError => ({
-    kind: "read_failed",
-    path,
-    message: cause instanceof Error ? cause.message : String(cause),
-  });
+  (cause: unknown): EdfReadError => ({ kind: "read_failed", path, cause });
 
 /**
  * Reads a file's header from disk, without reading its records, and checks the file's size

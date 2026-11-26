@@ -113,9 +113,13 @@ describe("scoreNight", () => {
     expect(
       span?.events.find(({ name }) => name === "ingest.event_file_failed")?.attributes,
     ).toEqual({ "airway.file.path": input.files[0]?.path, "error.type": "read_failed" });
-    expect(lines.find(({ msg }) => msg === "EVE file failed to read or parse")).toMatchObject({
+    const line = lines.find(({ msg }) => msg === "EVE file failed to read or parse");
+
+    expect(line).toMatchObject({
       level: "error",
-      error: { kind: "read_failed", path: input.files[0]?.path },
+      error: { kind: "read_failed", path: input.files[0]?.path, cause: { code: "ENOENT" } },
     });
+    // The log line includes the cause's stack, and a stack starts with the error's message.
+    expect(JSON.stringify(line)).toContain('"stack":"Error: ENOENT');
   });
 });
