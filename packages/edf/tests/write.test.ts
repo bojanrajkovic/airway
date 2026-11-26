@@ -1,8 +1,9 @@
 import crc16ccitt from "crc/calculators/crc16ccitt";
 import { describe, expect, it } from "vitest";
-import { AIRSENSE, type EdfFileType } from "../src/airsense.ts";
-import { writeAnnotations, writeSignals, type PerFileHeader } from "../src/write.ts";
+import { AIRSENSE, type DataLabel, type EdfSignalFileType } from "../src/airsense.ts";
+import { samplesFor, writeAnnotations, writeSignals, type PerFileHeader } from "../src/write.ts";
 import { readAnnotations } from "../src/annotations.ts";
+import type { EdfSamples } from "../src/signals.ts";
 import { readable } from "./readable.ts";
 
 const header: PerFileHeader = {
@@ -12,16 +13,12 @@ const header: PerFileHeader = {
 };
 
 // Returns `records` records of a constant value for every signal of a file.
-function filled(file: EdfFileType, records: number, value = 1): Map<string, Float64Array> {
-  return new Map(
-    file.signals
-      .filter((signal) => signal.label !== "Crc16")
-      .map((signal) => [
-        signal.label,
-        new Float64Array(records * signal.samplesPerRecord).fill(value),
-      ]),
-  );
-}
+const filled = <F extends EdfSignalFileType>(
+  file: F,
+  records: number,
+  value = 1,
+): EdfSamples<DataLabel<F>> =>
+  samplesFor(file, (signal) => new Float64Array(records * signal.samplesPerRecord).fill(value));
 
 const ascii = (bytes: Uint8Array, from: number, width: number): string =>
   new TextDecoder().decode(bytes.subarray(from, from + width));
@@ -67,9 +64,8 @@ describe("writeSignals", () => {
 
   it("rounds to the step and clamps to the digital range", () => {
     const values = filled(AIRSENSE.brp, 1, 0);
-    const flow = values.get("Flow.40ms");
 
-    flow?.set([0.1234, -5, 9]);
+    values["Flow.40ms"].set([0.1234, -5, 9]);
     const brp = writeSignals(AIRSENSE.brp, header, values)._unsafeUnwrap();
 
     // Flow's step is 0.002 L/s, and 0 L/s is digital 0. Flow's samples follow the 1024-byte header.
@@ -85,21 +81,10 @@ describe("writeSignals", () => {
   });
 
   it.each([
-    ["a missing signal", (v: Map<string, Float64Array>) => v.delete("Leak.2s"), "missing_signal"],
-    [
-      "a partial record",
-      (v: Map<string, Float64Array>) => v.set("Leak.2s", new Float64Array(31)),
-      "partial_record",
-    ],
-    [
-      "signals with different record counts",
-      (v: Map<string, Float64Array>) => v.set("Leak.2s", new Float64Array(60)),
-      "uneven_signals",
-    ],
-  ])("rejects %s", (_case, edit, kind) => {
-    const values = filled(AIRSENSE.pld, 3);
-
-    edit(values);
+    ["a partial record", 31, "partial_record"],
+    ["signals with different record counts", 60, "uneven_signals"],
+  ])("rejects %s", (_case, leakSamples, kind) => {
+    const values = { ...filled(AIRSENSE.pld, 3), "Leak.2s": new Float64Array(leakSamples) };
 
     expect(writeSignals(AIRSENSE.pld, header, values)._unsafeUnwrapErr().kind).toBe(kind);
   });
@@ -122,7 +107,7 @@ describe("writeSignals", () => {
   it("returns missing_not_representable for NaN where -1 is in the digital range", () => {
     const values = filled(AIRSENSE.brp, 1, 0);
 
-    values.get("Flow.40ms")?.set([Number.NaN]);
+    values["Flow.40ms"].set([Number.NaN]);
 
     expect(writeSignals(AIRSENSE.brp, header, values)._unsafeUnwrapErr()).toEqual({
       kind: "missing_not_representable",

@@ -280,7 +280,7 @@ function addNight(
     const pldStart = segment.start.add({ seconds: PLD_LAG_SECONDS });
     // shortcut: in every case, ingest reads all of a segment's PLD files or none of them; count
     // each file's own records if a case ever damages one half of a split PLD.
-    const count = plds.length === 0 ? 0 : (pldSeries.get(PLD_SAMPLE_COLUMNS[0][0])?.length ?? 0);
+    const count = plds.length === 0 ? 0 : pldSeries["MaskPress.2s"].length;
 
     rows.segments.push({
       night: date,
@@ -292,7 +292,7 @@ function addNight(
 
     for (let s = 0; s < count; s += 1) {
       const signals: SignalValues = Object.fromEntries(
-        PLD_SAMPLE_COLUMNS.map(([label, column]) => [column, value(pldSeries.get(label)?.[s])]),
+        PLD_SAMPLE_COLUMNS.map(([label, column]) => [column, value(pldSeries[label][s])]),
       );
 
       rows.samples.push({

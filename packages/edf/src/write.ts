@@ -3,18 +3,19 @@ import { err, ok, Result } from "neverthrow";
 import {
   dataSignals,
   step,
+  type DataLabel,
   type EdfAnnotationFileType,
   type EdfFileType,
   type EdfSignalFileType,
 } from "./airsense.ts";
 import type { EdfAnnotation } from "./annotations.ts";
 import { recordBytes, type EdfHeader, type EdfSignalHeader } from "./header.ts";
+import type { EdfSamples } from "./signals.ts";
 
 /** These header fields change from file to file. The file type sets the rest. */
 export type PerFileHeader = Pick<EdfHeader, "start" | "patient" | "recording">;
 
 export type EdfWriteError =
-  | { kind: "missing_signal"; label: string }
   | { kind: "partial_record"; label: string; samples: number }
   | { kind: "missing_not_representable"; label: string }
   | { kind: "uneven_signals"; label: string; records: number; expected: number }
@@ -29,6 +30,16 @@ const SIGNAL_HEADER_BYTES = 256;
 const MISSING = -1;
 
 const encoder = new TextEncoder();
+
+/** Builds the `EdfSamples` record for `file` by calling `samples` once for each signal except Crc16. */
+export const samplesFor = <F extends EdfSignalFileType>(
+  file: F,
+  samples: (signal: EdfSignalHeader<DataLabel<F>>) => Float64Array,
+): EdfSamples<DataLabel<F>> =>
+  // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- dataSignals lists every DataLabel<F>, but Object.fromEntries types its keys as string
+  Object.fromEntries(
+    dataSignals(file).map((signal) => [signal.label, samples(signal)]),
+  ) as EdfSamples<DataLabel<F>>;
 
 /** Fills a header with fixed-width text fields, left-aligned and padded with spaces. */
 class HeaderBuilder {
@@ -145,19 +156,15 @@ function signRecords(bytes: Uint8Array, first: number, size: number): Uint8Array
   return bytes;
 }
 
-// Every signal must fill the same whole number of records. Callers leave Crc16 out of `values`.
-function recordCount(
-  file: EdfSignalFileType,
-  values: ReadonlyMap<string, Float64Array>,
+// Every signal must fill the same whole number of records.
+function recordCount<F extends EdfSignalFileType>(
+  file: F,
+  values: EdfSamples<DataLabel<F>>,
 ): Result<number, EdfWriteError> {
   const counts: { label: string; records: number }[] = [];
 
   for (const signal of dataSignals(file)) {
-    const samples = values.get(signal.label);
-
-    if (samples === undefined) {
-      return err({ kind: "missing_signal", label: signal.label });
-    }
+    const samples = values[signal.label];
 
     if (samples.length % signal.samplesPerRecord !== 0) {
       return err({ kind: "partial_record", label: signal.label, samples: samples.length });
@@ -177,18 +184,18 @@ function recordCount(
  * Writes a signal file (BRP, PLD, SAD, or STR) from physical values, one array per label.
  * docs/synthetic-data.md describes the rounding and how `NaN` is written.
  */
-export function writeSignals(
-  file: EdfSignalFileType,
+export function writeSignals<F extends EdfSignalFileType>(
+  file: F,
   header: PerFileHeader,
-  values: ReadonlyMap<string, Float64Array>,
+  values: EdfSamples<DataLabel<F>>,
 ): Result<Uint8Array, EdfWriteError> {
   const signals = dataSignals(file);
 
   return recordCount(file, values)
     .andThen((records) =>
-      Result.combine(
-        signals.map((signal) => digitize(signal, values.get(signal.label) ?? new Float64Array())),
-      ).map((digital) => ({ records, digital })),
+      Result.combine(signals.map((signal) => digitize(signal, values[signal.label]))).map(
+        (digital) => ({ records, digital }),
+      ),
     )
     .andThen(({ records, digital }) =>
       writeHeader(file, header, records).map((headerBytes) => {

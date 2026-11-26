@@ -1,15 +1,29 @@
 import { err, ok, Result } from "neverthrow";
 import { toDeviceTime } from "@airway/contract/clock";
-import { AIRSENSE, dataSignals, EVENT_LABELS, PLD_SAMPLE_SECONDS } from "@airway/edf/airsense";
+import {
+  AIRSENSE,
+  dataSignals,
+  EVENT_LABELS,
+  PLD_SAMPLE_SECONDS,
+  type DataLabel,
+} from "@airway/edf/airsense";
 import { readHeader, type EdfReadError } from "@airway/edf/header";
 import type { FileSizeCheck } from "@airway/edf/size";
 import {
+  samplesFor,
   writeAnnotations,
   writeSignals,
   type EdfWriteError,
   type PerFileHeader,
 } from "@airway/edf/write";
-import type { EventFile, FileDamage, MachineEvent, Segment, SyntheticNight } from "./model.ts";
+import type {
+  EventFile,
+  FileDamage,
+  MachineEvent,
+  PldSeries,
+  Segment,
+  SyntheticNight,
+} from "./model.ts";
 import { APNEAS } from "./patients.ts";
 import { renderBrp } from "./signals.ts";
 
@@ -68,10 +82,7 @@ export function nightFiles(
     const pldSadStart = start.add({ seconds: PLD_LAG_SECONDS });
     const { flow, pressure } = renderBrp(segment, night);
     const seconds = segment.start.until(segment.end).total("seconds");
-    const sad = new Map([
-      ["Pulse.1s", missing(seconds)],
-      ["SpO2.1s", missing(seconds)],
-    ]);
+    const sad = { "Pulse.1s": missing(seconds), "SpO2.1s": missing(seconds) };
     const file =
       (kind: NightFile["kind"], at: Temporal.PlainDateTime, damage: FileDamage) =>
       (bytes: Uint8Array): NightFile[] => [
@@ -79,14 +90,9 @@ export function nightFiles(
       ];
 
     return Result.combine([
-      writeSignals(
-        AIRSENSE.brp,
-        header(start),
-        new Map([
-          ["Flow.40ms", flow],
-          ["Press.40ms", pressure],
-        ]),
-      ).map(file("brp", start, segment.brp)),
+      writeSignals(AIRSENSE.brp, header(start), { "Flow.40ms": flow, "Press.40ms": pressure }).map(
+        file("brp", start, segment.brp),
+      ),
       ...pldParts(segment).map(({ series, offsetSeconds, damage }) => {
         const at = pldSadStart.add({ seconds: offsetSeconds });
 
@@ -139,7 +145,7 @@ export const eventOnset = (file: EventFile, event: MachineEvent): number =>
   Math.round(file.start.until(event.at).total("seconds") + event.duration);
 
 type PldPart = {
-  series: ReadonlyMap<string, Float64Array>;
+  series: PldSeries;
   offsetSeconds: number;
   damage: FileDamage;
 };
@@ -160,8 +166,8 @@ function pldParts({ pldSeries, pldFiles }: Segment): PldPart[] {
   }
 
   const at = pldFiles.atRecord * PLD_RECORD_SAMPLES;
-  const part = (from: number, to?: number): Map<string, Float64Array> =>
-    new Map([...pldSeries].map(([label, values]) => [label, values.subarray(from, to)]));
+  const part = (from: number, to?: number): PldSeries =>
+    samplesFor(AIRSENSE.pld, ({ label }) => pldSeries[label].subarray(from, to));
 
   return [
     { series: part(0, at), offsetSeconds: 0, damage: "none" },
@@ -259,14 +265,9 @@ export function strFile(
 
   const days = first.night.until(last.night).days + 1;
   const byDate = new Map(nights.map((night) => [night.night.toString(), night]));
-  const values = new Map<string, Float64Array>(
-    dataSignals(AIRSENSE.str).map((signal) => [
-      signal.label,
-      missing(days * signal.samplesPerRecord),
-    ]),
-  );
-  const put = (label: string, index: number, value: number): void => {
-    values.get(label)?.set([value], index);
+  const values = samplesFor(AIRSENSE.str, (signal) => missing(days * signal.samplesPerRecord));
+  const put = (label: DataLabel<typeof AIRSENSE.str>, index: number, value: number): void => {
+    values[label].set([value], index);
   };
 
   for (let day = 0; day < days; day += 1) {
@@ -287,8 +288,12 @@ export function strFile(
     slots.maskOff.forEach((minutes, slot) => {
       put("MaskOff", day * SLOTS + slot, minutes);
     });
-    for (const [label, value] of night.str) {
-      put(label, day, value);
+    for (const { label } of dataSignals(AIRSENSE.str)) {
+      const value = night.str.get(label);
+
+      if (value !== undefined) {
+        put(label, day, value);
+      }
     }
   }
 
