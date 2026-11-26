@@ -218,3 +218,15 @@ flowchart LR
 An EVE file that fails to read or parse fails the night, because the AHI check would be wrong for a night with only some of its events. The failure adds an `ingest.event_file_failed` span event and an `error` log with the file's path and the error's kind.
 
 Ingest skips CSL files, which hold the machine's Cheyne-Stokes respiration periods. Before ingest can read CSL files, airway needs a sample CSL file that contains a period, and `EventType` needs a member for those periods.
+
+## Samples
+
+The samples table stores the PLD signals listed in `PLD_SAMPLE_COLUMNS`, one row every 2 s, in the machine's units. `readSamples(ctx, { night, zone, segments })` in `packages/server/src/ingest/samples.ts` reads every PLD file attached to the night's segments and returns one `SampleBlock` per file:
+
+- `segment` and `session` identify the segment that the PLD file belongs to.
+- `ts` holds each row's time in milliseconds since the Unix epoch. The first row's time is the start time in the file's header. `readSamples` reads that time as device-clock time in the home time zone. Each later row is `PLD_SAMPLE_SECONDS` after the row before it.
+- `signals` holds one `Float64Array` per samples column, keyed by column name. `toSamples` rounds each value to the step in its signal's header, as `readStr` does. NaN marks a value that the machine didn't record.
+
+A block stores its rows as columns, so a worker can transfer the arrays to the main thread without copying them. `readSamples` returns one block for each half of a split PLD file, both in the same segment. The second block's first row is 2 s after the first block's last row.
+
+`readSamples` runs in an `ingest.samples` span that records the night, the number of PLD files, and the number of rows. `readEdfFile` reads each file in its own `edf.read_file` span. If any PLD file fails to read, the night fails. The error includes that file's path.
