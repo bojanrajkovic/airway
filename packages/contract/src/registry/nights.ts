@@ -1,4 +1,5 @@
-import { AHI_CHECKS } from "../derived/values.ts";
+import { valuesOf } from "../enum.ts";
+import { AhiOutcome } from "../derived/values.ts";
 import { RULE_SETS } from "../profile.ts";
 import { count, minutes, night } from "./columns.ts";
 import {
@@ -114,7 +115,7 @@ export const nights: Omit<Dataset, "columns"> & {
     eventCount("events_outside_mask_on", "Events outside every mask-on period"),
     enumeration(
       "ahi_check",
-      AHI_CHECKS,
+      valuesOf(AhiOutcome),
       "Whether the AHI that airway recomputes from the events equals the machine's AHI.",
     ),
     enumeration("rule_set", RULE_SETS, "The scoring rules for the patient's age on this night."),

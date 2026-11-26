@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { Instant, PlainDate } from "../dates.ts";
-import type { EVENT_TYPES } from "../derived/values.ts";
+import type { EventType } from "../derived/values.ts";
 
 /**
  * Caps the buckets that one `waveform.window` request can ask for. The viewer asks for one bucket
@@ -46,7 +46,6 @@ export type WaveformPiece = { start: Temporal.Instant; step: number } & (
 /** Describes one signal's values in its stored unit, with one piece per recording file. */
 export type WaveformSeries = { unit: string; pieces: WaveformPiece[] };
 
-type EventType = (typeof EVENT_TYPES)[number];
 /**
  * Describes an event that the machine flagged. `duration` is in seconds, and it's null for an
  * event that lacks a duration.

@@ -1,12 +1,15 @@
 import { describe, expect, it } from "vitest";
 import type { Session } from "@airway/contract/derived/sessions";
+import { EventSource, SessionSource } from "@airway/contract/derived/values";
 import { readHeader } from "@airway/edf/header";
 import { scoreNight, toEvents, type FileAnnotations } from "../../src/ingest/events.ts";
 import { caseNight, editEve, folderContext, writeFolder } from "../support/cpap-folder.ts";
 
 const night = Temporal.PlainDate.from("2030-01-07");
 const start = Temporal.Instant.from("2030-01-08T02:00:00Z");
-const sessions: Session[] = [{ session: 1, start, end: start.add({ hours: 4 }), source: "str" }];
+const sessions: Session[] = [
+  { session: 1, start, end: start.add({ hours: 4 }), source: SessionSource.Str },
+];
 const file = (
   path: string,
   offsetSeconds: number,
@@ -82,7 +85,9 @@ describe("toEvents", () => {
       [start.add({ seconds: 18_000 }), 1, true],
     ]);
     expect(
-      placed.events.every(({ night: date, source }) => date.equals(night) && source === "resmed"),
+      placed.events.every(
+        ({ night: date, source }) => date.equals(night) && source === EventSource.Resmed,
+      ),
     ).toBe(true);
   });
 });

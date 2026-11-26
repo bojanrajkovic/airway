@@ -1,4 +1,5 @@
-import { SESSION_SOURCES } from "../derived/values.ts";
+import { valuesOf } from "../enum.ts";
+import { SessionSource } from "../derived/values.ts";
 import { minutes, night, session, ts } from "./columns.ts";
 import { enumeration, metric, sql, time, type Dataset } from "./define.ts";
 
@@ -13,7 +14,7 @@ export const sessions: Dataset = {
     session,
     enumeration(
       "source",
-      SESSION_SOURCES,
+      valuesOf(SessionSource),
       "The period comes from the machine's stored mask-on times (str) or from the recording files (derived). On a night with more periods than the machine stores, airway reads the periods from the recording files.",
     ),
     metric(

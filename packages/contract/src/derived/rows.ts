@@ -2,13 +2,7 @@
 // synthetic rows and the rows that ingest writes use these types, so both have the same shape.
 // ddl.ts creates the tables.
 import type { RuleSet } from "../profile.ts";
-import type {
-  AHI_CHECKS,
-  EVENT_SOURCES,
-  EVENT_TYPES,
-  FILE_KINDS,
-  SESSION_SOURCES,
-} from "./values.ts";
+import type { AhiOutcome, EventSource, EventType, FileKind, SessionSource } from "./values.ts";
 
 /**
  * Maps each machine-signal column's name to the column's value. The value is null when the machine
@@ -41,14 +35,14 @@ export type NightRow = {
   hypopneas: number;
   arousals: number;
   events_outside_mask_on: number;
-  ahi_check: (typeof AHI_CHECKS)[number];
+  ahi_check: AhiOutcome;
   rule_set: RuleSet;
   arrived_at: Temporal.Instant;
 };
 
 export type FileRow = {
   path: string;
-  kind: (typeof FILE_KINDS)[number];
+  kind: FileKind;
   night: Temporal.PlainDate | null;
   segment: number | null;
   size: number;
@@ -61,7 +55,7 @@ export type SessionRow = {
   session: number;
   ts: Temporal.Instant;
   ended_at: Temporal.Instant;
-  source: (typeof SESSION_SOURCES)[number];
+  source: SessionSource;
 };
 
 export type SegmentRow = {
@@ -78,9 +72,9 @@ export type EventRow = {
   /** `ts` is the event's start, or the event's end when `duration` is null. */
   ts: Temporal.Instant;
   duration: number | null;
-  type: (typeof EVENT_TYPES)[number];
+  type: EventType;
   label: string | null;
-  source: (typeof EVENT_SOURCES)[number];
+  source: EventSource;
   outside_mask_on: boolean;
 };
 

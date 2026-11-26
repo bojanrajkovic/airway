@@ -6,6 +6,7 @@ import { onTestFinished } from "vitest";
 import { z } from "zod";
 import type { DerivedRows } from "@airway/contract/derived/rows";
 import type { UsedStrDay } from "@airway/contract/derived/str";
+import { FileKind } from "@airway/contract/derived/values";
 import { readHeader } from "@airway/edf/header";
 import type { EdgeCaseName } from "@airway/synthetic/cases";
 import { cpapData, type CpapFile } from "@airway/synthetic/cpap-data";
@@ -38,7 +39,11 @@ export function segmentFiles(files: readonly CpapFile[], night: Temporal.PlainDa
   const folder = `DATALOG/${night.toString().replaceAll("-", "")}/`;
 
   return files.flatMap(({ path, bytes }): SegmentFile[] => {
-    const kind = path.endsWith("_BRP.edf") ? "brp" : path.endsWith("_PLD.edf") ? "pld" : undefined;
+    const kind = path.endsWith("_BRP.edf")
+      ? FileKind.Brp
+      : path.endsWith("_PLD.edf")
+        ? FileKind.Pld
+        : undefined;
 
     if (kind === undefined || !path.startsWith(folder)) {
       return [];
@@ -72,7 +77,7 @@ export function eveFiles(files: readonly CpapFile[], night: Temporal.PlainDate):
       ? [
           {
             path,
-            kind: "eve",
+            kind: FileKind.Eve,
             night,
             size: bytes.length,
             ctime: CTIME,

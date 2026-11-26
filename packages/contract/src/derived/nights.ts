@@ -2,19 +2,17 @@ import type { RuleSet } from "../profile.ts";
 import type { EventRow, NightRow } from "./rows.ts";
 import type { Sessions } from "./sessions.ts";
 import type { UsedStrDay } from "./str.ts";
-import type { EVENT_TYPES } from "./values.ts";
-
-type EventType = (typeof EVENT_TYPES)[number];
+import { AhiOutcome, EventType } from "./values.ts";
 
 /** Picks the event-row fields that `nightRow` and `ahiCheck` read. */
 export type NightEvent = Pick<EventRow, "type" | "outside_mask_on">;
 
 /** `ahiCheck` counts these event types toward the AHI. */
 const AHI_EVENTS: ReadonlySet<EventType> = new Set([
-  "obstructive_apnea",
-  "central_apnea",
-  "unclassified_apnea",
-  "hypopnea",
+  EventType.ObstructiveApnea,
+  EventType.CentralApnea,
+  EventType.UnclassifiedApnea,
+  EventType.Hypopnea,
 ]);
 
 /**
@@ -22,9 +20,9 @@ const AHI_EVENTS: ReadonlySet<EventType> = new Set([
  * machine's AHI. Both values are in tenths.
  */
 export type AhiCheck =
-  | { outcome: "match"; tenths: number }
-  | { outcome: "mismatch"; computed: number; machine: number | null }
-  | { outcome: "no_usage" };
+  | { outcome: AhiOutcome.Match; tenths: number }
+  | { outcome: AhiOutcome.Mismatch; computed: number; machine: number | null }
+  | { outcome: AhiOutcome.NoUsage };
 
 /**
  * Recomputes the night's AHI from the night's apneas and hypopneas, including those outside mask-on
@@ -36,7 +34,7 @@ export function ahiCheck(day: UsedStrDay, events: readonly NightEvent[]): AhiChe
   const usage = day.signals["usage"] ?? 0;
 
   if (usage <= 0) {
-    return { outcome: "no_usage" };
+    return { outcome: AhiOutcome.NoUsage };
   }
 
   const scored = events.filter((event) => AHI_EVENTS.has(event.type)).length;
@@ -45,8 +43,8 @@ export function ahiCheck(day: UsedStrDay, events: readonly NightEvent[]): AhiChe
   const machine = ahi === null ? null : Math.round(ahi * 10);
 
   return computed === machine
-    ? { outcome: "match", tenths: computed }
-    : { outcome: "mismatch", computed, machine };
+    ? { outcome: AhiOutcome.Match, tenths: computed }
+    : { outcome: AhiOutcome.Mismatch, computed, machine };
 }
 
 export type NightInputs = {
@@ -79,11 +77,11 @@ export function nightRow({ day, sessions, events, ruleSet }: NightInputs): Score
         0,
         ...sessions.sessions.map(({ start, end }) => start.until(end).total("minutes")),
       ),
-      obstructive_apneas: count("obstructive_apnea"),
-      central_apneas: count("central_apnea"),
-      unclassified_apneas: count("unclassified_apnea"),
-      hypopneas: count("hypopnea"),
-      arousals: count("arousal"),
+      obstructive_apneas: count(EventType.ObstructiveApnea),
+      central_apneas: count(EventType.CentralApnea),
+      unclassified_apneas: count(EventType.UnclassifiedApnea),
+      hypopneas: count(EventType.Hypopnea),
+      arousals: count(EventType.Arousal),
       events_outside_mask_on: events.filter((event) => event.outside_mask_on).length,
       ahi_check: ahi.outcome,
       rule_set: ruleSet,

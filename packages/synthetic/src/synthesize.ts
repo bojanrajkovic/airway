@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import { Result } from "neverthrow";
+import { EventSource, FileKind } from "@airway/contract/derived/values";
 import type { EdfReadError } from "@airway/edf/header";
 import type { FileSizeCheck } from "@airway/edf/size";
 import type {
@@ -86,17 +87,17 @@ export function synthesize(
       rows.files.push(
         fileRow(
           files,
-          { path: "Identification.tgt", kind: "identification", night: null, segment: null },
+          { path: "Identification.tgt", kind: FileKind.Identification, night: null, segment: null },
           options.arrivedAt,
         ),
         fileRow(
           files,
-          { path: "Identification.crc", kind: "crc", night: null, segment: null },
+          { path: "Identification.crc", kind: FileKind.Crc, night: null, segment: null },
           options.arrivedAt,
         ),
         fileRow(
           files,
-          { path: "STR.edf", kind: "str", night: null, segment: null },
+          { path: "STR.edf", kind: FileKind.Str, night: null, segment: null },
           options.arrivedAt,
         ),
       );
@@ -182,9 +183,12 @@ function emptyRows(days: readonly StrDay[]): DerivedRows {
 }
 
 type FileSpec = Pick<FileRow, "path" | "kind" | "night" | "segment">;
+// Maps each kind of file that ingest imports to its value in the `files` table's `kind` column.
+const IMPORTED_KINDS = { brp: FileKind.Brp, pld: FileKind.Pld, eve: FileKind.Eve } as const;
+
 /** Adds the file kind and size-check verdict to a night's file that ingest imports. */
 type ImportedFile = DatalogFile & {
-  kind: "brp" | "pld" | "eve";
+  kind: keyof typeof IMPORTED_KINDS;
   verdict: Exclude<FileSizeCheck["verdict"], "reject">;
 };
 
@@ -248,7 +252,7 @@ function addNight(
 
   const specs = imported.map((file): FileSpec => ({
     path: `${file.path}.edf`,
-    kind: file.kind,
+    kind: IMPORTED_KINDS[file.kind],
     night: date,
     segment: segmentOf(file),
   }));
@@ -257,7 +261,7 @@ function addNight(
   // file's EDF.
   const crcs = files.flatMap((file): FileSpec[] =>
     file.kind === "brp" || file.kind === "pld" || file.kind === "eve"
-      ? [{ path: `${file.path}.crc`, kind: "crc", night: date, segment: null }]
+      ? [{ path: `${file.path}.crc`, kind: FileKind.Crc, night: date, segment: null }]
       : [],
   );
 
@@ -357,7 +361,7 @@ function eventRows(
     duration: writtenDuration(event) === 0 ? null : writtenDuration(event),
     type: event.type,
     label: EVENT_LABELS[event.type],
-    source: "resmed",
+    source: EventSource.Resmed,
     outside_mask_on: places[i]?.outsideMaskOn ?? true,
   }));
 }

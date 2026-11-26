@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import { test as base, describe, expect } from "vitest";
+import { EventType, FileKind, SessionSource } from "@airway/contract/derived/values";
 import { syntheticNights, type SyntheticNight } from "../src/model.ts";
 import { synthesize, type Synthesized } from "../src/synthesize.ts";
 
@@ -86,7 +87,9 @@ describe("synthesize", () => {
   test("writes a null duration for hypopneas and arousals, and a duration of at least 10 s for apneas", ({
     synthesized: { rows },
   }) => {
-    const untimed = rows.events.filter(({ type }) => type === "hypopnea" || type === "arousal");
+    const untimed = rows.events.filter(
+      ({ type }) => type === EventType.Hypopnea || type === EventType.Arousal,
+    );
     const timed = rows.events.filter(({ type }) => type.endsWith("_apnea"));
 
     expect(untimed).not.toHaveLength(0);
@@ -119,7 +122,7 @@ describe("synthesize", () => {
     for (const segment of rows.segments) {
       const brps = rows.files.filter(
         (file) =>
-          file.kind === "brp" &&
+          file.kind === FileKind.Brp &&
           file.night?.equals(segment.night) === true &&
           file.segment === segment.segment,
       );
@@ -224,8 +227,8 @@ describe("synthesize", () => {
       nights: [row],
     } = run([busy]).rows;
 
-    expect(sessions.filter((session) => session.source === "str")).toHaveLength(10);
-    expect(sessions.some((session) => session.source === "derived")).toBe(true);
+    expect(sessions.filter((session) => session.source === SessionSource.Str)).toHaveLength(10);
+    expect(sessions.some((session) => session.source === SessionSource.Derived)).toBe(true);
     expect(row?.expected_sessions).toBe(busy.periods.length);
     expect(row?.session_count_approximate).toBe(sessions.length !== busy.periods.length);
   });

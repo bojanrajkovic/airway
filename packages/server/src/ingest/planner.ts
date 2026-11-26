@@ -1,3 +1,4 @@
+import { FileKind } from "@airway/contract/derived/values";
 import type { ScannedFile } from "./scan.ts";
 import type { FileStates, FileVersion, ReadyFile, RejectedFile } from "./versions.ts";
 
@@ -54,7 +55,7 @@ function strCovers(str: ReadyFile | undefined): (night: Temporal.PlainDate) => b
  */
 export function planNights(states: FileStates, imported: readonly FileVersion[]): NightPlan {
   const versions = new Map(imported.map((version) => [version.path, version]));
-  const covered = strCovers(states.ready.find(({ kind }) => kind === "str"));
+  const covered = strCovers(states.ready.find(({ kind }) => kind === FileKind.Str));
   const nightKeys = (files: readonly ScannedFile[]): Set<string> =>
     new Set(files.flatMap(({ night }) => (night === null ? [] : [night.toString()])));
 
@@ -71,7 +72,9 @@ export function planNights(states: FileStates, imported: readonly FileVersion[])
     waiting: nights.filter(waits),
     rejected: states.rejected,
     rewriteStrTables: states.ready.some(
-      (file) => (file.kind === "str" || file.kind === "identification") && isNew(file, versions),
+      (file) =>
+        (file.kind === FileKind.Str || file.kind === FileKind.Identification) &&
+        isNew(file, versions),
     ),
   };
 }

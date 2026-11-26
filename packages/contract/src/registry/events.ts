@@ -1,4 +1,5 @@
-import { EVENT_SOURCES, EVENT_TYPES } from "../derived/values.ts";
+import { valuesOf } from "../enum.ts";
+import { EventSource, EventType } from "../derived/values.ts";
 import { hourOfNight, night, seconds, session, ts } from "./columns.ts";
 import { dimension, enumeration, metric, type Dataset } from "./define.ts";
 
@@ -11,10 +12,10 @@ export const events: Dataset = {
     ts("When the machine marked the event."),
     session,
     hourOfNight,
-    enumeration("type", EVENT_TYPES, "What kind of event it is."),
+    enumeration("type", valuesOf(EventType), "What kind of event it is."),
     enumeration(
       "source",
-      EVENT_SOURCES,
+      valuesOf(EventSource),
       "Whether the machine (resmed) or airway scored the event.",
     ),
     dimension(

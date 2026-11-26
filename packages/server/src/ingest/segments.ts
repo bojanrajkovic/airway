@@ -2,6 +2,7 @@ import type { Attributes } from "@opentelemetry/api";
 import { toInstant } from "@airway/contract/clock";
 import { buildSessions, type Sessions, type Span } from "@airway/contract/derived/sessions";
 import type { UsedStrDay } from "@airway/contract/derived/str";
+import { FileKind } from "@airway/contract/derived/values";
 import type { EdfFileHeaders } from "@airway/edf/header";
 import type { FileSizeCheck } from "@airway/edf/size";
 import type { AppContext } from "../runtime/context.ts";
@@ -13,7 +14,7 @@ import type { ReadyFile } from "./versions.ts";
  * accepted.
  */
 export type SegmentFile = ReadyFile & {
-  kind: "brp" | "pld";
+  kind: FileKind.Brp | FileKind.Pld;
   edf: EdfFileHeaders & { size: Exclude<FileSizeCheck, { verdict: "reject" }> };
 };
 
@@ -87,10 +88,10 @@ export function planSegments({ night, zone, day, files }: NightFiles): NightSegm
       .filter((file) => file.kind === kind && file.edf.size.verdict === "read")
       .map((file) => place(file, zone))
       .toSorted((a, b) => Temporal.Instant.compare(a.start, b.start));
-  const brps = read("brp");
+  const brps = read(FileKind.Brp);
   const plds = brps.map((): SegmentFile[] => []);
 
-  for (const pld of read("pld")) {
+  for (const pld of read(FileKind.Pld)) {
     const overlaps = brps.map((brp) => overlap(brp, pld));
     const best = Math.max(0, ...overlaps);
 

@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { PlainDate } from "../dates.ts";
-import type { PERCENTILE_SIGNALS } from "../derived/values.ts";
+import type { PercentileSignal } from "../derived/values.ts";
 import type { LastNightStatus } from "./last-night.ts";
 
 /**
@@ -31,7 +31,6 @@ export type SummaryRange = z.infer<typeof SummaryRange>;
 /** Maps each `nights` metric's column name to the metric's value. */
 export type MetricValues = Record<string, number | null>;
 
-type PercentileSignal = (typeof PERCENTILE_SIGNALS)[number];
 /**
  * Maps each percentile signal to its P50 and P95 over a week or month, recomputed from the
  * signal's 2 s samples.

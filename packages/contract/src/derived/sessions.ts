@@ -1,12 +1,12 @@
 import { toInstant } from "../clock.ts";
 import type { UsedStrDay } from "./str.ts";
-import type { SESSION_SOURCES } from "./values.ts";
+import { SessionSource } from "./values.ts";
 
 /** Describes a stretch of time, such as a BRP segment or an event. */
 export type Span = { start: Temporal.Instant; end: Temporal.Instant };
 
 /** Describes a mask-on period. Sessions are numbered from 1 in time order. */
-export type Session = Span & { session: number; source: (typeof SESSION_SOURCES)[number] };
+export type Session = Span & { session: number; source: SessionSource };
 
 /** `buildSessions` reads a night's STR.edf slots and mask events, and its BRP segments. */
 export type SessionInputs = Pick<UsedStrDay, "maskOn" | "maskOff" | "maskEvents"> & {
@@ -62,7 +62,7 @@ function slotSpans({ night, zone, maskOn, maskOff }: SessionInputs): Span[] {
 export function buildSessions(inputs: SessionInputs): Sessions {
   const candidates: Candidate[] = slotSpans(inputs).map((span) => ({
     span,
-    source: "str",
+    source: SessionSource.Str,
     members: [],
   }));
   const strCount = candidates.length;
@@ -78,7 +78,7 @@ export function buildSessions(inputs: SessionInputs): Sessions {
       run.span = { start: run.span.start, end: segment.end };
       run.members.push(i);
     } else {
-      run = { span: { ...segment }, source: "derived", members: [i] };
+      run = { span: { ...segment }, source: SessionSource.Derived, members: [i] };
       candidates.push(run);
     }
   });

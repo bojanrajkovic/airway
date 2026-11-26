@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { DerivedRows, SessionRow } from "@airway/contract/derived/rows";
 import type { Session } from "@airway/contract/derived/sessions";
+import { FileKind } from "@airway/contract/derived/values";
 import type { EdgeCaseName } from "@airway/synthetic/cases";
 import type { CpapFile } from "@airway/synthetic/cpap-data";
 import { syntheticNights } from "@airway/synthetic/model";
@@ -95,7 +96,7 @@ describe("planSegments", () => {
     });
 
     it("warns about each PLD file when the night has no BRP file", () => {
-      const files = input?.files.filter(({ kind }) => kind === "pld") ?? [];
+      const files = input?.files.filter(({ kind }) => kind === FileKind.Pld) ?? [];
       const noBrp = input === undefined ? undefined : planSegments({ ...input, files });
 
       expect(noBrp?.segments).toEqual([]);

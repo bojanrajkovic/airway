@@ -3,6 +3,7 @@ import { createReadStream } from "node:fs";
 import { join } from "node:path";
 import { ResultAsync } from "neverthrow";
 import type { FileRow } from "@airway/contract/derived/rows";
+import { FileKind } from "@airway/contract/derived/values";
 import { recordBytes, type EdfFileHeaders } from "@airway/edf/header";
 import type { Logger } from "../logger.ts";
 import type { AppContext } from "../runtime/context.ts";
@@ -142,7 +143,7 @@ async function update(
 }
 
 async function readHeaderOf(ctx: AppContext, file: ScannedFile): Promise<HeaderRead> {
-  if (file.kind === "identification" || file.kind === "crc") {
+  if (file.kind === FileKind.Identification || file.kind === FileKind.Crc) {
     return { kind: "not_edf" };
   }
 

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { ahiCheck, nightRow, type NightEvent } from "../../src/derived/nights.ts";
 import type { Session } from "../../src/derived/sessions.ts";
 import type { UsedStrDay } from "../../src/derived/str.ts";
+import { EventType, SessionSource } from "../../src/derived/values.ts";
 
 const night = Temporal.PlainDate.from("2030-01-07");
 const at = (minutes: number): Temporal.Instant =>
@@ -13,7 +14,7 @@ function day(signals: Record<string, number | null>, maskEvents = 2): UsedStrDay
 
 const events = (count: number, event: Partial<NightEvent> = {}): NightEvent[] =>
   Array.from({ length: count }, () => ({
-    type: "hypopnea",
+    type: EventType.Hypopnea,
     outside_mask_on: false,
     ...event,
   }));
@@ -49,12 +50,15 @@ describe("ahiCheck", () => {
 
   it("counts apneas and hypopneas, including those outside mask-on time, and skips arousals and other events", () => {
     const counted = [
-      ...events(1, { type: "obstructive_apnea" }),
-      ...events(1, { type: "central_apnea" }),
-      ...events(1, { type: "unclassified_apnea", outside_mask_on: true }),
-      ...events(1, { type: "hypopnea", outside_mask_on: true }),
+      ...events(1, { type: EventType.ObstructiveApnea }),
+      ...events(1, { type: EventType.CentralApnea }),
+      ...events(1, { type: EventType.UnclassifiedApnea, outside_mask_on: true }),
+      ...events(1, { type: EventType.Hypopnea, outside_mask_on: true }),
     ];
-    const ignored = [...events(5, { type: "arousal" }), ...events(5, { type: "other" })];
+    const ignored = [
+      ...events(5, { type: EventType.Arousal }),
+      ...events(5, { type: EventType.Other }),
+    ];
 
     // 4 events in 60 minutes is an AHI of 4.0.
     expect(ahiCheck(day({ usage: 60, ahi: 4 }), [...counted, ...ignored])).toEqual({
@@ -66,16 +70,16 @@ describe("ahiCheck", () => {
 
 describe("nightRow", () => {
   const sessions: Session[] = [
-    { session: 1, start: at(0), end: at(90), source: "str" },
-    { session: 2, start: at(100), end: at(250), source: "derived" },
+    { session: 1, start: at(0), end: at(90), source: SessionSource.Str },
+    { session: 2, start: at(100), end: at(250), source: SessionSource.Derived },
   ];
   const nightEvents = [
-    ...events(2, { type: "obstructive_apnea" }),
-    ...events(1, { type: "central_apnea", outside_mask_on: true }),
-    ...events(3, { type: "unclassified_apnea" }),
-    ...events(4, { type: "hypopnea" }),
-    ...events(5, { type: "arousal", outside_mask_on: true }),
-    ...events(1, { type: "other" }),
+    ...events(2, { type: EventType.ObstructiveApnea }),
+    ...events(1, { type: EventType.CentralApnea, outside_mask_on: true }),
+    ...events(3, { type: EventType.UnclassifiedApnea }),
+    ...events(4, { type: EventType.Hypopnea }),
+    ...events(5, { type: EventType.Arousal, outside_mask_on: true }),
+    ...events(1, { type: EventType.Other }),
   ];
   const { row, ahi } = nightRow({
     day: day({ usage: 240, ahi: 2.5, leak_p95: 0.2 }, 6),
