@@ -38,7 +38,10 @@ const seen = (overrides: Partial<SeenFile> = {}): SeenFile => ({
 describe("checkReadiness", () => {
   const resized = seen({ size: 2000, since: at(10) });
   const unparsed = seen({
-    header: { kind: "failed", error: { kind: "header_too_short", headerBytes: 256 } },
+    header: {
+      kind: "failed",
+      error: { kind: "header_too_short", headerBytes: 256, path: "DATALOG/20300101/a_BRP.edf" },
+    },
   });
 
   const tooSoon: Readiness = { state: "waiting", reason: "too_soon" };

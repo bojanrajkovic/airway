@@ -1,10 +1,10 @@
 import { inMemoryTelemetry } from "@airway/testing/telemetry";
 import { beforeEach, describe, expect, it } from "vitest";
 import type { ReadableSpan } from "@opentelemetry/sdk-trace";
-import type { Result } from "neverthrow";
-import { readHeader, type EdfFileHeaders, type EdfReadError } from "@airway/edf/header";
+import { AIRSENSE } from "@airway/edf/airsense";
+import { readHeader } from "@airway/edf/header";
 import type { CpapFile } from "@airway/synthetic/cpap-data";
-import { readEdfFile } from "../../src/ingest/edf.ts";
+import { readEdfFile, readEdfHeader } from "../../src/ingest/edf.ts";
 import {
   capturingLogger,
   folderContext,
@@ -19,20 +19,8 @@ beforeEach(() => {
   spans.reset();
 });
 
-type Read = {
-  result: Result<EdfFileHeaders, EdfReadError>;
-  span: ReadableSpan | undefined;
-  lines: Record<string, unknown>[];
-};
-
-async function read(file: CpapFile): Promise<Read> {
-  const { logger, lines } = capturingLogger();
-  const ctx = folderContext(await writeFolder([file]), { logger });
-  const result = await readEdfFile(ctx, file.path);
-  const [span] = spans.getFinishedSpans().filter(({ name }) => name === "edf.read_file");
-
-  return { result, span, lines };
-}
+const spanNamed = (name: string): ReadableSpan | undefined =>
+  spans.getFinishedSpans().find((span) => span.name === name);
 
 const brp = (): CpapFile => {
   const file = syntheticFolder(1).find(({ path }) => path.endsWith("_BRP.edf"));
@@ -44,18 +32,33 @@ const brp = (): CpapFile => {
   return file;
 };
 
-describe("readEdfFile", () => {
-  it("puts the file's path, format, verdict, and record count on its span", async () => {
-    const file = brp();
-    const { result, span } = await read(file);
+// Returns `file` with the recording field's Startdate moved to another day, so `readHeader`
+// reports a `startdate_mismatch`.
+function withStartdateMismatch(file: CpapFile): CpapFile {
+  const bytes = file.bytes.slice();
+  // The recording field starts at byte 88.
+  const recording = new TextDecoder().decode(bytes.subarray(88, 168));
+  const changed = recording.replace(
+    /Startdate (\d{2})/v,
+    (_, day: string) => `Startdate ${day === "01" ? "02" : "01"}`,
+  );
+  bytes.set(new TextEncoder().encode(changed), 88);
 
-    const records = result._unsafeUnwrap().size;
-    expect(records.verdict).toBe("read");
-    expect(span?.attributes).toEqual({
+  return { ...file, bytes };
+}
+
+describe("readEdfHeader", () => {
+  it("sets the path, format, verdict, and record count on the edf.read_header span", async () => {
+    const file = brp();
+    const ctx = folderContext(await writeFolder([file]));
+    const { size } = (await readEdfHeader(ctx, file.path))._unsafeUnwrap();
+
+    expect(size.verdict).toBe("read");
+    expect(spanNamed("edf.read_header")?.attributes).toEqual({
       "airway.file.path": file.path,
       "edf.format": "EDF",
       "edf.verdict": "read",
-      "edf.records": records.verdict === "read" ? records.records : -1,
+      "edf.records": size.verdict === "read" ? size.records : -1,
       "edf.header_count": "matches",
       "edf.warning_count": 0,
     });
@@ -63,30 +66,21 @@ describe("readEdfFile", () => {
 
   it("records a rejected file's verdict without a record count", async () => {
     const file = brp();
-    const { span } = await read({
-      ...file,
-      bytes: file.bytes.subarray(0, file.bytes.length - 100),
-    });
+    const cut = { ...file, bytes: file.bytes.subarray(0, file.bytes.length - 100) };
+    await readEdfHeader(folderContext(await writeFolder([cut])), file.path);
 
+    const span = spanNamed("edf.read_header");
     expect(span?.attributes["edf.verdict"]).toBe("reject");
     expect(span?.attributes).not.toHaveProperty("edf.records");
   });
 
   it("logs each header warning with the file's path", async () => {
-    const file = brp();
-    const bytes = file.bytes.slice();
-    // The recording field starts at byte 88. Change its Startdate's day so it differs from the
-    // header's date.
-    const recording = new TextDecoder().decode(bytes.subarray(88, 168));
-    const changed = recording.replace(
-      /Startdate (\d{2})/v,
-      (_, day: string) => `Startdate ${day === "01" ? "02" : "01"}`,
-    );
-    bytes.set(new TextEncoder().encode(changed), 88);
+    const file = withStartdateMismatch(brp());
+    const { logger, lines } = capturingLogger();
+    await readEdfHeader(folderContext(await writeFolder([file]), { logger }), file.path);
 
-    const { span, lines } = await read({ ...file, bytes });
-
-    const [warning] = readHeader(bytes)._unsafeUnwrap().warnings;
+    const [warning] = readHeader(file.bytes)._unsafeUnwrap().warnings;
+    const span = spanNamed("edf.read_header");
     expect(span?.attributes["edf.warning_count"]).toBe(1);
     expect(span?.events.map(({ name, attributes }) => ({ name, attributes }))).toEqual([
       {
@@ -108,11 +102,42 @@ describe("readEdfFile", () => {
   });
 
   it("marks the span failed when the file can't be read", async () => {
-    const ctx = testContext();
-    const result = await readEdfFile(ctx, "DATALOG/20300101/missing_BRP.edf");
-    const [span] = spans.getFinishedSpans();
+    await readEdfHeader(testContext(), "DATALOG/20300101/missing_BRP.edf");
 
-    expect(result._unsafeUnwrapErr().kind).toBe("read_failed");
-    expect(span?.attributes["error.type"]).toBe("read_failed");
+    expect(spanNamed("edf.read_header")?.attributes["error.type"]).toBe("read_failed");
+  });
+});
+
+describe("readEdfFile", () => {
+  it("sets the path, format, and record count on the edf.read_file span", async () => {
+    const file = brp();
+    const ctx = folderContext(await writeFolder([file]));
+    const read = (await readEdfFile(ctx, file.path, AIRSENSE.brp))._unsafeUnwrap();
+
+    expect(spanNamed("edf.read_file")?.attributes).toEqual({
+      "airway.file.path": file.path,
+      "edf.format": "EDF",
+      "edf.records": read.records,
+      "edf.warning_count": 0,
+    });
+  });
+
+  it("counts header warnings without logging them again", async () => {
+    const file = withStartdateMismatch(brp());
+    const { logger, lines } = capturingLogger();
+    await readEdfFile(
+      folderContext(await writeFolder([file]), { logger }),
+      file.path,
+      AIRSENSE.brp,
+    );
+
+    expect(spanNamed("edf.read_file")?.attributes["edf.warning_count"]).toBe(1);
+    expect(lines).toEqual([]);
+  });
+
+  it("marks the span failed with the error's kind", async () => {
+    await readEdfFile(testContext(), "DATALOG/20300101/missing_BRP.edf", AIRSENSE.brp);
+
+    expect(spanNamed("edf.read_file")?.attributes["error.type"]).toBe("read_failed");
   });
 });

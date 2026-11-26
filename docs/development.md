@@ -45,7 +45,7 @@ A new package needs:
 
 `@airway/testing` holds test helpers that more than one package uses. It never ships in the image. A package that uses it lists `"@airway/testing": "workspace:*"` in its `devDependencies`.
 
-`@airway/edf` reads and writes the card's EDF files. It contains the AirSense signal list, `checkFileSize`, and the writer.
+`@airway/edf` parses and writes the bytes of the card's EDF files. It contains the AirSense signal list, `checkFileSize`, `readEdf`, and the writer.
 
 `@airway/synthetic` generates the synthetic CPAP data that tests and local development use ([Synthetic data](synthetic-data.md)). Like `@airway/testing`, only tests and scripts import it, so it never ships in the image.
 

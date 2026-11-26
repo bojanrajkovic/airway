@@ -8,7 +8,7 @@ import { recordBytes, type EdfFileHeaders } from "@airway/edf/header";
 import type { Logger } from "../logger.ts";
 import type { AppContext } from "../runtime/context.ts";
 import { inSpanAsync } from "../telemetry.ts";
-import { readEdfFile } from "./edf.ts";
+import { readEdfHeader } from "./edf.ts";
 import { checkReadiness, type HeaderRead, type RejectReason, type SeenFile } from "./readiness.ts";
 import type { Scan, ScannedFile } from "./scan.ts";
 
@@ -147,7 +147,7 @@ async function readHeaderOf(ctx: AppContext, file: ScannedFile): Promise<HeaderR
     return { kind: "not_edf" };
   }
 
-  return await readEdfFile(ctx, file.path).match(
+  return await readEdfHeader(ctx, file.path).match(
     (edf): HeaderRead => ({ kind: "read", file: edf }),
     (error): HeaderRead => {
       if (error.kind === "read_failed") {

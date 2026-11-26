@@ -55,8 +55,6 @@ export type EdfReadError =
    */
   | { kind: "header_too_short"; headerBytes: number }
   | { kind: "bad_field"; field: string; value: string }
-  /** `cause` is the error that the file system threw. */
-  | { kind: "read_failed"; path: string; cause: unknown }
   | { kind: "missing_signal"; label: string }
   /** The file's format differs from the format of the file type that the caller expects. */
   | { kind: "format_mismatch"; expected: EdfFormat; got: EdfFormat }
@@ -113,7 +111,8 @@ export function coversRecords(
 export const recordBytes = (file: { signals: readonly EdfSignalHeader[] }): number =>
   2 * file.signals.reduce((sum, signal) => sum + signal.samplesPerRecord, 0);
 
-const FIXED_BYTES = 256;
+/** Every header starts with this many fixed bytes, which include the length of the whole header. */
+export const FIXED_BYTES = 256;
 const SIGNAL_BYTES = 256;
 const isFormat = (value: string): value is EdfFormat => isOneOf(valuesOf(EdfFormat), value);
 const MONTHS = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];

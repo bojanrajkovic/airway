@@ -1,4 +1,5 @@
-import type { EdfFileHeaders, EdfReadError } from "@airway/edf/header";
+import type { EdfFileHeaders } from "@airway/edf/header";
+import type { EdfFileError } from "./edf.ts";
 
 /** Ingest imports a file once its size and ctime have stayed the same for this long. */
 export const STABLE_FOR = Temporal.Duration.from({ minutes: 2 });
@@ -10,7 +11,7 @@ export const STABLE_FOR = Temporal.Duration.from({ minutes: 2 });
  */
 export type HeaderRead =
   | { kind: "read"; file: EdfFileHeaders }
-  | { kind: "failed"; error: EdfReadError }
+  | { kind: "failed"; error: EdfFileError }
   | { kind: "not_edf" };
 
 /** Ingest remembers these fields about each path between polls. */
