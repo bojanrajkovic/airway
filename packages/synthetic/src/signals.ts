@@ -61,8 +61,8 @@ export function breaths(
   segment: Segment,
   night: Pick<SyntheticNight, "events" | "pauses">,
 ): Breath[] {
-  const rate = segment.pldSeries.get("RespRate.2s") ?? new Float64Array();
-  const tidal = segment.pldSeries.get("TidVol.2s") ?? new Float64Array();
+  const rate = segment.pldSeries["RespRate.2s"];
+  const tidal = segment.pldSeries["TidVol.2s"];
   const length = secondsInto(segment, segment.end);
   const { pauses, hypopneas } = pauseRanges(segment, night);
   const result: Breath[] = [];
@@ -122,8 +122,8 @@ export function renderBrp(
   const count = Math.round(secondsInto(segment, segment.end) * HZ);
   const flow = new Float64Array(count);
   const pressure = new Float64Array(count);
-  const inhalePressure = segment.pldSeries.get("Press.2s") ?? new Float64Array();
-  const exhalePressure = segment.pldSeries.get("EprPress.2s") ?? new Float64Array();
+  const inhalePressure = segment.pldSeries["Press.2s"];
+  const exhalePressure = segment.pldSeries["EprPress.2s"];
 
   for (let i = 0; i < count; i += 1) {
     flow[i] = r.uniform(-NOISE, NOISE);

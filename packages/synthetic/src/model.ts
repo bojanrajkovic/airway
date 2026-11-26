@@ -3,11 +3,13 @@ import { err, ok, type Result } from "neverthrow";
 import { winterOffset } from "@airway/contract/clock";
 import {
   AIRSENSE,
-  dataSignals,
   PLD_SAMPLE_SECONDS,
   step,
+  type DataLabel,
   type EdfFileType,
 } from "@airway/edf/airsense";
+import type { EdfSamples } from "@airway/edf/signals";
+import { samplesFor } from "@airway/edf/write";
 import {
   APNEAS,
   BREATHING,
@@ -44,8 +46,8 @@ export type Synthetic = { nights: SyntheticNight[]; zone: string };
 /** One session, which is a stretch of time with the mask on. */
 export type MaskPeriod = { on: Temporal.Instant; off: Temporal.Instant };
 
-/** The labels of PLD's nine 2 s signals, in header order. */
-export const PLD_LABELS = dataSignals(AIRSENSE.pld).map((signal) => signal.label);
+/** Maps each PLD label to its 2 s series. */
+export type PldSeries = EdfSamples<DataLabel<typeof AIRSENSE.pld>>;
 
 /** The stretch of time that one BRP file covers, a whole number of minutes long. */
 export type Segment = {
@@ -53,8 +55,8 @@ export type Segment = {
   end: Temporal.Instant;
   /** Seeds the 25 Hz detail, so rendering one segment doesn't depend on any other. */
   seed: number;
-  /** The nine 2 s series by PLD label. Each has one value per 2 s, rounded to its signal's step. */
-  pldSeries: ReadonlyMap<string, Float64Array>;
+  /** Each series has one value per 2 s, rounded to its signal's step. */
+  pldSeries: PldSeries;
   brp: FileDamage;
   pldFiles: PldFiles;
   sad: FileDamage;
@@ -631,12 +633,10 @@ const seconds = (from: Temporal.Instant, to: Temporal.Instant): number =>
 // - The breathing rate drifts slowly around the night's rate.
 // - Flow stops during apneas and pediatric pauses.
 // - The AutoSet pressure rises after each apnea or hypopnea, then decreases toward the minimum.
-function generatePldSeries(r: Random, inputs: SeriesInputs): Map<string, Float64Array> {
+function generatePldSeries(r: Random, inputs: SeriesInputs): PldSeries {
   const { breathing, start, end, rate, events, pauses } = inputs;
   const count = Math.round(seconds(start, end) / PLD_SAMPLE_SECONDS);
-  const series = new Map<string, Float64Array>(
-    PLD_LABELS.map((label) => [label, new Float64Array(count)]),
-  );
+  const series = samplesFor(AIRSENSE.pld, () => new Float64Array(count));
   const { pressure: range, epr } = breathing;
   const minPressure = range.min;
   const maxPressure = range.max;
@@ -663,8 +663,8 @@ function generatePldSeries(r: Random, inputs: SeriesInputs): Map<string, Float64
   let rateDrift = 0;
   let volumeDrift = 0;
   let pressure = minPressure;
-  const set = (label: string, i: number, value: number): void => {
-    series.get(label)?.set([snapPld(label, value)], i);
+  const set = (label: DataLabel<typeof AIRSENSE.pld>, i: number, value: number): void => {
+    series[label].set([snapPld(label, value)], i);
   };
 
   for (let i = 0; i < count; i += 1) {
@@ -720,8 +720,8 @@ function strValues(
   r: Random,
   { breathing, periods, segments, events, usage }: StrInputs,
 ): Map<string, number> {
-  const night = (label: string): Float64Array => {
-    const parts = segments.map((segment) => segment.pldSeries.get(label) ?? new Float64Array());
+  const night = (label: DataLabel<typeof AIRSENSE.pld>): Float64Array => {
+    const parts = segments.map((segment) => segment.pldSeries[label]);
     const values = new Float64Array(parts.reduce((sum, part) => sum + part.length, 0));
 
     parts.reduce((offset, part) => {

@@ -90,7 +90,7 @@ describe("syntheticNights", () => {
       }
 
       for (const segment of night.segments) {
-        for (const [label, values] of segment.pldSeries) {
+        for (const [label, values] of Object.entries(segment.pldSeries)) {
           expect(
             values.every((value) => onStep(AIRSENSE.pld, label, value)),
             label,
@@ -117,9 +117,7 @@ describe("syntheticNights", () => {
     for (const night of nights) {
       for (const segment of night.segments) {
         expect(seconds(segment.start, segment.end) % 60).toBe(0);
-        expect(segment.pldSeries.get("Leak.2s")).toHaveLength(
-          seconds(segment.start, segment.end) / 2,
-        );
+        expect(segment.pldSeries["Leak.2s"]).toHaveLength(seconds(segment.start, segment.end) / 2);
       }
 
       for (const { at, duration } of [...night.events, ...night.pauses]) {
@@ -151,9 +149,7 @@ describe("syntheticNights", () => {
 
   it("computes the medians and leak percentiles from the 2 s samples", () => {
     const [night] = nights;
-    const leak = night?.segments.flatMap((segment) => [
-      ...(segment.pldSeries.get("Leak.2s") ?? []),
-    ]);
+    const leak = night?.segments.flatMap((segment) => [...segment.pldSeries["Leak.2s"]]);
 
     expect(night?.str.get("Leak.50")).toBeCloseTo(median(leak ?? []), 1);
   });
