@@ -1,7 +1,7 @@
 import type { Result } from "neverthrow";
 import type { StrDay } from "@airway/contract/derived/str";
 import { decimalsForStep, round } from "@airway/contract/registry/units";
-import { AIRSENSE, dataSignals, step } from "@airway/edf/airsense";
+import { AIRSENSE, dataSignals, step, type DataLabel } from "@airway/edf/airsense";
 import type { EdfReadError, ReadableEdfFile } from "@airway/edf/header";
 import { readSignals } from "@airway/edf/signals";
 
@@ -15,6 +15,8 @@ export type StrWarning = {
 
 /** `readStr` returns STR.edf's days, oldest first, and a warning for each record whose Date signal differs from the record's expected date. */
 export type StrFile = { days: StrDay[]; warnings: StrWarning[] };
+
+type StrLabel = DataLabel<typeof AIRSENSE.str>;
 
 const SIGNALS = dataSignals(AIRSENSE.str);
 const LABELS = SIGNALS.map((signal) => signal.label);
@@ -32,10 +34,9 @@ export function readStr(bytes: Uint8Array, file: ReadableEdfFile): Result<StrFil
   const headers = new Map(file.header.signals.map((signal) => [signal.label, signal]));
 
   return readSignals(bytes, file, LABELS).map((values) => {
-    const samples = (label: string): Float64Array => values[label] ?? new Float64Array();
     // Returns a signal's value in `record`, rounded to the step in that signal's header.
-    const at = (label: string, record: number): number | null => {
-      const value = samples(label)[record] ?? Number.NaN;
+    const at = (label: StrLabel, record: number): number | null => {
+      const value = values[label][record] ?? Number.NaN;
       const header = headers.get(label);
 
       return Number.isNaN(value) || header === undefined
@@ -43,10 +44,10 @@ export function readStr(bytes: Uint8Array, file: ReadableEdfFile): Result<StrFil
         : round(value, decimalsForStep(step(header)));
     };
 
-    const slots = (label: string, record: number): number[] => {
+    const slots = (label: StrLabel, record: number): number[] => {
       const per = headers.get(label)?.samplesPerRecord ?? 0;
 
-      return [...samples(label).subarray(record * per, (record + 1) * per)];
+      return [...values[label].subarray(record * per, (record + 1) * per)];
     };
 
     const records = Array.from({ length: file.size.records }, (_, record) => record);

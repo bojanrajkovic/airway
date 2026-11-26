@@ -16,21 +16,26 @@ export type SignalTarget =
  * Describes one signal of an AirSense 10 file type and names where ingest writes the signal's
  * values.
  */
-export type EdfSignal = SignalHeader & { target: SignalTarget };
+export type EdfSignal<L extends string = string> = SignalHeader<L> & { target: SignalTarget };
 
 /**
  * Describes one kind of file that an AirSense 10 writes: its EDF format, record length, and
  * signals.
  */
-export type EdfFileType = Pick<EdfHeader, "recordSeconds"> & {
+export type EdfFileType<L extends string = string> = Pick<EdfHeader, "recordSeconds"> & {
   /** Signal files use `EDF`, and annotation files use `EDF+D`. */
   format: Exclude<EdfHeader["format"], "EDF+C">;
   /**
    * Lists the signals in header order. Every file ends with `Crc16`. Annotation files declare a
    * record length of 0 seconds.
    */
-  signals: readonly EdfSignal[];
+  signals: readonly EdfSignal<L>[];
 };
+
+/** Resolves to the union of a file type's signal labels. */
+export type LabelOf<F extends EdfFileType> = F["signals"][number]["label"];
+/** Resolves to the union of a file type's signal labels, excluding the trailing Crc16. */
+export type DataLabel<F extends EdfFileType> = Exclude<LabelOf<F>, "Crc16">;
 
 /** Returns the size of one digital step in physical units, such as 0.02 cmH2O for pressure. */
 export function step(signal: SignalHeader): number {
@@ -41,8 +46,8 @@ export function step(signal: SignalHeader): number {
 }
 
 /** Returns a file's signals except the trailing Crc16, which is a checksum. */
-export const dataSignals = (file: EdfFileType): readonly EdfSignal[] =>
-  file.signals.filter((signal) => signal.label !== "Crc16");
+export const dataSignals = <F extends EdfFileType>(file: F): readonly EdfSignal<DataLabel<F>>[] =>
+  file.signals.filter((signal): signal is EdfSignal<DataLabel<F>> => signal.label !== "Crc16");
 
 const none: SignalTarget = { table: "none" };
 const sample = (column: string): SignalTarget => ({ table: "samples", column });
@@ -57,12 +62,12 @@ type Measure = readonly [
   digitalMax: number,
 ];
 
-function signal(
-  label: string,
+function signal<const L extends string>(
+  label: L,
   [unit, physicalMin, physicalMax, digitalMin, digitalMax]: Measure,
   samplesPerRecord: number,
   target: SignalTarget = none,
-): EdfSignal {
+): EdfSignal<L> {
   return {
     label,
     unit,
@@ -86,46 +91,48 @@ const SETTING_NAMES: Readonly<Record<string, string>> = {
   "S.RampTime": "ramp_time",
 };
 
-const setting = (label: string, measure: Measure): EdfSignal =>
+const setting = <const L extends string>(label: L, measure: Measure): EdfSignal<L> =>
   signal(label, measure, 1, { table: "settings", name: SETTING_NAMES[label] ?? label });
 
 // The machine stores an on/off value or a choice as a code from 0 to 16.
 const CODE: Measure = ["", "0", "16", 0, 16];
-const choice = (label: string): EdfSignal => setting(label, CODE);
-const flag = (label: string): EdfSignal => signal(label, CODE, 1);
-const pressureSetting = (label: string): EdfSignal =>
+const choice = <const L extends string>(label: L): EdfSignal<L> => setting(label, CODE);
+const flag = <const L extends string>(label: L): EdfSignal<L> => signal(label, CODE, 1);
+const pressureSetting = <const L extends string>(label: L): EdfSignal<L> =>
   setting(label, ["cmH2O", "4.00", "20.00", 200, 1000]);
 
 const STATISTIC_SUFFIXES = { "50": "p50", "70": "p70", "95": "p95", Max: "max" } as const;
 type StatisticSuffix = keyof typeof STATISTIC_SUFFIXES;
+// Most STR statistics are a median, a 95th percentile, and a maximum.
+const TYPICAL = ["50", "95", "Max"] as const;
 
 // Returns one STR signal for each nightly statistic that the machine computes, such as Leak.50,
 // which ingest writes to leak_p50.
-function statistics(
-  prefix: string,
+function statistics<const P extends string, const S extends StatisticSuffix>(
+  prefix: P,
   column: string,
   measure: Measure,
-  suffixes: readonly StatisticSuffix[] = ["50", "95", "Max"],
-): EdfSignal[] {
+  suffixes: readonly S[],
+): EdfSignal<`${P}.${S}`>[] {
   return suffixes.map((suffix) =>
     signal(`${prefix}.${suffix}`, measure, 1, night(`${column}_${STATISTIC_SUFFIXES[suffix]}`)),
   );
 }
 
-const index = (label: string): EdfSignal =>
+const index = <const L extends string>(label: L): EdfSignal<L> =>
   signal(label, ["", "0.00", "240.00", 0, 2400], 1, night(label.toLowerCase()));
 
 const flow = signal("Flow.40ms", ["L/s", "-2.00", "3.00", -1000, 1500], 1500);
 
 /** BRP files store flow and pressure at 25 Hz, in 60 s records. */
-const brp: EdfFileType = {
+const brp = {
   format: "EDF",
   recordSeconds: 60,
   signals: [flow, signal("Press.40ms", ["cmH2O", "0.00", "40.00", 0, 2000], 1500), crc16],
-};
+} satisfies EdfFileType;
 
 /** PLD files store one value every 2 s for each signal, in 60 s records. */
-const pld: EdfFileType = {
+const pld = {
   format: "EDF",
   recordSeconds: 60,
   signals: [
@@ -140,13 +147,13 @@ const pld: EdfFileType = {
     signal("FlowLim.2s", ["", "0.00", "1.00", 0, 100], 30, sample("flow_limitation")),
     crc16,
   ],
-};
+} satisfies EdfFileType;
 
 /**
  * SAD files store pulse oximetry at 1 Hz, in 60 s records. Without a sensor, every value is
  * missing.
  */
-const sad: EdfFileType = {
+const sad = {
   format: "EDF",
   recordSeconds: 60,
   signals: [
@@ -154,9 +161,9 @@ const sad: EdfFileType = {
     signal("SpO2.1s", ["%", "0.00", "100.00", 0, 100], 60),
     crc16,
   ],
-};
+} satisfies EdfFileType;
 
-const annotations = (samplesPerRecord: number): EdfFileType => ({
+const annotations = (samplesPerRecord: number): EdfFileType<"EDF Annotations" | "Crc16"> => ({
   format: "EDF+D",
   recordSeconds: 0,
   signals: [
@@ -174,7 +181,7 @@ const eve = annotations(19);
 const csl = annotations(15);
 
 /** STR.edf is the daily summary, with one 86,400 s record per day. */
-const str: EdfFileType = {
+const str = {
   format: "EDF",
   recordSeconds: 86_400,
   signals: [
@@ -224,13 +231,13 @@ const str: EdfFileType = {
     signal("SpO2.95", ["%", "0.00", "100.00", 0, 100], 1),
     signal("SpO2.Max", ["%", "0.00", "100.00", 0, 100], 1),
     signal("SpO2Thresh", ["min.", "0.00", "1440.00", 0, 1440], 1),
-    ...statistics("MaskPress", "mask_pressure", ["cmH2O", "0.00", "30.00", 0, 1500]),
-    ...statistics("TgtIPAP", "target_ipap", ["cmH2O", "0.00", "30.00", 0, 1500]),
-    ...statistics("TgtEPAP", "target_epap", ["cmH2O", "0.00", "30.00", 0, 1500]),
+    ...statistics("MaskPress", "mask_pressure", ["cmH2O", "0.00", "30.00", 0, 1500], TYPICAL),
+    ...statistics("TgtIPAP", "target_ipap", ["cmH2O", "0.00", "30.00", 0, 1500], TYPICAL),
+    ...statistics("TgtEPAP", "target_epap", ["cmH2O", "0.00", "30.00", 0, 1500], TYPICAL),
     ...statistics("Leak", "leak", ["L/s", "0.00", "2.00", 0, 100], ["50", "95", "70", "Max"]),
-    ...statistics("MinVent", "minute_ventilation", ["L/min", "0.00", "30.00", 0, 240]),
-    ...statistics("RespRate", "respiratory_rate", ["bpm", "0.00", "50.00", 0, 250]),
-    ...statistics("TidVol", "tidal_volume", ["L", "0.00", "4.00", 0, 200]),
+    ...statistics("MinVent", "minute_ventilation", ["L/min", "0.00", "30.00", 0, 240], TYPICAL),
+    ...statistics("RespRate", "respiratory_rate", ["bpm", "0.00", "50.00", 0, 250], TYPICAL),
+    ...statistics("TidVol", "tidal_volume", ["L", "0.00", "4.00", 0, 200], TYPICAL),
     index("AHI"),
     index("HI"),
     index("AI"),
@@ -245,7 +252,7 @@ const str: EdfFileType = {
     flag("Fault.HeatedTube"),
     crc16,
   ],
-};
+} satisfies EdfFileType;
 
 /**
  * Describes every kind of EDF file that airway reads or writes for an AirSense 10, as the file

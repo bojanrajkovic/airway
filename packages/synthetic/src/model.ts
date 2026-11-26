@@ -634,7 +634,9 @@ const seconds = (from: Temporal.Instant, to: Temporal.Instant): number =>
 function generatePldSeries(r: Random, inputs: SeriesInputs): Map<string, Float64Array> {
   const { breathing, start, end, rate, events, pauses } = inputs;
   const count = Math.round(seconds(start, end) / PLD_SAMPLE_SECONDS);
-  const series = new Map(PLD_LABELS.map((label) => [label, new Float64Array(count)]));
+  const series = new Map<string, Float64Array>(
+    PLD_LABELS.map((label) => [label, new Float64Array(count)]),
+  );
   const { pressure: range, epr } = breathing;
   const minPressure = range.min;
   const maxPressure = range.max;

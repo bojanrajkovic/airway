@@ -259,7 +259,7 @@ export function strFile(
 
   const days = first.night.until(last.night).days + 1;
   const byDate = new Map(nights.map((night) => [night.night.toString(), night]));
-  const values = new Map(
+  const values = new Map<string, Float64Array>(
     dataSignals(AIRSENSE.str).map((signal) => [
       signal.label,
       missing(days * signal.samplesPerRecord),

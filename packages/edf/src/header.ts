@@ -2,8 +2,8 @@ import { err, ok, Result } from "neverthrow";
 import { checkFileSize, type FileSizeCheck } from "./size.ts";
 
 /** Describes one signal with the values that the file header declares for it. */
-export type SignalHeader = {
-  label: string;
+export type SignalHeader<L extends string = string> = {
+  label: L;
   /** Contains an empty string when the header leaves the unit blank. */
   unit: string;
   /** Stores the header's text exactly as the machine writes it, such as `0.00` or `0`. */
