@@ -3,7 +3,7 @@ import { inMemoryTelemetry } from "@airway/testing/telemetry";
 import { beforeEach, describe, expect, it } from "vitest";
 import { syntheticNights } from "@airway/synthetic/model";
 import { cpapData } from "@airway/synthetic/cpap-data";
-import { buildNight, type NightFiles } from "../../src/ingest/segments.ts";
+import { buildNight, type SegmentInputs } from "../../src/ingest/segments.ts";
 import { readStr } from "../../src/ingest/str.ts";
 import { capturingLogger, segmentFiles } from "../support/cpap-folder.ts";
 import { testContext } from "../support/context.ts";
@@ -16,7 +16,7 @@ beforeEach(() => {
 
 // Returns the damaged-files night, which has header-only files and a PLD file that's missing
 // its BRP file.
-function damagedNight(): NightFiles {
+function damagedNight(): SegmentInputs {
   const { nights, zone } = syntheticNights({
     seed: 7,
     nights: 0,

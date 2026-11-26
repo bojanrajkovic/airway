@@ -7,6 +7,7 @@ import type { EdfFileHeaders } from "@airway/edf/header";
 import type { FileSizeCheck } from "@airway/edf/size";
 import type { AppContext } from "../runtime/context.ts";
 import { inSpan } from "../telemetry.ts";
+import type { EveFile } from "./events.ts";
 import type { ReadyFile } from "./versions.ts";
 
 /**
@@ -18,14 +19,19 @@ export type SegmentFile = ReadyFile & {
   edf: EdfFileHeaders & { size: Exclude<FileSizeCheck, { verdict: "reject" }> };
 };
 
-/** The inputs for one night are its STR.edf day and its ready BRP and PLD files. */
+/** Resolves to one night's STR.edf day and its ready BRP, PLD, and EVE files. */
 export type NightFiles = {
   night: Temporal.PlainDate;
   /** `toInstant` reads each file header's device-clock start in this home time zone. */
   zone: string;
   day: UsedStrDay;
+  /** Lists the BRP and PLD files, which `planSegments` turns into segments. */
   files: readonly SegmentFile[];
+  eveFiles: readonly EveFile[];
 };
+
+/** Resolves to the parts of `NightFiles` that `planSegments` reads. */
+export type SegmentInputs = Omit<NightFiles, "eveFiles">;
 
 /**
  * Describes the stretch of time that one BRP file recorded, with the PLD files attached to it.
@@ -80,7 +86,7 @@ const overlap = (a: Span, b: Span): number =>
  * - `buildSessions` builds the sessions from the night's STR.edf slots and the segments.
  * - A header-only file, or a PLD file that doesn't overlap any segment, is left out with a warning.
  */
-export function planSegments({ night, zone, day, files }: NightFiles): NightSegments {
+export function planSegments({ night, zone, day, files }: SegmentInputs): NightSegments {
   const warnings = files.flatMap((file): SegmentWarning[] =>
     file.edf.size.verdict === "skip"
       ? [{ kind: "header_only", path: file.path, fileKind: file.kind }]
@@ -155,7 +161,7 @@ function warningAttributes(warning: SegmentWarning): Attributes {
  * session, and warning counts. Each warning becomes an `ingest.segment_warning` span event and a
  * `warn` log.
  */
-export function buildNight(ctx: AppContext, input: NightFiles): NightSegments {
+export function buildNight(ctx: Pick<AppContext, "logger">, input: SegmentInputs): NightSegments {
   const night = input.night.toString();
   const logger = ctx.logger.child({ module: "ingest.segments", night });
 

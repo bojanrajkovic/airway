@@ -22,3 +22,22 @@ transformer.registerCustom<Temporal.PlainDate, string>(
   },
   "Temporal.PlainDate",
 );
+
+transformer.registerCustom<Temporal.PlainDateTime, string>(
+  {
+    isApplicable: (value): value is Temporal.PlainDateTime =>
+      value instanceof Temporal.PlainDateTime,
+    serialize: (value) => value.toString(),
+    deserialize: (text) => Temporal.PlainDateTime.from(text),
+  },
+  "Temporal.PlainDateTime",
+);
+
+transformer.registerCustom<Temporal.PlainTime, string>(
+  {
+    isApplicable: (value): value is Temporal.PlainTime => value instanceof Temporal.PlainTime,
+    serialize: (value) => value.toString(),
+    deserialize: (text) => Temporal.PlainTime.from(text),
+  },
+  "Temporal.PlainTime",
+);

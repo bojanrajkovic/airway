@@ -165,7 +165,7 @@ function report(span: OtelSpan, logger: Logger, placed: PlacedEvents, scored: Sc
  * the error.
  */
 export function scoreNight(
-  ctx: AppContext,
+  ctx: Pick<AppContext, "config" | "logger">,
   input: NightEvents,
 ): ResultAsync<ScoredEvents, EdfFileError> {
   const { night, zone, day, files, sessions } = input;
