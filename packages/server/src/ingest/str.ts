@@ -1,10 +1,10 @@
 import type { Result } from "neverthrow";
 import type { StrDay } from "@airway/contract/derived/str";
 import { decimalsForStep, round } from "@airway/contract/registry/units";
-import { AIRSENSE, dataSignals, step, type DataLabel } from "@airway/edf/airsense";
+import { AIRSENSE, step, type DataLabel } from "@airway/edf/airsense";
 import { STR_NIGHT_COLUMNS, STR_SETTINGS } from "@airway/edf/columns";
-import type { EdfReadError, ReadableEdfFileHeaders } from "@airway/edf/header";
-import { readSignals } from "@airway/edf/signals";
+import { readEdf } from "@airway/edf/file";
+import type { EdfReadError } from "@airway/edf/header";
 
 /** Reports a record whose Date signal differs from the header's start date plus the record index. `date` is null when the machine wrote -1 as the Date. */
 export type StrWarning = {
@@ -19,7 +19,6 @@ export type StrFile = { days: StrDay[]; warnings: StrWarning[] };
 
 type StrLabel = DataLabel<typeof AIRSENSE.str>;
 
-const LABELS = dataSignals(AIRSENSE.str).map((signal) => signal.label);
 const EPOCH = Temporal.PlainDate.from("1970-01-01");
 
 /**
@@ -29,14 +28,12 @@ const EPOCH = Temporal.PlainDate.from("1970-01-01");
  * Values are physical, rounded to their signal's step, and null where the machine wrote -1.
  * Unused MaskOn and MaskOff slots stay NaN because `buildSessions` expects NaN there.
  */
-export function readStr(
-  bytes: Uint8Array,
-  file: ReadableEdfFileHeaders,
-): Result<StrFile, EdfReadError> {
-  const start = file.header.start.toPlainDate();
-  const headers = new Map(file.signals.map((signal) => [signal.label, signal]));
+export function readStr(bytes: Uint8Array): Result<StrFile, EdfReadError> {
+  return readEdf(bytes, AIRSENSE.str).map((file) => {
+    const start = file.header.start.toPlainDate();
+    const headers = new Map(file.signals.map((signal) => [signal.label, signal]));
+    const values = file.samples;
 
-  return readSignals(bytes, file, LABELS).map((values) => {
     // Returns a signal's value in `record`, rounded to the step in that signal's header.
     const at = (label: StrLabel, record: number): number | null => {
       const value = values[label][record] ?? Number.NaN;
@@ -53,7 +50,7 @@ export function readStr(
       return [...values[label].subarray(record * per, (record + 1) * per)];
     };
 
-    const records = Array.from({ length: file.size.records }, (_, record) => record);
+    const records = Array.from({ length: file.records }, (_, record) => record);
 
     const days = records.map((record): StrDay => {
       const day = start.add({ days: record });

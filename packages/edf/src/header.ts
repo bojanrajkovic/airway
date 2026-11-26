@@ -46,6 +46,15 @@ export type EdfReadError =
   | { kind: "bad_field"; field: string; value: string }
   | { kind: "read_failed"; path: string; message: string }
   | { kind: "missing_signal"; label: string }
+  /** The file's format differs from the format of the file type that the caller expects. */
+  | { kind: "format_mismatch"; expected: EdfHeader["format"]; got: EdfHeader["format"] }
+  /** The file's record length in seconds differs from the file type's. */
+  | { kind: "record_length_mismatch"; expected: number; got: number }
+  /**
+   * `checkFileSize` rejected the file because it has fewer whole records than its header declares,
+   * or ends partway through a record.
+   */
+  | { kind: "size_rejected"; reason: "truncated" | "partial_record" }
   | { kind: "range_out_of_bounds"; fromRecord: number; toRecord: number; records: number }
   /** `bytes` ends before the file's last record, as when a caller passes only the header. */
   | { kind: "bytes_too_short"; needed: number; got: number }

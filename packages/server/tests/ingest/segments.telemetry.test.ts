@@ -1,6 +1,5 @@
 import { inMemoryTelemetry } from "@airway/testing/telemetry";
 import { beforeEach, describe, expect, it } from "vitest";
-import { isReadable, readHeader } from "@airway/edf/header";
 import { syntheticNights } from "@airway/synthetic/model";
 import { cpapData } from "@airway/synthetic/cpap-data";
 import { buildNight, type NightFiles } from "../../src/ingest/segments.ts";
@@ -24,12 +23,9 @@ function damagedNight(): NightFiles {
   })._unsafeUnwrap();
   const files = cpapData(nights, zone)._unsafeUnwrap();
   const bytes = files.find(({ path }) => path === "STR.edf")?.bytes ?? new Uint8Array();
-  const str = readHeader(bytes)._unsafeUnwrap();
-  const day = isReadable(str)
-    ? readStr(bytes, str)
-        ._unsafeUnwrap()
-        .days.find((record) => record.used)
-    : undefined;
+  const day = readStr(bytes)
+    ._unsafeUnwrap()
+    .days.find((record) => record.used);
 
   if (day === undefined) {
     throw new Error("expected a used day");

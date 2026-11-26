@@ -6,7 +6,7 @@ import { onTestFinished } from "vitest";
 import { z } from "zod";
 import type { DerivedRows } from "@airway/contract/derived/rows";
 import type { UsedStrDay } from "@airway/contract/derived/str";
-import { isReadable, readHeader } from "@airway/edf/header";
+import { readHeader } from "@airway/edf/header";
 import type { EdgeCaseName } from "@airway/synthetic/cases";
 import { cpapData, type CpapFile } from "@airway/synthetic/cpap-data";
 import { syntheticNights } from "@airway/synthetic/model";
@@ -87,13 +87,8 @@ export function eveFiles(files: readonly CpapFile[], night: Temporal.PlainDate):
 /** Reads the folder's STR.edf the way ingest does, and returns the days the machine was used. */
 export function usedDays(files: readonly CpapFile[]): UsedStrDay[] {
   const bytes = files.find(({ path }) => path === "STR.edf")?.bytes ?? new Uint8Array();
-  const file = readHeader(bytes)._unsafeUnwrap();
 
-  if (!isReadable(file)) {
-    throw new Error("expected a readable STR.edf");
-  }
-
-  return readStr(bytes, file)
+  return readStr(bytes)
     ._unsafeUnwrap()
     .days.flatMap((day) => (day.used ? [day] : []));
 }
