@@ -11,21 +11,22 @@
 | zizmor | Audits the workflows for security problems |
 | Check | Fails unless every job above succeeded |
 
+## Required checks
+
+`main` requires Check and PR title to pass. A branch can merge while it's behind `main`.
+
 ## The Check job
 
-`main` requires Check. Check exists because GitHub counts a skipped job as passing, and GitHub skips a job when a job that it needs fails. Check always runs, and it fails if any job that it needs failed, was cancelled, or was skipped. To make Check cover a new job, add the job to Check's `needs`.
+Check exists because GitHub counts a skipped job as passing, and GitHub skips a job when a job that it needs fails. Check always runs, and it fails if any job that it needs failed, was cancelled, or was skipped. To make Check cover a new job, add the job to Check's `needs`.
 
 ## PR titles
 
 `.github/workflows/pr-title.yml` checks that a PR's title is a [Conventional Commit](https://www.conventionalcommits.org), such as `feat(server): serve tRPC`. PRs merge by squash, so the title becomes the commit on `main` that Release Please reads. The workflow runs again when the title changes.
 
-## Supply chain
+## Workflows
 
 - Every action is pinned to a full commit SHA, with its version in a comment.
-- zizmor audits the workflows with its auditor persona, which reports everything it finds. Its online audits also check each pinned action for impostor commits, known vulnerabilities, and refs that point somewhere unexpected. A finding fails the job and shows as an annotation on the PR.
-- The workflow's token can only read the repo, and checkout doesn't keep the credentials around.
-- `pnpm install --frozen-lockfile` installs exactly what the lockfile says, and `pnpm audit signatures` fails if a package's registry signature doesn't verify.
-- Only pushes to `main` write caches (mise's tools, the pnpm store, and the image's layers). Pull requests only restore them.
+- zizmor audits the workflows. A finding fails the job and shows as an annotation on the PR.
 
 ## Renovate
 
@@ -33,11 +34,4 @@
 
 - Minor, patch, and digest updates merge on their own once CI passes. Majors wait for review.
 - Renovate waits 3 days before it updates to a new npm release. pnpm's own `minimumReleaseAge` refuses anything less than a day old, so a younger version would fail the install.
-- Packages that must move together share one PR: OpenTelemetry, Hono, Vite with Rolldown, Oxlint, the React packages, the Drizzle packages, pg with its types, and Node across `mise.toml`, the `Dockerfile`, and `@types/node`. The Postgres image in `scripts/db.sh` moves with the one in `ci.yml`, and pnpm in the `Dockerfile` moves with `mise.toml`.
-- Updates to Drizzle, pg, the MCP SDK, and ECharts wait for review, because they can change the SQL that airway runs or the output that users and agents see. Node majors wait too. The distroless image's name includes Node's major version, so `scripts/renovate/distroless-node.sh` runs after the update to rename the image and pin its digest. If distroless hasn't published the new major yet, the script fails and Renovate reports the error on the PR.
-- The Playwright image in `ci.yml` must have the same version as the playwright package, because the image's browsers are built for that version. Renovate doesn't update the image itself. After a playwright update, `scripts/renovate/playwright-image.sh` moves the image to the package's version and pins its digest in the same commit, so the image can't ship ahead of the package. The digest changes only with a new version. If Microsoft hasn't published the image yet, the script fails and Renovate reports the error on the PR.
-- Update PRs are titled `chore`, so they don't cut a release on their own. PRs for security alerts and new distroless digests are titled `fix`, so each one cuts a release that reaches the deployment.
-
-## The ruleset on main
-
-`main` requires Check and PR title to pass. Branches don't have to be up to date, and admins can bypass the ruleset.
+- The Playwright image in `ci.yml` must have the same version as the playwright package, because the image's browsers are built for that version. After a playwright update, `scripts/renovate/playwright-image.sh` updates the image to the package's version in the same commit.

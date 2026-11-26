@@ -30,7 +30,7 @@ airway is a pnpm workspace. Each package lives in `packages/<name>/`, is private
 A new package needs:
 
 1. `package.json` with `"private": true`, the shared version, `"type": "module"`, and `"exports": { "./*": "./src/*.ts" }`. Other packages then import `@airway/<name>/<file>`, which resolves to `src/<file>.ts`.
-2. `tsconfig.json` that includes only `src` and sets up the platform the package runs on. `tsconfig.base.json` extends `@tsconfig/strictest` and holds airway's module settings.
+2. `tsconfig.json` that includes only `src` and sets up the platform the package runs on.
 
    | The package runs in | `extends` | Also set |
    |---|---|---|
@@ -38,20 +38,20 @@ A new package needs:
    | The browser | `"../../tsconfig.base.json"` | `"lib": ["ESNext", "DOM", "DOM.Iterable"]`, `"types": []` |
    | Both | `"../../tsconfig.base.json"` | `"lib": ["ESNext"]`, `"types": []` |
 
-   `@tsconfig/node` is a catalog alias for the current Node major's base, such as `npm:@tsconfig/node26`, so a Node upgrade changes one catalog line. A shared package sets `"types": []` and leaves DOM out of `lib`, so code in it that uses `node:fs` or `window` fails to compile.
+   A shared package sets `"types": []` and leaves DOM out of `lib`, so code in it that uses `node:fs` or `window` fails to compile.
 3. `src/` for the code.
-4. `tests/` for its tests, mirroring `src/`, with a `tests/tsconfig.json` that extends `../tsconfig.json`, includes `.`, and sets `"types": ["node"]` if the package's own config doesn't. Tests have their own project because test helpers bring in Node's types, and a shared project would make those types available in `src` too. [Testing](testing.md) covers where tests go.
+4. `tests/` for its tests, mirroring `src/`, with a `tests/tsconfig.json` that extends `../tsconfig.json`, includes `.`, and sets `"types": ["node"]` if the package's own config doesn't. [Testing](testing.md) covers where tests go.
 5. A `typecheck` script: `tsc --project . && tsc --project tests`. `pnpm typecheck` runs it in every package.
 
 `@airway/testing` holds test helpers that more than one package uses. It never ships in the image. A package that uses it lists `"@airway/testing": "workspace:*"` in its `devDependencies`.
 
-`@airway/edf` reads and writes the card's EDF files. It contains the AirSense signal list, `checkFileSize`, and the writer. It's separate from `@airway/contract` because only the server and the synthetic generator use it, and contract holds what the web app shares with the server.
+`@airway/edf` reads and writes the card's EDF files. It contains the AirSense signal list, `checkFileSize`, and the writer.
 
 `@airway/synthetic` generates the synthetic CPAP data that tests and local development use ([Synthetic data](synthetic-data.md)). Like `@airway/testing`, only tests and scripts import it, so it never ships in the image.
 
 ## Dependencies
 
-Every dependency's version is written once, in the `catalog` in `pnpm-workspace.yaml`. Each `package.json` says `"catalog:"` instead of a version. `catalogMode: strict` makes `pnpm add` go through the catalog. Reviewers reject a version typed into a `package.json` by hand, because pnpm accepts it.
+Every dependency's version is written once, in the `catalog` in `pnpm-workspace.yaml`. Each `package.json` says `"catalog:"` instead of a version. Reviewers reject a version typed into a `package.json` by hand, because pnpm accepts it.
 
 To add a dependency, run `pnpm add <name> --filter @airway/<package>`. pnpm adds it to the catalog with an exact version (`savePrefix: ""`) and points the package at it.
 
@@ -59,7 +59,7 @@ To add a dependency, run `pnpm add <name> --filter @airway/<package>`. pnpm adds
 
 Oxlint runs the rules, and tsgolint runs the type-aware ones with TypeScript 7, reading each file's nearest `tsconfig.json`. The config has two files:
 
-- `oxlint.presets.ts` holds the rules of ESLint's recommended preset and typescript-eslint's `strictTypeChecked` and `stylisticTypeChecked` presets, translated for Oxlint, which has no presets of its own.
+- `oxlint.presets.ts` holds the rules of ESLint's recommended preset and typescript-eslint's `strictTypeChecked` and `stylisticTypeChecked` presets, translated for Oxlint.
 - `oxlint.config.ts` holds airway's own rules, each with a comment saying why.
 
 airway's own rules include:

@@ -7,7 +7,7 @@ One page per area. Each page describes how that area works now. A page whose are
 - [Development](development.md): setup, scripts, the workspace layout, dependencies, lint, and pull requests
 - [Testing](testing.md): the test projects, where tests go, and database tests
 - [Synthetic data](synthetic-data.md): the generated SD-card data that tests and screenshots use
-- [CI](ci.md): the jobs, the Check gate, and the ruleset on main
+- [CI](ci.md): the jobs, the checks that main requires, and Renovate
 - [Release](release.md): versions, releases, and the published image
 
 ## Running airway
