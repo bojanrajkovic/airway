@@ -91,8 +91,9 @@ const SIGNAL_BYTES = 256;
 const FORMATS: readonly string[] = ["EDF", "EDF+C", "EDF+D"] satisfies EdfHeader["format"][];
 const isFormat = (value: string): value is EdfHeader["format"] => FORMATS.includes(value);
 const MONTHS = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
-// Latin-1 maps every byte to a character, so a stray high byte can't fail the decode.
-const decoder = new TextDecoder("latin1");
+// The machine writes header text as UTF-8. The decoder replaces a byte that isn't valid UTF-8 with
+// U+FFFD, so a stray byte can't fail the decode.
+const decoder = new TextDecoder();
 
 /** Sets whether `readNumber` accepts only a whole number or also a decimal. */
 type NumberKind = "integer" | "decimal";

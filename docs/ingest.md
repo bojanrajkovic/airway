@@ -69,6 +69,7 @@ Import starts at the first DATALOG folder, because every night comes from a DATA
 
 - `header` holds every field that ingest uses: the format, the start time on the device clock, the patient and recording fields, the header length, the declared record count, the record length in seconds, and each signal's label, unit, physical and digital ranges, and samples per record.
 - `size` is `checkFileSize`'s verdict for the file's size on disk: `read`, `skip`, or `reject`. `readSignals` and `readAnnotations` take a `ReadableEdfFile`, which is a file whose verdict is `read`. The `isReadable(file)` type guard narrows an `EdfFile` to a `ReadableEdfFile`.
+- `readHeader` decodes header text as UTF-8, which is how the machine writes it, and replaces an invalid byte with U+FFFD.
 - `warnings` lists each inconsistency that `readHeader` found in the header and read past. A `startdate_mismatch` means the recording field's `Startdate` names a different day from the header's start date.
 
 `readFileHeader(path)` reads only a file's header from disk and checks the file's size against it. The scan calls `readFileHeader` on every poll, so `readFileHeader` never reads records. A header's length depends on its signal count. A BRP header is 1,024 bytes, and `STR.edf`'s is about 21 KB. `readFileHeader` reads the first 256 bytes, which say how long the header is, and then reads the rest of the header. `readFileHeader` returns `read_failed` for a file it can't open.
