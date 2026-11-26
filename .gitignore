@@ -1,5 +1,7 @@
 node_modules/
 dist/
+# The pool tests write and bundle workers here.
+.test-workers/
 
 # Browser-test screenshots are test output that CI uploads, so git ignores them.
 __screenshots__/

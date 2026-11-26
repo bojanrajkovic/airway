@@ -4,7 +4,8 @@ import { inMemoryTelemetry } from "@airway/testing/telemetry";
 import { SpanKind } from "@opentelemetry/api";
 import type { ReadableSpan } from "@opentelemetry/sdk-trace";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
-import { instrumentations } from "../src/instrument.ts";
+import { hostname } from "node:os";
+import { instrumentations, serviceInstanceId } from "../src/instrument.ts";
 
 const { spans } = inMemoryTelemetry({ instrumentations: await instrumentations() });
 
@@ -51,5 +52,15 @@ describe("inbound HTTP spans", () => {
       .map(String)
       .join("\n");
     expect(text).not.toContain("ahi");
+  });
+});
+
+describe("serviceInstanceId", () => {
+  it("is the host name on the main thread", () => {
+    expect(serviceInstanceId({ isMainThread: true, threadId: 0 })).toBe(hostname());
+  });
+
+  it("adds the thread's ID in a worker", () => {
+    expect(serviceInstanceId({ isMainThread: false, threadId: 3 })).toBe(`${hostname()}/worker-3`);
   });
 });

@@ -33,6 +33,7 @@
     "neverthrow": "catalog:",
     "pg": "catalog:",
     "pino": "catalog:",
+    "piscina": "catalog:",
     "zod": "catalog:"
   },
   "devDependencies": {

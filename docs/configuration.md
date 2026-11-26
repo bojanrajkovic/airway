@@ -19,6 +19,7 @@ In development, `pnpm dev` loads `.env.example`, then `.env` if it exists, so yo
 | `AIRWAY_JWKS_URL` | with `pomerium` | `http://` or `https://` URL | Where the proxy publishes its signing keys |
 | `AIRWAY_LOCAL_AUTHOR_NAME` | with `none` | 1 to 80 characters | The author of every request when auth is off |
 | `AIRWAY_LOCAL_AUTHOR_EMAIL` | with `none` | an email address | The local author's email |
+| `AIRWAY_INGEST_WORKERS` | no, `2` | 1 to 64 | The maximum number of worker threads that compute nights at once ([Ingest](ingest.md#night-pool)). Set it to the number of CPUs available to the server |
 | `PORT` | no, `3000` | 1 to 65535 | The HTTP port |
 | `LOG_LEVEL` | no, `info` | `fatal`, `error`, `warn`, `info`, `debug`, or `trace` | The lowest level logged |
 

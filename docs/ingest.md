@@ -284,3 +284,25 @@ If a step fails, `computeNight` returns that step's `EdfFileError`, which includ
 Structured cloning can't copy Temporal values, so `encodeTask` and `encodeNight` serialize them with contract's superjson `transformer`. `encodeTask` serializes the whole task. `encodeNight` serializes everything in the result except the sample and breath blocks. On the receiving thread, `decodeTask` and `decodeNight` rebuild each Temporal value.
 
 Structured cloning copies the blocks' typed arrays directly. `encodeNight` lists the arrays' buffers, so the sender can transfer the buffers instead of copying them. An error contains only plain values and `Error` objects, so structured cloning copies it directly. When the error's `cause` is an `Error`, structured cloning preserves that `Error`'s message and stack. `decodeNight` converts a `NightWire` back into a `Result`.
+
+## Night pool
+
+`createNightPool(ctx, { filename })` in `packages/server/src/ingest/pool.ts` runs `computeNight` for each night in a worker thread from piscina, a worker pool library. Because worker threads compute the nights, a long import never blocks HTTP requests. `main.ts` creates the pool as `ctx.nightPool` at startup and closes it at shutdown, after the listener stops and before the database pools close. `ctx.nightPool.run(task)` computes one night.
+
+```mermaid
+sequenceDiagram
+  participant Main as main thread
+  participant Worker as worker thread
+  Main->>Main: ingest.night span, encodeTask, traceparent
+  Main->>Worker: { kind: night, task, traceparent }
+  Worker->>Worker: ingest.compute span, computeNight
+  Worker-->>Main: encodeNight result, buffers transferred
+  Main->>Main: decodeNight, IngestMetrics
+```
+
+- The pool starts one thread immediately and adds threads, up to `AIRWAY_INGEST_WORKERS`, when tasks are waiting. Each worker deserializes its config from `workerData` and creates its logger once.
+- After the listener starts, `main.ts` runs a warm-up task, which checks that a worker can load the bundled `dist/night-worker.js`. `ready` becomes true when a worker returns `"ready"` for the warm-up.
+- Workers wait for tasks with `Atomics.waitAsync` (`atomics: "async"`). A blocking wait would freeze an idle worker's event loop and stop its telemetry from exporting.
+- Workers run at a lower priority (`niceIncrement: 10`), so the main thread's requests run first when the CPUs are busy.
+- When a worker crashes during a task, `run` returns `worker_failed`. When a worker fails outside a task, for example because it can't load, the pool logs the failure at `error` level.
+- `run` records each night's metrics on the main thread ([Observability](observability.md#metrics)).

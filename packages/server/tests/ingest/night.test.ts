@@ -12,43 +12,20 @@ import {
   NightStep,
   type NightResult,
 } from "../../src/ingest/night.ts";
-import type { NightFiles } from "../../src/ingest/segments.ts";
 import {
-  eveFiles,
   folderContext,
-  segmentFiles,
+  nightTasks,
   synthesizedNights,
-  usedDays,
   writeFolder,
-  type SynthesizedNights,
 } from "../support/cpap-folder.ts";
 import { toSampleRows } from "../support/rows.ts";
-
-// Returns a task for each night that synthesize expects ingest to import.
-function tasksOf({ planned, files }: SynthesizedNights): NightFiles[] {
-  return usedDays(files).flatMap((day): NightFiles[] => {
-    const plan = planned.find(({ night }) => night.equals(day.day));
-
-    return plan === undefined
-      ? []
-      : [
-          {
-            night: day.day,
-            zone: plan.zone,
-            day,
-            files: segmentFiles(files, day.day),
-            eveFiles: eveFiles(files, day.day),
-          },
-        ];
-  });
-}
 
 describe("computeNight", () => {
   it("returns each night's sessions, events, samples, and breaths", async () => {
     const synthetic = synthesizedNights([EdgeCaseName.SplitFiles], 2);
     const { rows } = synthetic;
     const ctx = folderContext(await writeFolder(synthetic.files));
-    const tasks = tasksOf(synthetic);
+    const tasks = nightTasks(synthetic);
 
     expect(tasks.length).toBeGreaterThan(0);
 
@@ -70,7 +47,7 @@ describe("computeNight", () => {
 
   it("returns a read_failed error with the path of a missing EVE file", async () => {
     const synthetic = synthesizedNights([], 1);
-    const [task] = tasksOf(synthetic);
+    const [task] = nightTasks(synthetic);
     const eve = task?.eveFiles[0]?.path;
 
     if (task === undefined || eve === undefined) {
@@ -98,7 +75,7 @@ describe("encodeNight", () => {
 
   it("round-trips a result through structured cloning with its buffers transferred, Temporal values included", async () => {
     const synthetic = synthesizedNights([], 1);
-    const [task] = tasksOf(synthetic);
+    const [task] = nightTasks(synthetic);
 
     if (task === undefined) {
       throw new Error("expected a night");
@@ -134,7 +111,7 @@ describe("encodeNight", () => {
 
 describe("encodeTask", () => {
   it("round-trips a task through structured cloning, Temporal values included", () => {
-    const [task] = tasksOf(synthesizedNights([], 1));
+    const [task] = nightTasks(synthesizedNights([], 1));
 
     if (task === undefined) {
       throw new Error("expected a night");

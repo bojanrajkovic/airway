@@ -39,6 +39,7 @@ describe("parseConfig", () => {
       expect(result.value.patient.adultRulesFrom13).toBe(false);
       expect(result.value.patient.birthDate.equals("2012-06-15")).toBe(true);
       expect(result.value.dataMissingCutoff.toString()).toBe("15:00:00");
+      expect(result.value.ingestWorkers).toBe(2);
       expect(result.value.auth).toEqual({
         mode: "none",
         author: { name: AIRWAY_LOCAL_AUTHOR_NAME, email: AIRWAY_LOCAL_AUTHOR_EMAIL },
@@ -96,6 +97,8 @@ describe("parseConfig", () => {
     ["AIRWAY_CPAP_DATA_PATH", "relative/cpap-data"],
     ["AIRWAY_DATA_MISSING_CUTOFF", "3pm"],
     ["AIRWAY_DATA_MISSING_CUTOFF", "25:00"],
+    ["AIRWAY_INGEST_WORKERS", "0"],
+    ["AIRWAY_INGEST_WORKERS", "1.5"],
     ["PORT", "70000"],
     ["LOG_LEVEL", "verbose"],
     ["AIRWAY_LOCAL_AUTHOR_NAME", " "],

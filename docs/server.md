@@ -24,7 +24,7 @@ The listener starts before anything else, so the pod answers `/healthz` while sl
 
 ## Shared dependencies
 
-`src/runtime/context.ts` defines `AppContext`: the config, the root logger, a clock, and the database pools. `main.ts` builds the context once and passes the whole context to the code that needs it. A service takes the context plus its own arguments, and logs through `ctx.logger.child({ module })`. Tests build a context with `testContext()` from `tests/support/context.ts`. That context has synthetic config, a silent logger, a fixed clock, and pools that connect only when a test queries them.
+`src/runtime/context.ts` defines `AppContext`: the config, the root logger, a clock, the database pools, and the night pool ([Ingest](ingest.md#night-pool)). `main.ts` builds the context once and passes the whole context to the code that needs it. A service takes the context plus its own arguments, and logs through `ctx.logger.child({ module })`. Tests build a context with `testContext()` from `tests/support/context.ts`. That context has synthetic config, a silent logger, a fixed clock, database pools that connect only when a test queries them, and a stub night pool whose `run` returns `worker_failed` for every night.
 
 ## Database pools
 

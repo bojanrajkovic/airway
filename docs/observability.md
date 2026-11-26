@@ -30,7 +30,7 @@ A function that can fail returns a `Result`, and each service module has one err
 
 The SDK starts only when `OTEL_EXPORTER_OTLP_ENDPOINT` is set. It reads the standard `OTEL_*` variables itself. airway sets two defaults. OTLP logs are off, because logs go to stdout. Propagators are off, so airway ignores an inbound `traceparent` header and starts its own trace.
 
-Every span and metric carries `service.name` `airway`, `service.version` from `AIRWAY_VERSION`, and `vcs.ref.head.revision` from `AIRWAY_GIT_SHA`. The image sets both variables, and both default to `dev` outside the image. Attributes in a deployment's `OTEL_RESOURCE_ATTRIBUTES` take precedence. The SDK flushes when the event loop empties, which happens after `main.ts` has closed everything at shutdown.
+Every span and metric carries `service.name` `airway`, `service.version` from `AIRWAY_VERSION`, and `vcs.ref.head.revision` from `AIRWAY_GIT_SHA`. The image sets both variables, and both default to `dev` outside the image. `service.instance.id` is the host name on the main thread and `<host>/worker-<threadId>` in a night pool worker, so each worker's runtime metrics form their own series. Attributes in a deployment's `OTEL_RESOURCE_ATTRIBUTES` take precedence. Setting `service.instance.id` there overrides the computed ID on every thread and merges the workers' series into one, so leave it unset. The SDK flushes when the event loop empties, which happens after `main.ts` has closed everything at shutdown.
 
 ## Traces
 
@@ -63,6 +63,14 @@ function loadNight(ctx: AppContext, night: Temporal.PlainDate): ResultAsync<Nigh
 
 The helpers never log; see [Errors](#errors). `untraced(fn)` turns tracing off inside `fn`, for idle polls that would otherwise send empty traces.
 
+### Worker traces
+
+Each night pool worker exports its own spans. Worker threads inherit the main thread's `--import` flag, so every worker loads the same `instrument.js` preload.
+
+- **Parent span.** The pool's `run` opens an `ingest.night` span and puts its W3C `traceparent` in the task. The worker starts `ingest.compute` as that span's child, so a night's spans join the caller's trace.
+- **Propagator.** `OTEL_PROPAGATORS=none` makes the global propagator a no-op, so `currentTraceparent` and `contextOf` in `telemetry.ts` call `W3CTraceContextPropagator` directly.
+- **Flushing.** A worker exports its spans after each task. On the main thread, the SDK flushes on `beforeExit`, but piscina terminates workers, and a terminated worker never emits `beforeExit`.
+
 ### Sampling ingest traces
 
 Ingest polls the CPAP data folder every 5 minutes, and every poll sends a trace, idle ones included. An idle poll's trace holds the scan and readiness spans. The first poll after a restart reads every header and hashes every file, so its trace has a span per file. A long history makes that thousands of spans.
@@ -79,6 +87,18 @@ The SDK exports metrics every 60 seconds. Histograms are exponential, so their b
 - the Node runtime's event loop delay and utilization, heap, and GC
 
 airway's own metrics are named `airway.<area>.<name>`, such as `airway.ingest.last_success`, with [semconv units](https://opentelemetry.io/docs/specs/semconv/general/metrics/#instrument-units) (`s`, `By`, `{night}`). Their attributes never carry values from the data, because each distinct value starts a new time series.
+
+`IngestMetrics` in `ingest/metrics.ts` records ingest's metrics. The night pool records each night's result on the main thread, because a counter recorded in a worker would split into one series per thread and reset when the worker restarts. Each attribute has a small, fixed set of values:
+
+| Metric | Type | Attributes | What it measures |
+|---|---|---|---|
+| `airway.ingest.rows` | counter, `{row}` | `airway.table`: `segments`, `sessions`, `events`, `samples`, `breaths` | Rows computed |
+| `airway.ingest.files_read` | counter, `{file}` | `airway.file.kind` (`brp`, `pld`, `eve`), `outcome` (`ok`, `error`) | BRP, PLD, and EVE files read |
+| `airway.ingest.night.duration` | histogram, `s` | `outcome` | Time from asking the pool for a night to its result |
+| `airway.ingest.step.duration` | histogram, `s` | `airway.ingest.step`: `segments`, `events`, `samples`, `breaths` | Time each step of a night took |
+| `airway.ingest.queue.duration` | histogram, `s` | none | Time a night waited for a free worker, computed as the night's duration minus the sum of its step durations |
+
+If the queue wait grows during a rebuild, raise `AIRWAY_INGEST_WORKERS`.
 
 A module creates its instruments when its service is built, not when the module loads:
 
