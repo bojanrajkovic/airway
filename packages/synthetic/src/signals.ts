@@ -1,14 +1,14 @@
 import { PLD_SAMPLE_SECONDS } from "@airway/edf/airsense";
 import { random, type Segment, type SyntheticNight } from "./model.ts";
 
-/** One breath, with times in seconds from the segment's start and its volume in litres. */
+/** Describes one breath, with times in seconds from the segment's start and volume in litres. */
 export type Breath = { start: number; inhale: number; exhale: number; volume: number };
 
-/** BRP's two 25 Hz signals for one segment, in L/s and cmH2O. */
+/** Contains BRP's two 25 Hz signals for one segment: flow in L/s and pressure in cmH2O. */
 export type BrpSignals = { flow: Float64Array; pressure: Float64Array };
 
 const HZ = 25;
-// The share of a breath spent breathing in.
+// Sets the share of a breath spent breathing in.
 const INHALE = 0.4;
 // A hypopnea shrinks breaths to this share of their volume.
 const HYPOPNEA_VOLUME = 0.4;
@@ -28,7 +28,7 @@ const secondsInto = (segment: Segment, at: Temporal.Instant): number =>
 
 type PauseRanges = { pauses: SecondsRange[]; hypopneas: SecondsRange[] };
 
-// The pauses and hypopneas inside a segment, in seconds from its start.
+// Returns the pauses and hypopneas inside a segment, in seconds from the segment's start.
 function pauseRanges(
   segment: Segment,
   night: Pick<SyntheticNight, "events" | "pauses">,

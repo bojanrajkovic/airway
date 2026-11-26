@@ -14,12 +14,12 @@ import {
 } from "./model.ts";
 import type { Breathing } from "./patients.ts";
 
-/** What an edge case builds its nights from. */
+/** Contains the inputs that an edge case builds its nights from. */
 export type EdgeCaseContext = {
   /** Each case has its own generator, so adding a case leaves the other cases' nights unchanged. */
   random: Random;
   breathing: Breathing;
-  /** The case's first night. Its other nights follow on later dates. */
+  /** Sets the case's first night. Its other nights follow on later dates. */
   first: Temporal.PlainDate;
   zone: string;
 };
@@ -149,7 +149,7 @@ function folderlessDay({ random, breathing, first, zone }: EdgeCaseContext): Bui
   );
 }
 
-// Two nights with two unused days between them. STR.edf stores -1 for an unused day.
+// Builds two nights with two unused days between them. STR.edf stores -1 for an unused day.
 function unusedDays({ random, breathing, first, zone }: EdgeCaseContext): Built {
   return ok({
     nights: [0, 3].map((days) =>
@@ -158,7 +158,7 @@ function unusedDays({ random, breathing, first, zone }: EdgeCaseContext): Built 
   });
 }
 
-// Two nights, the second with its maximum pressure raised 1 cmH2O.
+// Builds two nights and raises the second night's maximum pressure by 1 cmH2O.
 function settingsChange({ random, breathing, first, zone }: EdgeCaseContext): Built {
   const before = randomNight(random, breathing, evening(first, zone));
   const after = randomNight(random, breathing, evening(first.add({ days: 1 }), zone));
@@ -201,10 +201,10 @@ function filesNight(
   };
 }
 
-// Damaged files beside whole ones: a 2-minute stretch whose BRP, PLD, and SAD are header only;
-// a truncated BRP; a BRP with a -1 record count; and BRP, PLD, and SAD files that hold one more
-// record than they declare. Ingest skips the header-only files, rejects the truncated one, and
-// reads the rest.
+// Builds a night with damaged files beside whole ones: a 2-minute stretch whose BRP, PLD, and SAD
+// are header only; a truncated BRP; a BRP with a -1 record count; and BRP, PLD, and SAD files that
+// contain one more record than they declare. Ingest skips the header-only files, rejects the
+// truncated one, and reads the rest.
 function damagedFiles(context: EdgeCaseContext): Built {
   return only(
     filesNight(
@@ -229,8 +229,8 @@ function damagedFiles(context: EdgeCaseContext): Built {
   );
 }
 
-// A BRP with no PLD, a PLD split into two files halfway through its BRP, and three EVE files, the
-// last one without a CSL.
+// Builds a night with a BRP that has no PLD, a PLD split into two files halfway through its BRP,
+// and three EVE files, the last one without a CSL.
 function splitFiles(context: EdgeCaseContext): Built {
   const night = filesNight(
     context,
@@ -300,7 +300,7 @@ const dstCase =
     );
   };
 
-/** Every edge case's name. `'all'` builds them in this order, leaving out the DST cases. */
+/** Defines every edge case's name. `'all'` builds them in this order, leaving out the DST cases. */
 export const EDGE_CASE_NAMES = [
   "many-periods",
   "noon-edge",

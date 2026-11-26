@@ -34,25 +34,37 @@ export type WeightedRanges = readonly { weight: number; min: number; max: number
 type OtherSetting = Exclude<StrSetting, "S.AS.MinPress" | "S.AS.MaxPress" | "S.EPR.Level">;
 
 export type Breathing = {
-  /** Mask-on periods per night. */
+  /** Sets the number of mask-on periods per night. */
   periods: WeightedRanges;
-  /** Seconds between consecutive BRP files inside one mask-on period. */
+  /** Sets the seconds between consecutive BRP files inside one mask-on period. */
   fileGaps: WeightedRanges;
-  /** Breaths per minute. `mean` is a night's average, and `sd` is how much nights differ. */
+  /**
+   * Sets breaths per minute. `mean` is a night's average, and `sd` is how much nights differ.
+   */
   rate: { mean: number; sd: number };
-  /** Litres per breath. */
+  /** Sets the litres per breath. */
   tidalVolume: { mean: number; sd: number };
-  /** Events per hour of use on an ordinary night. */
+  /** Sets each event type's rate per hour of use on an ordinary night. */
   eventsPerHour: Readonly<Record<MachineEventType, number>>;
-  /** Pauses per hour that last at least 2 breaths but less than the machine's 10 s apnea limit. */
+  /**
+   * Sets the rate per hour of pauses that last at least 2 breaths but less than the machine's 10 s
+   * apnea limit.
+   */
   pediatricPausesPerHour: number;
-  /** Dips in flow per hour. A dip lasts under 2 breaths, so it's too short to count as an event. */
+  /**
+   * Sets the dips in flow per hour. A dip lasts under 2 breaths, so it's too short to count as an
+   * event.
+   */
   dipsPerHour: number;
-  /** Unintentional leak between spikes, in L/s. */
+  /** Sets the unintentional leak between spikes, in L/s. */
   leak: number;
-  /** The AutoSet pressure range in cmH2O. STR.edf stores it as S.AS.MinPress and S.AS.MaxPress. */
+  /**
+   * Sets the AutoSet pressure range in cmH2O. STR.edf stores it as S.AS.MinPress and S.AS.MaxPress.
+   */
   pressure: { min: number; max: number };
-  /** How far expiratory relief lowers the pressure, in cmH2O. STR.edf stores it as S.EPR.Level. */
+  /**
+   * Sets how far expiratory relief lowers the pressure, in cmH2O. STR.edf stores it as S.EPR.Level.
+   */
   epr: number;
   /**
    * Maps the label of every other S.* setting in STR.edf to its value. The model copies each value
