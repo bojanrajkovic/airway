@@ -201,6 +201,36 @@ describe("edge cases", () => {
       expect(brps).toHaveLength(5);
       expect(rows.files.filter(({ kind }) => kind === FileKind.Pld)).toHaveLength(6);
     });
+
+    it("flags the night as possibly corrupted, because ingest rejects the truncated BRP", () => {
+      expect(rows.nights.map(({ possibly_corrupted }) => possibly_corrupted)).toEqual([true]);
+    });
+
+    it("marks as unchecked the BRP and PLD files that ingest doesn't read, and marks the rest as matching", () => {
+      const checks = (kind: FileKind): string[] =>
+        rows.files
+          .filter((file) => file.kind === kind)
+          .map(({ checksum, bad_records }) => `${checksum} ${String(bad_records)}`);
+
+      expect(checks(FileKind.Brp)).toEqual([
+        "match 0",
+        "unchecked null",
+        "match 0",
+        "match 0",
+        "match 0",
+      ]);
+      // The third PLD file covers the rejected BRP's time, so its segment is null and ingest doesn't
+      // read it.
+      expect(checks(FileKind.Pld)).toEqual([
+        "match 0",
+        "unchecked null",
+        "unchecked null",
+        "match 0",
+        "match 0",
+        "match 0",
+      ]);
+      expect(checks(FileKind.Eve)).toEqual(["match 0"]);
+    });
   });
 
   describe("split-files", () => {

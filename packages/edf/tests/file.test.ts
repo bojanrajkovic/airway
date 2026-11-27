@@ -25,6 +25,8 @@ describe("readEdf", () => {
     expect(read.header).toMatchObject({ format: "EDF", recordSeconds: 60, declaredRecords: 2 });
     expect(read.signals.map(({ label }) => label)).toEqual(["Flow.40ms", "Crc16"]);
     expect(read.records).toBe(2);
+    // Each record stores 0 as its Crc16, so both records fail the check.
+    expect(read.badRecords).toEqual([0, 1]);
     expect(read.warnings).toEqual([]);
     expect(Object.keys(read.samples)).toEqual(["Flow.40ms"]);
     // The file's own header gives the scale: -655.36 + (digital + 32768) × 0.02.

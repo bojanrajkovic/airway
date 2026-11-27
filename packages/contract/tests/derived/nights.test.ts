@@ -1,9 +1,14 @@
 import { describe, expect, it } from "vitest";
 import { RuleSet } from "../../src/profile.ts";
-import { ahiCheck, nightRow, type NightEvent } from "../../src/derived/nights.ts";
+import {
+  ahiCheck,
+  nightRow,
+  possiblyCorrupted,
+  type NightEvent,
+} from "../../src/derived/nights.ts";
 import type { Session } from "../../src/derived/sessions.ts";
 import type { UsedStrDay } from "../../src/derived/str.ts";
-import { EventType, SessionSource } from "../../src/derived/values.ts";
+import { EventType, FileChecksum, SessionSource } from "../../src/derived/values.ts";
 
 const night = Temporal.PlainDate.from("2030-01-07");
 const at = (minutes: number): Temporal.Instant =>
@@ -122,5 +127,25 @@ describe("nightRow", () => {
     });
 
     expect(empty.row.longest_stretch).toBe(0);
+  });
+});
+
+describe("possiblyCorrupted", () => {
+  const clean = { checksum: FileChecksum.Match, bad_records: 0 };
+  const unread = { checksum: FileChecksum.Unchecked, bad_records: null };
+
+  it("returns false when every file matches or is unchecked and the rejected count is 0", () => {
+    expect(possiblyCorrupted([clean, unread], 0)).toBe(false);
+  });
+
+  it.each([
+    ["a file that doesn't match its .crc", { checksum: FileChecksum.Mismatch, bad_records: 0 }],
+    ["a file with a bad record", { checksum: FileChecksum.Unchecked, bad_records: 1 }],
+  ])("returns true for %s", (_, file) => {
+    expect(possiblyCorrupted([clean, file], 0)).toBe(true);
+  });
+
+  it("returns true when checkFileSize rejected one of the night's files", () => {
+    expect(possiblyCorrupted([clean], 1)).toBe(true);
   });
 });

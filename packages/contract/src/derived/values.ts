@@ -40,6 +40,16 @@ export enum FileKind {
   Crc = "crc",
 }
 
+/**
+ * Lists the results of comparing a file with its `.crc` file. `Unchecked` means the file has no
+ * `.crc`, or ingest doesn't read the file.
+ */
+export enum FileChecksum {
+  Match = "match",
+  Mismatch = "mismatch",
+  Unchecked = "unchecked",
+}
+
 export enum Period {
   Week = "week",
   Month = "month",

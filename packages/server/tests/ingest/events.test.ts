@@ -104,7 +104,11 @@ describe("scoreNight", () => {
     const expected = rows.nights.find(({ night: n }) => n.equals(input.night));
 
     expect(scored.events).toEqual(rows.events.filter((row) => row.night.equals(input.night)));
-    expect({ ...scored.row, arrived_at: expected?.arrived_at }).toEqual(expected);
+    expect({
+      ...scored.row,
+      possibly_corrupted: expected?.possibly_corrupted,
+      arrived_at: expected?.arrived_at,
+    }).toEqual(expected);
     expect(scored.ahi.outcome).toBe("match");
   });
 

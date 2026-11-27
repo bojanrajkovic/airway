@@ -7,6 +7,7 @@ import {
   AhiOutcome,
   EventSource,
   EventType,
+  FileChecksum,
   FileKind,
   PercentileSignal,
   Period,
@@ -97,6 +98,7 @@ create unlogged table ${schema}.nights (
   events_outside_mask_on integer not null,
   ahi_check text not null ${oneOf("ahi_check", valuesOf(AhiOutcome))},
   rule_set text not null ${oneOf("rule_set", valuesOf(RuleSet))},
+  possibly_corrupted boolean not null,
   arrived_at timestamptz not null
 );
 
@@ -109,7 +111,10 @@ create unlogged table ${schema}.files (
   segment smallint,
   size bigint not null,
   sha256 text not null,
-  ctime timestamptz not null
+  ctime timestamptz not null,
+  checksum text not null ${oneOf("checksum", valuesOf(FileChecksum))},
+  -- Is null when ingest doesn't check the file's records.
+  bad_records integer
 );
 
 create unlogged table ${schema}.sessions (

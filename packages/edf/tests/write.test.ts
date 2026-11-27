@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { AIRSENSE, type DataLabel, type EdfSignalFileType } from "../src/airsense.ts";
 import { samplesFor, writeAnnotations, writeSignals, type PerFileHeader } from "../src/write.ts";
 import { readAnnotations } from "../src/annotations.ts";
+import { badRecords } from "../src/checksum.ts";
 import type { EdfSamples } from "../src/signals.ts";
 import { readable } from "./readable.ts";
 
@@ -102,6 +103,8 @@ describe("writeSignals", () => {
 
       expect(stored).toBe(crc16ccitt(body));
     }
+
+    expect(badRecords(bytes, readable(bytes))).toEqual([]);
   });
 
   it("returns missing_not_representable for NaN where -1 is in the digital range", () => {
@@ -140,6 +143,7 @@ describe("writeAnnotations", () => {
     expect(readAnnotations(bytes, file)._unsafeUnwrap()).toEqual(annotations);
     expect(file.header).toMatchObject({ format: "EDF+D", recordSeconds: 0 });
     expect(file.size.records).toBe(3);
+    expect(badRecords(bytes, file)).toEqual([]);
   });
 
   it("is exactly the header plus 40-byte records", () => {

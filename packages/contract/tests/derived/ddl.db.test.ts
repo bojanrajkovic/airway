@@ -14,14 +14,14 @@ const Counts = z.array(
 const nightRows = (night: string): string => `
 insert into derived.nights (night, sessions, expected_sessions, session_count_approximate,
   longest_stretch, obstructive_apneas, central_apneas, unclassified_apneas, hypopneas, arousals,
-  events_outside_mask_on, ahi_check, rule_set, arrived_at)
-values ('${night}', 1, 1, false, 480, 1, 0, 0, 0, 0, 0, 'match', 'pediatric', '${night}T14:00Z');
+  events_outside_mask_on, ahi_check, rule_set, possibly_corrupted, arrived_at)
+values ('${night}', 1, 1, false, 480, 1, 0, 0, 0, 0, 0, 'match', 'pediatric', false, '${night}T14:00Z');
 insert into derived.sessions (night, session, ts, ended_at, source)
 values ('${night}', 1, '${night}T02:00Z', '${night}T10:00Z', 'str');
 insert into derived.segments (night, segment, session, ts, ended_at)
 values ('${night}', 1, 1, '${night}T02:00Z', '${night}T10:00Z');
-insert into derived.files (path, kind, night, segment, size, sha256, ctime)
-values ('DATALOG/${night}/BRP.edf', 'brp', '${night}', 1, 1024, 'abc', '${night}T14:00Z');
+insert into derived.files (path, kind, night, segment, size, sha256, ctime, checksum, bad_records)
+values ('DATALOG/${night}/BRP.edf', 'brp', '${night}', 1, 1024, 'abc', '${night}T14:00Z', 'match', 0);
 insert into derived.events (night, session, ts, duration, type, source, outside_mask_on)
 values ('${night}', 1, '${night}T03:00Z', 12, 'obstructive_apnea', 'resmed', false),
        ('${night}', null, '${night}T11:00Z', 10, 'hypopnea', 'resmed', true);
@@ -102,8 +102,8 @@ test("deleting a night removes only that night's rows from every table", async (
     await client.query(freshDerived);
     await client.query(nightRows("2030-01-01") + nightRows("2030-01-02"));
     await client.query(
-      `insert into derived.files (path, kind, size, sha256, ctime)
-       values ('STR.edf', 'str', 2048, 'def', '2030-01-02T14:00Z')`,
+      `insert into derived.files (path, kind, size, sha256, ctime, checksum, bad_records)
+       values ('STR.edf', 'str', 2048, 'def', '2030-01-02T14:00Z', 'unchecked', 0)`,
     );
 
     await client.query(`delete from derived.nights where night = '2030-01-01'`);

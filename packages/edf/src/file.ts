@@ -7,6 +7,7 @@ import {
   type EdfSignalFileType,
 } from "./airsense.ts";
 import { readAnnotations, type EdfAnnotation } from "./annotations.ts";
+import { badRecords } from "./checksum.ts";
 import {
   EdfFormat,
   isReadable,
@@ -29,6 +30,8 @@ type EdfFileBase = {
    * declares.
    */
   records: number;
+  /** Lists the 0-based numbers of the records whose Crc16 doesn't match the record's bytes. */
+  badRecords: number[];
   warnings: EdfWarning[];
 };
 
@@ -105,7 +108,13 @@ export function readEdf(
         return err({ kind: "size_rejected" as const, reason: size.reason });
       }
 
-      const base: EdfFileBase = { header, signals, records: size.records, warnings };
+      const base: EdfFileBase = {
+        header,
+        signals,
+        records: size.records,
+        badRecords: badRecords(bytes, headers),
+        warnings,
+      };
 
       if (type.header.format === EdfFormat.EdfPlusD) {
         // Skips parsing for a file that holds only a header.

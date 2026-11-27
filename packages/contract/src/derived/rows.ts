@@ -2,7 +2,14 @@
 // synthetic rows and the rows that ingest writes use these types, so both have the same shape.
 // ddl.ts creates the tables.
 import type { RuleSet } from "../profile.ts";
-import type { AhiOutcome, EventSource, EventType, FileKind, SessionSource } from "./values.ts";
+import type {
+  AhiOutcome,
+  EventSource,
+  EventType,
+  FileChecksum,
+  FileKind,
+  SessionSource,
+} from "./values.ts";
 
 /**
  * Maps each machine-signal column's name to the column's value. The value is null when the machine
@@ -37,6 +44,7 @@ export type NightRow = {
   events_outside_mask_on: number;
   ahi_check: AhiOutcome;
   rule_set: RuleSet;
+  possibly_corrupted: boolean;
   arrived_at: Temporal.Instant;
 };
 
@@ -48,6 +56,9 @@ export type FileRow = {
   size: number;
   sha256: string;
   ctime: Temporal.Instant;
+  checksum: FileChecksum;
+  /** Counts the records whose Crc16 doesn't match. It's null when ingest doesn't check the file's records. */
+  bad_records: number | null;
 };
 
 export type SessionRow = {

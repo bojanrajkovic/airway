@@ -98,13 +98,13 @@ erDiagram
 
 | Table | One row per | Key |
 |---|---|---|
-| `nights` | Night with a folder on the card: the machine's `STR.edf` statistics, then airway's own columns | `night` |
+| `nights` | Night with a folder on the card: the machine's `STR.edf` statistics, then airway's own columns. `possibly_corrupted` is true when one of the night's BRP, PLD, or EVE files doesn't match its `.crc`, has a bad record, or failed the size check | `night` |
 | `sessions` | Mask-on period | `night, session` |
 | `segments` | BRP file with data | `night, segment` |
 | `events` | Machine event. `ts` is the event's start. When the machine writes a duration of 0, `duration` is null and `ts` is the event's end. `session` is null when the night has no sessions | none |
 | `samples` | 2 seconds of therapy: the nine PLD signals | none |
 | `breaths` | Breath detected in the flow signal. `amplitude` is the breath's peak-to-trough flow, and `duration` runs to the next breath's start, so a pause belongs to the breath before it | none |
-| `files` | Imported file, with its size, SHA-256, and ctime. `night` is null for `STR.edf` and `Identification.tgt`. `segment` names the segment a BRP or PLD file's data belongs to, so a segment's files are one join away, including both halves of a split PLD. `segment` is null for every other file, for a header-only BRP or PLD file, and for a PLD file that doesn't overlap any segment | `path` |
+| `files` | Imported file, with its size, SHA-256, and ctime. `night` is null for `STR.edf` and `Identification.tgt`. `segment` names the segment a BRP or PLD file's data belongs to, so a segment's files are one join away, including both halves of a split PLD. `segment` is null for every other file, for a header-only BRP or PLD file, and for a PLD file that doesn't overlap any segment. `checksum` is `match` or `mismatch` for a file that ingest compares with its `.crc`, and `unchecked` for any other file. `bad_records` counts the records whose Crc16 doesn't match. It's null when ingest doesn't check the file's records | `path` |
 | `device` | Machine: serial and model | `serial` |
 | `settings_changes` | Setting that changed on a used day, compared with the previous used day | `night, setting` |
 | `daily_usage` | Day `STR.edf` covers, used or not | `day` |
