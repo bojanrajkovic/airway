@@ -24,6 +24,8 @@ import {
 import { readStr } from "../../src/ingest/str.ts";
 import { createLogger, type Logger } from "../../src/logger.ts";
 import type { AppContext } from "../../src/runtime/context.ts";
+import { nightFileKind } from "../../src/ingest/scan.ts";
+import type { RejectedFile } from "../../src/ingest/versions.ts";
 import { testContext } from "./context.ts";
 
 /**
@@ -95,6 +97,42 @@ export function eveFiles(files: readonly CpapFile[], night: Temporal.PlainDate):
       : [],
   );
 }
+
+/** Returns the BRP, PLD, and EVE files in `night`'s DATALOG folder that fail the size check. */
+export function rejectedFiles(
+  files: readonly CpapFile[],
+  night: Temporal.PlainDate,
+): RejectedFile[] {
+  const folder = `DATALOG/${night.toString().replaceAll("-", "")}/`;
+
+  return files.flatMap(({ path, bytes }): RejectedFile[] => {
+    const kind = nightFileKind(path);
+
+    if (kind === undefined || kind === FileKind.Crc || !path.startsWith(folder)) {
+      return [];
+    }
+
+    const { size } = readHeader(bytes)._unsafeUnwrap();
+
+    return size.verdict === "reject"
+      ? [{ path, kind, night, size: bytes.length, ctime: CTIME, reason: size.reason }]
+      : [];
+  });
+}
+
+/** Returns `files` after flipping the low bit of the byte at `offset` in the file at `path`. */
+export const flipByte = (files: readonly CpapFile[], path: string, offset: number): CpapFile[] =>
+  files.map((file) => {
+    if (file.path !== path) {
+      return file;
+    }
+
+    const bytes = file.bytes.slice();
+
+    bytes[offset] = (bytes[offset] ?? 0) ^ 0x01;
+
+    return { ...file, bytes };
+  });
 
 /** Reads the folder's STR.edf the way ingest does, and returns the days the machine was used. */
 export function usedDays(files: readonly CpapFile[]): UsedStrDay[] {
@@ -234,6 +272,7 @@ export function nightTasks({ planned, files }: SynthesizedNights): NightFiles[] 
             day,
             files: segmentFiles(files, day.day),
             eveFiles: eveFiles(files, day.day),
+            rejected: rejectedFiles(files, day.day),
           },
         ];
   });

@@ -1,6 +1,7 @@
 // Records ingest's metrics on the main thread, from each night's result. A counter recorded in a
 // worker would split into one series per thread and reset when the worker restarts.
 import { metrics, type Counter, type Histogram } from "@opentelemetry/api";
+import { FileChecksum } from "@airway/contract/derived/values";
 import { valuesOf } from "@airway/contract/enum";
 import { NightStep, type NightResult } from "./night.ts";
 import type { NightPoolError } from "./pool.ts";
@@ -53,8 +54,14 @@ export class IngestMetrics {
       this.#rows.add(count, { "airway.table": table });
     }
 
-    for (const { kind } of filesOf(task)) {
-      this.#filesRead.add(1, { "airway.file.kind": kind, outcome: "ok" });
+    const checksums = new Map(night.checks.map(({ path, checksum }) => [path, checksum]));
+
+    for (const { kind, path } of filesOf(task)) {
+      this.#filesRead.add(1, {
+        "airway.file.kind": kind,
+        "airway.file.checksum": checksums.get(path) ?? FileChecksum.Unchecked,
+        outcome: "ok",
+      });
     }
 
     for (const step of NIGHT_STEPS) {

@@ -14,7 +14,7 @@ import type { EdfFileHeaders } from "@airway/edf/header";
 import type { Logger } from "../logger.ts";
 import type { AppContext } from "../runtime/context.ts";
 import { inSpanAsync } from "../telemetry.ts";
-import { readEdfFile, type EdfFileError } from "./edf.ts";
+import { readEdfFile, type CheckedFile, type EdfFileError, type FileCheck } from "./edf.ts";
 import type { ReadyFile } from "./versions.ts";
 
 /**
@@ -33,8 +33,8 @@ export type NightEvents = {
   sessions: Pick<Sessions, "sessions" | "approximate">;
 };
 
-/** Adds the night's event rows to the result of `nightRow`. */
-export type ScoredEvents = ScoredNight & { events: EventRow[] };
+/** Adds the night's event rows and each EVE file's checksum checks to the result of `nightRow`. */
+export type ScoredEvents = ScoredNight & { events: EventRow[]; checks: FileCheck[] };
 
 /**
  * Describes the annotations that `readEve` read from one EVE file. Each onset is the number of
@@ -124,13 +124,12 @@ function readEve(
   ctx: Pick<AppContext, "config" | "logger">,
   zone: string,
   file: EveFile,
-): ResultAsync<FileAnnotations, EdfFileError> {
+): ResultAsync<CheckedFile<FileAnnotations>, EdfFileError> {
   const { path } = file;
 
-  return readEdfFile(ctx, path, AIRSENSE.eve).map(({ header, annotations }) => ({
-    path,
-    start: toInstant(header.start, zone),
-    annotations,
+  return readEdfFile(ctx, path, AIRSENSE.eve).map(({ file: { header, annotations }, check }) => ({
+    file: { path, start: toInstant(header.start, zone), annotations },
+    check,
   }));
 }
 
@@ -184,8 +183,12 @@ export function scoreNight(
 
         return errAsync(error);
       })
-      .map((annotations) => {
-        const placed = toEvents(night, annotations, sessions.sessions);
+      .map((read) => {
+        const placed = toEvents(
+          night,
+          read.map(({ file }) => file),
+          sessions.sessions,
+        );
         const scored = nightRow({
           day,
           sessions,
@@ -199,7 +202,7 @@ export function scoreNight(
         });
         report(span, logger, placed, scored);
 
-        return { ...scored, events: placed.events };
+        return { ...scored, events: placed.events, checks: read.map(({ check }) => check) };
       });
   });
 }

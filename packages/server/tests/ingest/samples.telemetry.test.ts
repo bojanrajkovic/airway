@@ -24,7 +24,7 @@ describe("readSamples", () => {
 
     const plan = planSegments({ night: day.day, zone, day, files: segmentFiles(files, day.day) });
     const ctx = folderContext(await writeFolder(files));
-    const blocks = (
+    const { blocks } = (
       await readSamples(ctx, { night: day.day, zone, segments: plan.segments })
     )._unsafeUnwrap();
 

@@ -1,10 +1,11 @@
 // Computes everything ingest writes for one night. A worker thread calls `computeNight`, and the
 // main thread writes the result to the database.
 import { err, ok, type Result, type ResultAsync } from "neverthrow";
+import { FileChecksum } from "@airway/contract/derived/values";
 import { transformer } from "@airway/contract/transformer";
 import type { AppContext } from "../runtime/context.ts";
 import { readBreaths, type BreathBlock } from "./breaths.ts";
-import type { EdfFileError } from "./edf.ts";
+import type { EdfFileError, FileCheck } from "./edf.ts";
 import { scoreNight, type ScoredEvents } from "./events.ts";
 import { readSamples, type SampleBlock } from "./samples.ts";
 import { buildNight, type NightFiles, type NightSegments } from "./segments.ts";
@@ -21,12 +22,27 @@ export enum NightStep {
 export type NightResult = {
   night: Temporal.PlainDate;
   segments: NightSegments;
-  scored: ScoredEvents;
+  scored: Omit<ScoredEvents, "checks">;
   samples: SampleBlock[];
   breaths: BreathBlock[];
+  /** Lists the checksum checks of every BRP, PLD, and EVE file in the night's task. */
+  checks: FileCheck[];
   /** Maps each step to the seconds it took. */
   steps: Record<NightStep, number>;
 };
+
+/**
+ * Returns a check for every BRP, PLD, and EVE file in `task`, taken from `read` by path. A file
+ * missing from `read`, such as a header-only BRP or a PLD outside every segment, is `unchecked`,
+ * with null `bad_records`.
+ */
+export function nightChecks(task: NightFiles, read: readonly FileCheck[]): FileCheck[] {
+  const byPath = new Map(read.map((check) => [check.path, check]));
+
+  return [...task.files, ...task.eveFiles].map(
+    ({ path }) => byPath.get(path) ?? { path, checksum: FileChecksum.Unchecked, bad_records: null },
+  );
+}
 
 /**
  * Builds a night's segments and sessions, scores its events, and reads its samples and breaths, in
@@ -51,7 +67,7 @@ export function computeNight(
   const planned = { night: task.night, zone: task.zone, segments: segments.segments };
 
   return scoreNight(ctx, { ...task, files: task.eveFiles, sessions: segments })
-    .map((scored) => ({ scored, events: lap() }))
+    .map(({ checks, ...scored }) => ({ scored, eveChecks: checks, events: lap() }))
     .andThen((done) =>
       readSamples(ctx, planned).map((samples) => ({ ...done, samples, samplesSeconds: lap() })),
     )
@@ -60,8 +76,9 @@ export function computeNight(
         night: task.night,
         segments,
         scored: done.scored,
-        samples: done.samples,
-        breaths,
+        samples: done.samples.blocks,
+        breaths: breaths.blocks,
+        checks: nightChecks(task, [...done.eveChecks, ...done.samples.checks, ...breaths.checks]),
         steps: {
           [NightStep.Segments]: segmentsSeconds,
           [NightStep.Events]: done.events,

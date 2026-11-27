@@ -19,12 +19,19 @@ DATALOG/YYYYMMDD/*_{BRP,PLD,EVE}.crc
 
 Each `ScannedFile` has its path relative to the folder, its kind, its night, and the size and ctime from one `stat` call. ctime only tells ingest that a file changed. Ingest never compares ctime with airway's clock, because the folder's clock can differ from airway's.
 
-A `.crc` file holds the checksums of the file it's named after. The scan keeps the `.crc` of each file it lists, so import can verify the checksums. When a `.crc` arrives late, ingest plans that file's night again. The scan skips everything else and counts the skips by reason: SAD and CSL files and their `.crc` files, other entries, and folders whose names aren't real dates. The `ingest.scan` span records the file count and each skip count. The scan finds nights only after the CPAP data folder has a `DATALOG` folder. Any read error fails the scan with `read_failed`, and the next poll tries again.
+`nightFileType(name)` in `@airway/edf/airsense` reads a night file's type from the end of its name, such as `_BRP.edf` or `_BRP.crc`. The scan decides which types to list and which to skip. A `.crc` file holds the checksums of the file it's named after. The scan keeps the `.crc` of each file it lists, so import can verify the checksums. When a `.crc` arrives late, ingest plans that file's night again. The scan skips everything else and counts the skips by reason: SAD and CSL files and their `.crc` files, other entries, and folders whose names aren't real dates. The `ingest.scan` span records the file count and each skip count. The scan finds nights only after the CPAP data folder has a `DATALOG` folder. Any read error fails the scan with `read_failed`, and the next poll tries again.
 
 `ingest/edf.ts` reads EDF files from disk and runs each read in its own span. `@airway/edf` only parses bytes. Both readers take a path relative to the CPAP data folder, and every error they return includes that path. When the file system can't read a file, the error is `read_failed`, with the file system's error in `cause`.
 
 - `readEdfHeader(ctx, path)` reads only a file's header and checks the file's size against it, in an `edf.read_header` span. A header's length depends on its signal count: a BRP header is 1,024 bytes, and `STR.edf`'s is about 21 KB. `readEdfHeader` reads the first 256 bytes, which include the header's length, and then reads the rest of the header. It skips the records because the readiness check reads every file's header. The span records the path, the format, the size verdict, the number of whole records on disk, and the warning count.
-- `readEdfFile(ctx, path, type)` reads a whole file and parses it with `readEdf`, in an `edf.read_file` span. The span records the path, the format, the number of whole records on disk, and the warning count. The EVE reader uses it.
+- `readEdfFile(ctx, path, type)` reads a whole file and parses it with `readEdf`, in an `edf.read_file` span. It also runs both [checksum checks](#checksums) and returns their results with the file. The EVE, PLD, and BRP readers use it. The span records:
+
+  - the path
+  - the format
+  - the number of whole records on disk
+  - the warning count
+  - the checksum result
+  - the number of bad records
 
 `readEdfHeader` turns each header warning, such as a `startdate_mismatch`, into an `edf.warning` span event with the warning's kind and details, and logs the warning at `warn` with the file's path. `readEdfFile` only counts the warnings, because `readEdfHeader` logged them when the readiness check read the header.
 
@@ -140,6 +147,34 @@ EVE and CSL are EDF+D files. Their records last 0 s and hold an `EDF Annotations
 
 `readAnnotations(bytes, file)` returns `{onset, duration, label}` for every text, in record order, with labels as written, "Recording starts" included. It drops timekeeping TALs, which on the card are always `+0`. A missing or empty duration reads as 0. `readAnnotations` returns `bad_annotation`, with the record number, for a TAL that doesn't parse.
 
+### Checksums
+
+The machine writes two kinds of checksum to the card, and `@airway/edf/checksum` checks both:
+
+- Every record ends with a Crc16 sample, which stores the CRC-16/CCITT-FALSE of the record's other bytes as a little-endian number. `badRecords(bytes, headers)` returns the 0-based numbers of the records whose Crc16 doesn't match, and `readEdf` returns them as `badRecords`.
+- Some files have a `.crc` file beside them. `checkCompanion(bytes, crc)` compares a file with its `.crc` and returns `match` or `mismatch`. A night file's `.crc` is 8 bytes long and contains two little-endian CRC-32s, one of the file's first 256 bytes and one of the rest. Identification.tgt's `.crc` is 4 bytes long and contains one CRC-32 of the whole file. `checkCompanion` returns `mismatch` for a `.crc` of any other length.
+
+The machine writes a `.crc` for only some night files, and never for `STR.edf`.
+
+`readEdfFile` runs both checks on every BRP, PLD, and EVE file that ingest reads. It finds the `.crc` by replacing `.edf` with `.crc` in the file's path. A file without a `.crc` is `unchecked`. `readEdfFile` logs a `.crc` mismatch and the bad records' numbers at `warn`, with the file's path. The night still imports when a file has a mismatch or bad records.
+
+```mermaid
+flowchart TD
+  read["computeNight's steps read the file?"] -->|no: header-only, or a PLD outside every segment| unread["unchecked, bad_records null"]
+  read -->|yes| crc["a .crc beside it?"]
+  crc -->|no| none["unchecked, bad_records counted"]
+  crc -->|yes| compare["checkCompanion"]
+  compare --> result["match or mismatch, bad_records counted"]
+```
+
+A night is possibly corrupted when one of its files:
+
+- doesn't match its `.crc`
+- has a bad record
+- failed the readiness check
+
+`possiblyCorrupted(files, rejected)` in `@airway/contract` computes the flag, and the `nights` table's `possibly_corrupted` column holds it.
+
 ## Segments
 
 A segment is the stretch of time that one BRP file recorded. The machine sometimes starts a new BRP file in the middle of a mask-on period, so a session can hold several segments. `planSegments` in `packages/server/src/ingest/segments.ts` builds a night's segments from the night's ready BRP and PLD files, and then builds the night's sessions:
@@ -181,6 +216,7 @@ The 90 s join can't be exact: the machine starts new BRP files inside one period
 `STR.edf` is the machine's daily summary, with one 86,400 s record per day. `readStr(bytes)` in `packages/server/src/ingest/str.ts` reads it into one `StrDay` per record, oldest first. `StrDay` is defined in `@airway/contract/derived/str`, because the synthetic data generator builds the same days from its model.
 
 - A day's date is the header's start date plus the record's index. When the `Date` signal disagrees, `readStr` returns a `date_mismatch` warning with both dates, and the caller logs it.
+- `readStr` also returns the numbers of the records whose Crc16 doesn't match, as `badRecords`, and the caller logs them. `possiblyCorrupted` looks only at a night's BRP, PLD, and EVE files, because `STR.edf` covers every night.
 - A day is unused when `OnDuration` is -1. The machine writes -1 for every other signal that day too, so an unused day has only its date.
 - A used day has its `nights` column values, its S.* settings by name, `MaskEvents`, and the 10 `MaskOn` and `MaskOff` slots. Values are physical, rounded to their signal's step, and null where the machine wrote -1. The slots stay minutes since noon on the device clock, with NaN for an unused slot, because `buildSessions` converts them with the home zone's winter offset.
 
@@ -260,8 +296,9 @@ A block stores its rows as columns, like a `SampleBlock`. `readBreaths` runs in 
 - the home time zone
 - the night's STR.edf day
 - the night's ready BRP, PLD, and EVE files
+- the night's BRP, PLD, and EVE files that the readiness check rejected
 
-`computeNight` reads only those files, so a worker thread without database pools can run it.
+`computeNight` reads only the ready files, so a worker thread without database pools can run it.
 
 ```mermaid
 flowchart LR
@@ -277,7 +314,10 @@ flowchart LR
 - the segments and sessions
 - the scored events
 - the sample and breath blocks
+- a [checksum](#checksums) check for every ready BRP, PLD, and EVE file
 - the seconds each step took
+
+`possiblyCorrupted(result.checks, task.rejected.length)` computes a night's `possibly_corrupted`.
 
 If a step fails, `computeNight` returns that step's `EdfFileError`, which includes the failing file's path.
 

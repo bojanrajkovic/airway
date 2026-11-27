@@ -8,7 +8,7 @@ import { AIRSENSE, FLOW, step } from "@airway/edf/airsense";
 import type { EdfSignalHeader } from "@airway/edf/header";
 import type { AppContext } from "../runtime/context.ts";
 import { inSpanAsync } from "../telemetry.ts";
-import { readEdfFile, type EdfFileError } from "./edf.ts";
+import { readEdfFile, type EdfFileError, type FileCheck } from "./edf.ts";
 import type { PlannedNight } from "./segments.ts";
 
 /** A crossing counts once flow passes this many L/s, in either direction. */
@@ -181,6 +181,9 @@ export type BreathBlock = {
   inspiratory_volume: Float64Array;
 };
 
+/** Resolves to a night's breath blocks and the checksum checks of the BRP files they came from. */
+export type BreathBlocks = { blocks: BreathBlock[]; checks: FileCheck[] };
+
 /**
  * Returns the breaths in one BRP file's flow as columns, with sample 0 at `start`. Rounds amplitude
  * and volume to the decimals of the flow signal's step.
@@ -204,15 +207,15 @@ export function toBreaths(
 }
 
 /**
- * Detects the breaths in each segment's BRP file and returns one `BreathBlock` per file. Detection
- * never crosses a file boundary. Converts each header's device-clock start time to an instant in
- * `zone`. Runs in an `ingest.breaths` span that records the night, the number of BRP files, and the
- * number of breaths.
+ * Detects the breaths in each segment's BRP file and returns one `BreathBlock` per file, with each
+ * file's checksum checks. Detection never crosses a file boundary. Converts each header's
+ * device-clock start time to an instant in `zone`. Runs in an `ingest.breaths` span that records
+ * the night, the number of BRP files, and the number of breaths.
  */
 export function readBreaths(
-  ctx: Pick<AppContext, "config">,
+  ctx: Pick<AppContext, "config" | "logger">,
   { night, zone, segments }: PlannedNight,
-): ResultAsync<BreathBlock[], EdfFileError> {
+): ResultAsync<BreathBlocks, EdfFileError> {
   return inSpanAsync("ingest.breaths", (span) => {
     span.setAttributes({
       "airway.night": night.toString(),
@@ -221,10 +224,9 @@ export function readBreaths(
 
     return ResultAsync.combine(
       segments.map(({ segment, session, brp }) =>
-        readEdfFile(ctx, brp.path, AIRSENSE.brp).map((file): BreathBlock => {
+        readEdfFile(ctx, brp.path, AIRSENSE.brp).map(({ file, check }) => {
           const signal = file.signals.find(({ label }) => label === "Flow.40ms");
-
-          return {
+          const block: BreathBlock = {
             segment,
             session,
             ...toBreaths(
@@ -233,15 +235,19 @@ export function readBreaths(
               toInstant(file.header.start, zone),
             ),
           };
+
+          return { block, check };
         }),
       ),
-    ).map((blocks) => {
+    ).map((read) => {
+      const blocks = read.map(({ block }) => block);
+
       span.setAttribute(
         "airway.ingest.rows",
         blocks.reduce((sum, { ts }) => sum + ts.length, 0),
       );
 
-      return blocks;
+      return { blocks, checks: read.map(({ check }) => check) };
     });
   });
 }

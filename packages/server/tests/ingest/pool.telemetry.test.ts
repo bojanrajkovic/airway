@@ -88,7 +88,7 @@ describe("IngestMetrics", () => {
     );
     expect(byName.get("airway.ingest.files_read")).toContainEqual(
       expect.objectContaining({
-        attributes: { "airway.file.kind": "eve", outcome: "ok" },
+        attributes: { "airway.file.kind": "eve", "airway.file.checksum": "match", outcome: "ok" },
         value: task.eveFiles.length,
       }),
     );
