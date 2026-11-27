@@ -33,9 +33,9 @@ group by period, period_start, signal;
 
 /**
  * Returns the SQL that recomputes the `period_percentiles` rows for each week and month that
- * contains one of `nights`. It computes each period once and stores the same values that
- * `rebuildAllPercentiles` stores. The SQL deletes those rows, then inserts new rows computed from only
- * the samples inside those periods.
+ * contains one of `nights`. The SQL deletes those rows, then inserts new rows computed only from the
+ * samples inside those periods. It computes each period once and stores the same values that
+ * `rebuildAllPercentiles` stores.
  */
 export function recomputePeriodPercentiles(
   schema: DerivedSchema,

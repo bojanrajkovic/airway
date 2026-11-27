@@ -133,6 +133,6 @@ Text columns with a fixed set of values, such as an event's `type`, have a CHECK
 
 ### Period percentiles
 
-`rebuildAllPercentiles(schema)` in `@airway/contract/derived/percentiles` returns the SQL that rebuilds all of `period_percentiles` from `samples`: it deletes every row, then fills the table. It takes `percentile_cont(0.5)` and `percentile_cont(0.95)` of leak and mask pressure for each week, starting Monday, and each month. Because it uses `percentile_cont`, a stored value equals a query-time percentile over the same samples.
+`rebuildAllPercentiles(schema)` in `@airway/contract/derived/percentiles` returns the SQL that rebuilds all of `period_percentiles` from `samples`: it deletes every row, then fills the table. It computes `percentile_cont(0.5)` and `percentile_cont(0.95)` of leak and mask pressure for each week and each month. Weeks start on Monday. Because it uses `percentile_cont`, a stored value equals the percentile that a query computes from the same samples.
 
 `recomputePeriodPercentiles(schema, nights)` takes a non-empty list of nights and recomputes only the weeks and months that contain them. It deletes the rows for those periods and inserts new ones computed from the samples in each period. It recomputes each period once, even when 30 of the nights fall in the same month.
