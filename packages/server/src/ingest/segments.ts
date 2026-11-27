@@ -30,10 +30,12 @@ export type NightFiles = {
   eveFiles: readonly EveFile[];
   /** Lists the night's BRP, PLD, and EVE files that the readiness check rejected. */
   rejected: readonly RejectedFile[];
+  /** Lists the night's ready `.crc` files, which go in the night's `files` rows. The worker ignores them. */
+  crcFiles: readonly ReadyFile[];
 };
 
 /** Resolves to the parts of `NightFiles` that `planSegments` reads. */
-export type SegmentInputs = Omit<NightFiles, "eveFiles" | "rejected">;
+export type SegmentInputs = Omit<NightFiles, "eveFiles" | "rejected" | "crcFiles">;
 
 /**
  * Describes the stretch of time that one BRP file recorded, with the PLD files attached to it.

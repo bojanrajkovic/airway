@@ -71,6 +71,8 @@ The `ingest.readiness` span records how many files are ready, waiting, and rejec
 
 Import starts at the first DATALOG folder, because every night comes from a DATALOG folder. STR.edf's older days feed only the STR.edf tables.
 
+`planTasks(nights, states, days, zone)` turns the plan's nights into `NightFiles` tasks. It matches each night to its ready and rejected files in `states` by the scan's `night` field, and to its STR.edf day in `days`. A night whose STR.edf day is unused goes in `unused` instead. The machine rewrites STR.edf around noon. Until then, STR.edf's record for the night that just ended has -1 in every field, so that night reads as unused. Ingest writes `files` rows only for imported nights, so the next poll plans that night again and imports it once STR.edf records the day.
+
 ## Reading EDF files
 
 `@airway/edf` reads the card's EDF files. BRP, PLD, SAD, and `STR.edf` are plain EDF. EVE and CSL are EDF+D, and hold annotations.
@@ -222,11 +224,24 @@ The 90 s join can't be exact: the machine starts new BRP files inside one period
 
 `STR.edf` covers months before the first DATALOG folder, so `readStr` returns every day. Each consumer picks the days it needs.
 
+## STR.edf tables
+
+`writeStr(ctx, client, schema, input)` in `ingest/write-str.ts` replaces the tables below in one transaction, inside an `ingest.write_str` span. If a statement fails, the transaction rolls back and the previous rows stay in place. Call `writeStr` when the plan reports `rewriteStrTables` and both STR.edf and Identification.tgt are ready.
+
+- **`daily_usage`** has a row for every STR.edf day from the first used day on. `writeStr` writes STR.edf's usage for each used day, including one with no DATALOG folder, and 0 hours for each unused day.
+- **`settings_changes`** also starts on the first used day (see [Settings changes](#settings-changes)).
+- **`device`** holds the serial and model. `readIdentification(ctx)` in `ingest/identification.ts` reads them verbatim from Identification.tgt's `#SRN` and `#PNA` lines, and checks the file against Identification.crc. The check is `unchecked` when Identification.crc is missing.
+- **`files`**: STR.edf's row is `unchecked`, with `bad_records` set to the number of records whose Crc16 doesn't match. Identification.tgt's row records the result of the Identification.crc check, and Identification.crc's row is `unchecked`. Deleting a night's rows leaves these rows in place, because their `night` is null.
+
+`writeStr` logs STR.edf's bad records and `date_mismatch` warnings at `warn`.
+
+`checkStrHistory(ctx, client, schema, str)` returns how many `nights` rows are older than STR.edf's first used day, and logs a `warn` when there are any. Nights older than STR.edf's first used day mean that STR.edf restarted its history, after a new SD card or a machine reset. `writeStr` then rebuilds `daily_usage` from the new STR.edf, which deletes the usage of the days before the restart.
+
 ## Settings changes
 
-`settingsChanges(days, from)` in `@airway/contract/derived/settings` turns `STR.edf`'s days into `settings_changes` rows. It compares each used day's S.* settings with the previous used day's, and returns a row for each setting that changed. Only days on or after `from` get rows. Ingest passes the first imported night as `from`.
+`settingsChanges(days, from)` in `@airway/contract/derived/settings` turns `STR.edf`'s days into `settings_changes` rows. It compares each used day's S.* settings with the previous used day's, and returns a row for each setting that changed. Only days on or after `from` get rows. Ingest passes STR.edf's first used day as `from`.
 
-The comparison uses every used day in `STR.edf`, including days before `from` and days with no DATALOG folder. So the first imported night shows a change made before it, and the row for a change made on a day with no folder has that day's date. Unused days are skipped. `settingsChanges` names four settings: `min_pressure`, `max_pressure`, `epr_level`, and `ramp_time`. The rest keep their S.* label.
+The comparison skips unused days and includes days with no DATALOG folder, so the row for a change made on a day with no folder is dated that day. `settingsChanges` names four settings: `min_pressure`, `max_pressure`, `epr_level`, and `ramp_time`. The rest keep their S.* label.
 
 ## Events
 
@@ -297,6 +312,7 @@ A block stores its rows as columns, like a `SampleBlock`. `readBreaths` runs in 
 - the night's STR.edf day
 - the night's ready BRP, PLD, and EVE files
 - the night's BRP, PLD, and EVE files that the readiness check rejected
+- the night's ready `.crc` files, which `computeNight` ignores
 
 `computeNight` reads only the ready files, so a worker thread without database pools can run it.
 

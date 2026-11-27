@@ -85,7 +85,6 @@ export function synthesize(
       const used = sorted.map((night) => usedDay(night, zone));
       const days = strDays(used);
       const rows = emptyRows(days);
-      const firstImported = sorted.find((_night, i) => (datalog[i] ?? []).length > 0);
 
       // Ingest checks Identification.tgt against Identification.crc. STR.edf has no .crc, so ingest
       // checks only its records' Crc16s.
@@ -129,8 +128,11 @@ export function synthesize(
         });
       });
 
-      if (firstImported !== undefined) {
-        rows.settings_changes.push(...settingsChanges(days, firstImported.night));
+      const firstDay = days.find(({ used }) => used);
+
+      // Ingest's settings_changes, like its daily_usage, starts at STR.edf's first used day.
+      if (firstDay !== undefined) {
+        rows.settings_changes.push(...settingsChanges(days, firstDay.day));
       }
 
       return { files, rows };

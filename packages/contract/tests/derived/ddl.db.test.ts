@@ -1,8 +1,7 @@
-import { test } from "@airway/testing/postgres";
+import { test, withClient } from "@airway/testing/postgres";
 import { expect } from "vitest";
 import { z } from "zod";
 import { derivedIndexesAndKeys, derivedTables } from "../../src/derived/ddl.ts";
-import { withClient } from "../support/postgres.ts";
 
 const NIGHT_TABLES = ["files", "sessions", "segments", "events", "samples", "breaths"] as const;
 const Tables = z.array(z.object({ name: z.string(), persistence: z.string() }));

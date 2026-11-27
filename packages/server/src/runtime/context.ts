@@ -1,5 +1,6 @@
 import type { Config } from "../config.ts";
 import type { Pools } from "../db/pools.ts";
+import type { IngestMetrics } from "../ingest/metrics.ts";
 import type { NightPool } from "../ingest/pool.ts";
 import type { Logger } from "../logger.ts";
 
@@ -17,4 +18,6 @@ export type AppContext = {
   db: Pools;
   /** Computes nights in worker threads. */
   nightPool: NightPool;
+  /** Records ingest's metrics. main.ts creates it after the telemetry SDK starts. */
+  metrics: IngestMetrics;
 };

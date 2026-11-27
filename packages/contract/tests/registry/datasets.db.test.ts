@@ -1,10 +1,9 @@
-import { test } from "@airway/testing/postgres";
+import { test, withClient } from "@airway/testing/postgres";
 import pg from "pg";
 import { expect } from "vitest";
 import { derivedIndexesAndKeys, derivedTables } from "../../src/derived/ddl.ts";
 import { DATASETS } from "../../src/registry/datasets.ts";
 import { render, type Column } from "../../src/registry/define.ts";
-import { withClient } from "../support/postgres.ts";
 
 // `TYPES` maps each column kind to the Postgres types that a column of that kind may have. It
 // leaves out numeric because pg returns numeric as a string.

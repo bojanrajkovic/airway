@@ -70,7 +70,8 @@ function skipReason(name: string): SkipReason | undefined {
   return reason !== undefined && file?.crc === true ? SkipReason.Crc : reason;
 }
 
-const ROOT_FILES: Readonly<Record<string, ScannedFile["kind"]>> = {
+/** Maps the name of each file that the scan lists at the root of the CPAP data folder to its kind. */
+export const ROOT_FILES: Readonly<Record<string, ScannedFile["kind"]>> = {
   "STR.edf": FileKind.Str,
   "Identification.tgt": FileKind.Identification,
   "Identification.crc": FileKind.Crc,

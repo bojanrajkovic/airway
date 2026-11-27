@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
@@ -15,6 +16,7 @@ import { Patient } from "@airway/synthetic/patients";
 import { synthesize } from "@airway/synthetic/synthesize";
 import { LogLevel } from "../../src/config.ts";
 import type { EveFile, NightEvents } from "../../src/ingest/events.ts";
+import { inNight, isEveFile, isSegmentFile, planTasks } from "../../src/ingest/planner.ts";
 import {
   planSegments,
   type NightFiles,
@@ -24,8 +26,8 @@ import {
 import { readStr } from "../../src/ingest/str.ts";
 import { createLogger, type Logger } from "../../src/logger.ts";
 import type { AppContext } from "../../src/runtime/context.ts";
-import { nightFileKind } from "../../src/ingest/scan.ts";
-import type { RejectedFile } from "../../src/ingest/versions.ts";
+import { nightFileKind, ROOT_FILES } from "../../src/ingest/scan.ts";
+import type { FileStates, RejectedFile } from "../../src/ingest/versions.ts";
 import { testContext } from "./context.ts";
 
 /**
@@ -40,85 +42,71 @@ export function syntheticFolder(nights: number, cases: readonly EdgeCaseName[] =
 
 const CTIME = Temporal.Instant.from("2030-03-01T12:00:00Z");
 
+// Caches each folder's file states, because every per-night helper below sorts the whole folder.
+const sorted = new WeakMap<readonly CpapFile[], FileStates>();
+
 /**
- * Returns the BRP and PLD files in `night`'s DATALOG folder as `SegmentFile`s, with headers read.
- * Leaves out files that fail the size check.
+ * Sorts a synthetic folder's files as the readiness check does after every file's size stops
+ * changing:
+ *
+ * - A file that fails the size check is rejected.
+ * - Every other file is ready, with its SHA-256 and, for an EDF file, its headers.
+ *
+ * Like the scan, it skips SAD and CSL files and their `.crc` files.
  */
-export function segmentFiles(files: readonly CpapFile[], night: Temporal.PlainDate): SegmentFile[] {
-  const folder = `DATALOG/${night.toString().replaceAll("-", "")}/`;
+export function fileStates(files: readonly CpapFile[]): FileStates {
+  const cached = sorted.get(files);
 
-  return files.flatMap(({ path, bytes }): SegmentFile[] => {
-    const kind = path.endsWith("_BRP.edf")
-      ? FileKind.Brp
-      : path.endsWith("_PLD.edf")
-        ? FileKind.Pld
-        : undefined;
+  if (cached !== undefined) {
+    return cached;
+  }
 
-    if (kind === undefined || !path.startsWith(folder)) {
-      return [];
+  const states: FileStates = { ready: [], waiting: [], rejected: [] };
+
+  for (const { path, bytes } of files) {
+    const folder = /^DATALOG\/(?<night>\d{8})\//v.exec(path)?.groups?.["night"];
+    const kind = folder === undefined ? ROOT_FILES[path] : nightFileKind(path);
+
+    if (kind === undefined) {
+      continue;
     }
 
-    const edf = readHeader(bytes)._unsafeUnwrap();
-    const { size } = edf;
+    const night = folder === undefined ? null : Temporal.PlainDate.from(folder);
+    const scanned = { path, kind, night, size: bytes.length, ctime: CTIME };
+    const isEdf = kind !== FileKind.Crc && kind !== FileKind.Identification;
+    const edf = isEdf ? readHeader(bytes)._unsafeUnwrap() : null;
 
-    return size.verdict === "reject"
-      ? []
-      : [
-          {
-            path,
-            kind,
-            night,
-            size: bytes.length,
-            ctime: CTIME,
-            sha256: "",
-            edf: { ...edf, size },
-          },
-        ];
-  });
+    if (edf?.size.verdict === "reject") {
+      states.rejected.push({ ...scanned, reason: edf.size.reason });
+    } else {
+      states.ready.push({
+        ...scanned,
+        sha256: createHash("sha256").update(bytes).digest("hex"),
+        edf,
+      });
+    }
+  }
+
+  sorted.set(files, states);
+
+  return states;
 }
 
-/** Returns the EVE files in `night`'s DATALOG folder with their headers read, as the readiness check passes them on. */
-export function eveFiles(files: readonly CpapFile[], night: Temporal.PlainDate): EveFile[] {
-  const folder = `DATALOG/${night.toString().replaceAll("-", "")}/`;
-
-  return files.flatMap(({ path, bytes }): EveFile[] =>
-    path.startsWith(folder) && path.endsWith("_EVE.edf")
-      ? [
-          {
-            path,
-            kind: FileKind.Eve,
-            night,
-            size: bytes.length,
-            ctime: CTIME,
-            sha256: "",
-            edf: readHeader(bytes)._unsafeUnwrap(),
-          },
-        ]
-      : [],
-  );
-}
-
-/** Returns the BRP, PLD, and EVE files in `night`'s DATALOG folder that fail the size check. */
-export function rejectedFiles(
+/** Returns the ready BRP and PLD files in `night`'s DATALOG folder as `SegmentFile`s. */
+export const segmentFiles = (
   files: readonly CpapFile[],
   night: Temporal.PlainDate,
-): RejectedFile[] {
-  const folder = `DATALOG/${night.toString().replaceAll("-", "")}/`;
+): SegmentFile[] => fileStates(files).ready.filter(inNight(night)).filter(isSegmentFile);
 
-  return files.flatMap(({ path, bytes }): RejectedFile[] => {
-    const kind = nightFileKind(path);
+/** Returns the ready EVE files in `night`'s DATALOG folder as `EveFile`s. */
+export const eveFiles = (files: readonly CpapFile[], night: Temporal.PlainDate): EveFile[] =>
+  fileStates(files).ready.filter(inNight(night)).filter(isEveFile);
 
-    if (kind === undefined || kind === FileKind.Crc || !path.startsWith(folder)) {
-      return [];
-    }
-
-    const { size } = readHeader(bytes)._unsafeUnwrap();
-
-    return size.verdict === "reject"
-      ? [{ path, kind, night, size: bytes.length, ctime: CTIME, reason: size.reason }]
-      : [];
-  });
-}
+/** Returns the BRP, PLD, and EVE files in `night`'s DATALOG folder that fail the size check. */
+export const rejectedFiles = (
+  files: readonly CpapFile[],
+  night: Temporal.PlainDate,
+): RejectedFile[] => fileStates(files).rejected.filter(inNight(night));
 
 /** Returns `files` after flipping the low bit of the byte at `offset` in the file at `path`. */
 export const flipByte = (files: readonly CpapFile[], path: string, offset: number): CpapFile[] =>
@@ -260,20 +248,17 @@ export function synthesizedNights(cases: readonly EdgeCaseName[], nights = 0): S
 
 /** Returns a `NightFiles` for each night that `synthesize` expects ingest to import. */
 export function nightTasks({ planned, files }: SynthesizedNights): NightFiles[] {
-  return usedDays(files).flatMap((day): NightFiles[] => {
-    const plan = planned.find(({ night }) => night.equals(day.day));
+  const [first] = planned;
+  const { days } = readStr(
+    files.find(({ path }) => path === "STR.edf")?.bytes ?? new Uint8Array(),
+  )._unsafeUnwrap();
 
-    return plan === undefined
-      ? []
-      : [
-          {
-            night: day.day,
-            zone: plan.zone,
-            day,
-            files: segmentFiles(files, day.day),
-            eveFiles: eveFiles(files, day.day),
-            rejected: rejectedFiles(files, day.day),
-          },
-        ];
-  });
+  return first === undefined
+    ? []
+    : planTasks(
+        planned.map(({ night }) => night),
+        fileStates(files),
+        days,
+        first.zone,
+      ).tasks;
 }

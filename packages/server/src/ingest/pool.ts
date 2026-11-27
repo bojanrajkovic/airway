@@ -6,7 +6,6 @@ import { transformer } from "@airway/contract/transformer";
 import type { AppContext } from "../runtime/context.ts";
 import { currentTraceparent, inSpanAsync } from "../telemetry.ts";
 import type { EdfFileError } from "./edf.ts";
-import { IngestMetrics } from "./metrics.ts";
 import { decodeNight, encodeTask, type NightResult, type NightWire } from "./night.ts";
 import type { WorkerData, WorkerMessage } from "./night-worker.ts";
 import type { NightFiles } from "./segments.ts";
@@ -35,7 +34,7 @@ export type NightPool = AsyncDisposable & {
  * lowers their priority, so the main thread's requests run first when the CPUs are busy.
  */
 export function createNightPool(
-  ctx: Pick<AppContext, "config" | "logger">,
+  ctx: Pick<AppContext, "config" | "logger" | "metrics">,
   { filename }: { filename: string },
 ): NightPool {
   const logger = ctx.logger.child({ module: "ingest.pool" });
@@ -48,7 +47,7 @@ export function createNightPool(
     niceIncrement: 10,
     workerData,
   });
-  const metrics = new IngestMetrics();
+  const { metrics } = ctx;
   let ready = false;
 
   // piscina emits `error` when a worker fails outside a task, for example when it can't load. An
