@@ -115,7 +115,7 @@ describe("readBreaths", () => {
     const ctx = folderContext(await writeFolder(files));
 
     for (const plan of planned) {
-      const blocks = (await readBreaths(ctx, plan))._unsafeUnwrap();
+      const { blocks } = (await readBreaths(ctx, plan))._unsafeUnwrap();
 
       expectNear(
         toBreathRows(plan.night, blocks),

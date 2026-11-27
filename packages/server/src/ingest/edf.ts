@@ -3,8 +3,11 @@
 import { open, readFile, type FileHandle } from "node:fs/promises";
 import { join } from "node:path";
 import type { Attributes, Span } from "@opentelemetry/api";
-import { errAsync, ResultAsync } from "neverthrow";
+import { errAsync, okAsync, ResultAsync } from "neverthrow";
+import type { FileRow } from "@airway/contract/derived/rows";
+import { FileChecksum } from "@airway/contract/derived/values";
 import type { EdfAnnotationFileType, EdfFileType, EdfSignalFileType } from "@airway/edf/airsense";
+import { checkCompanion } from "@airway/edf/checksum";
 import {
   readEdf,
   type EdfAnnotationFile,
@@ -133,43 +136,96 @@ function closeAfter<T, E>(handle: FileHandle, work: ResultAsync<T, E>): ResultAs
 }
 
 /**
+ * Resolves to the `path`, `checksum`, and `bad_records` columns of a file's `files` row, which the
+ * two checksum checks fill.
+ */
+export type FileCheck = Pick<FileRow, "path" | "checksum" | "bad_records">;
+
+/** Pairs a file that `readEdfFile` read with its checksum checks. */
+export type CheckedFile<T> = { file: T; check: FileCheck };
+
+const isNotFound = (cause: unknown): boolean =>
+  cause instanceof Error && "code" in cause && cause.code === "ENOENT";
+
+// Reads the .crc beside the EDF file at `path`. Returns null when the file has no .crc, and an
+// error with the .crc's path when it can't read the .crc.
+function readCompanion(
+  ctx: Pick<AppContext, "config">,
+  path: string,
+): ResultAsync<Uint8Array | null, EdfFileError> {
+  const crcPath = path.replace(/\.edf$/v, ".crc");
+
+  return ResultAsync.fromPromise(readFile(join(ctx.config.cpapDataPath, crcPath)), readFailed)
+    .map((bytes): Uint8Array | null => bytes)
+    .orElse((error) => (isNotFound(error.cause) ? okAsync(null) : errAsync(error)))
+    .mapErr(withPath(crcPath));
+}
+
+/**
  * Reads the whole EDF file at `path` and parses it with `readEdf` as `type`, in an
- * `edf.read_file` span. `path` is relative to the CPAP data folder. The span records the path,
- * the format, the number of whole records on disk, and the warning count. This function only counts
- * the header's warnings, because `readEdfHeader` logged them when the readiness check read the
- * header.
- * Returns `read_failed` for a file it can't read, and `readEdf`'s error for a file that doesn't
- * match `type`.
+ * `edf.read_file` span. `path` is relative to the CPAP data folder. It also compares the file with
+ * the `.crc` beside it, and sets the checksum to `unchecked` when the file has no `.crc`. The span
+ * records the path, the format, the number of whole records on disk, the warning count, the
+ * checksum result, and the number of bad records. This function only counts the header's warnings,
+ * because `readEdfHeader` logged them when the readiness check read the header. It logs a `.crc`
+ * mismatch and the bad records at `warn`.
+ *
+ * Returns `read_failed`, with the path of the file that failed, when it can't read the file or its
+ * `.crc`. Returns `readEdf`'s error for a file that doesn't match `type`.
  */
 export function readEdfFile<F extends EdfSignalFileType>(
-  ctx: Pick<AppContext, "config">,
+  ctx: Pick<AppContext, "config" | "logger">,
   path: string,
   type: F,
-): ResultAsync<EdfFile<F>, EdfFileError>;
+): ResultAsync<CheckedFile<EdfFile<F>>, EdfFileError>;
 export function readEdfFile<F extends EdfAnnotationFileType>(
-  ctx: Pick<AppContext, "config">,
+  ctx: Pick<AppContext, "config" | "logger">,
   path: string,
   type: F,
-): ResultAsync<EdfFile<F>, EdfFileError>;
+): ResultAsync<CheckedFile<EdfFile<F>>, EdfFileError>;
 export function readEdfFile(
-  ctx: Pick<AppContext, "config">,
+  ctx: Pick<AppContext, "config" | "logger">,
   path: string,
   type: EdfFileType,
-): ResultAsync<EdfSignalFile<string> | EdfAnnotationFile, EdfFileError> {
+): ResultAsync<CheckedFile<EdfSignalFile<string> | EdfAnnotationFile>, EdfFileError> {
+  const logger = ctx.logger.child({ module: "ingest.edf", path });
+
   return inSpanAsync("edf.read_file", (span) => {
     span.setAttribute("airway.file.path", path);
 
     return ResultAsync.fromPromise(readFile(join(ctx.config.cpapDataPath, path)), readFailed)
-      .andThen((bytes) => readEdf(bytes, type))
+      .andThen((bytes) => readEdf(bytes, type).map((file) => ({ bytes, file })))
       .mapErr(withPath(path))
-      .map((file) => {
+      .andThen(({ bytes, file }) =>
+        readCompanion(ctx, path).map((crc) => ({
+          file,
+          check: {
+            path,
+            checksum: crc === null ? FileChecksum.Unchecked : checkCompanion(bytes, crc),
+            bad_records: file.badRecords.length,
+          },
+        })),
+      )
+      .map((read) => {
+        const { file, check } = read;
+
         span.setAttributes({
           "edf.format": file.header.format,
           "edf.records": file.records,
           "edf.warning_count": file.warnings.length,
+          "edf.checksum": check.checksum,
+          "edf.bad_records": file.badRecords.length,
         });
 
-        return file;
+        if (check.checksum === FileChecksum.Mismatch) {
+          logger.warn("EDF file doesn't match its .crc");
+        }
+
+        if (file.badRecords.length > 0) {
+          logger.warn({ badRecords: file.badRecords }, "EDF records don't match their Crc16");
+        }
+
+        return read;
       });
   });
 }

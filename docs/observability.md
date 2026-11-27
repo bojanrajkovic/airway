@@ -93,7 +93,7 @@ airway's own metrics are named `airway.<area>.<name>`, such as `airway.ingest.la
 | Metric | Type | Attributes | What it measures |
 |---|---|---|---|
 | `airway.ingest.rows` | counter, `{row}` | `airway.table`: `segments`, `sessions`, `events`, `samples`, `breaths` | Rows computed |
-| `airway.ingest.files_read` | counter, `{file}` | `airway.file.kind` (`brp`, `pld`, `eve`), `outcome` (`ok`, `error`) | BRP, PLD, and EVE files read |
+| `airway.ingest.files_read` | counter, `{file}` | `airway.file.kind` (`brp`, `pld`, `eve`), `outcome` (`ok`, `error`), and `airway.file.checksum` (`match`, `mismatch`, `unchecked`) when `outcome` is `ok` | BRP, PLD, and EVE files read |
 | `airway.ingest.night.duration` | histogram, `s` | `outcome` | Time from asking the pool for a night to its result |
 | `airway.ingest.step.duration` | histogram, `s` | `airway.ingest.step`: `segments`, `events`, `samples`, `breaths` | Time each step of a night took |
 | `airway.ingest.queue.duration` | histogram, `s` | none | Time a night waited for a free worker, computed as the night's duration minus the sum of its step durations |

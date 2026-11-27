@@ -18,7 +18,7 @@ describe("readBreaths", () => {
       throw new Error("expected a planned night");
     }
 
-    const blocks = (
+    const { blocks } = (
       await readBreaths(folderContext(await writeFolder(files)), plan)
     )._unsafeUnwrap();
 

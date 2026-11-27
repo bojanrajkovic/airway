@@ -8,7 +8,7 @@ import type { FileSizeCheck } from "@airway/edf/size";
 import type { AppContext } from "../runtime/context.ts";
 import { inSpan } from "../telemetry.ts";
 import type { EveFile } from "./events.ts";
-import type { ReadyFile } from "./versions.ts";
+import type { ReadyFile, RejectedFile } from "./versions.ts";
 
 /**
  * Narrows `ReadyFile` to a BRP or PLD file whose header and size check the readiness check
@@ -28,10 +28,12 @@ export type NightFiles = {
   /** Lists the BRP and PLD files, which `planSegments` turns into segments. */
   files: readonly SegmentFile[];
   eveFiles: readonly EveFile[];
+  /** Lists the night's BRP, PLD, and EVE files that the readiness check rejected. */
+  rejected: readonly RejectedFile[];
 };
 
 /** Resolves to the parts of `NightFiles` that `planSegments` reads. */
-export type SegmentInputs = Omit<NightFiles, "eveFiles">;
+export type SegmentInputs = Omit<NightFiles, "eveFiles" | "rejected">;
 
 /**
  * Describes the stretch of time that one BRP file recorded, with the PLD files attached to it.

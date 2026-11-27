@@ -42,7 +42,7 @@ describe("readSamples", () => {
     const ctx = folderContext(await writeFolder(files));
 
     for (const plan of planned) {
-      const blocks = (await readSamples(ctx, plan))._unsafeUnwrap();
+      const { blocks } = (await readSamples(ctx, plan))._unsafeUnwrap();
 
       expect(toSampleRows(plan.night, blocks)).toEqual(
         rows.samples.filter((row) => row.night.equals(plan.night)),
@@ -59,7 +59,7 @@ describe("readSamples", () => {
       throw new Error("expected a segment with a split PLD file");
     }
 
-    const blocks = (await readSamples(ctx, split))._unsafeUnwrap();
+    const { blocks } = (await readSamples(ctx, split))._unsafeUnwrap();
     const [first, second] = blocks.filter(({ segment }) =>
       split.segments.some((s) => s.segment === segment && s.plds.length === 2),
     );

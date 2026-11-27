@@ -14,8 +14,12 @@ export type StrWarning = {
   date: Temporal.PlainDate | null;
 };
 
-/** `readStr` returns STR.edf's days, oldest first, and a warning for each record whose Date signal differs from the record's expected date. */
-export type StrFile = { days: StrDay[]; warnings: StrWarning[] };
+/**
+ * `readStr` returns STR.edf's days, oldest first, and a warning for each record whose Date signal
+ * differs from the record's expected date. `badRecords` lists the records whose Crc16 doesn't
+ * match.
+ */
+export type StrFile = { days: StrDay[]; warnings: StrWarning[]; badRecords: number[] };
 
 type StrLabel = DataLabel<typeof AIRSENSE.str>;
 
@@ -84,6 +88,6 @@ export function readStr(bytes: Uint8Array): Result<StrFile, EdfReadError> {
         : [{ kind: "date_mismatch", record, expected, date }];
     });
 
-    return { days, warnings };
+    return { days, warnings, badRecords: file.badRecords };
   });
 }

@@ -109,7 +109,7 @@ describe("readEdfHeader", () => {
 });
 
 describe("readEdfFile", () => {
-  it("sets the path, format, and record count on the edf.read_file span", async () => {
+  it("sets the path, format, record count, and checksum results on the edf.read_file span", async () => {
     const file = brp();
     const ctx = folderContext(await writeFolder([file]));
     const read = (await readEdfFile(ctx, file.path, AIRSENSE.brp))._unsafeUnwrap();
@@ -117,8 +117,10 @@ describe("readEdfFile", () => {
     expect(spanNamed("edf.read_file")?.attributes).toEqual({
       "airway.file.path": file.path,
       "edf.format": "EDF",
-      "edf.records": read.records,
+      "edf.records": read.file.records,
       "edf.warning_count": 0,
+      "edf.checksum": "unchecked",
+      "edf.bad_records": 0,
     });
   });
 

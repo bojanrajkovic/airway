@@ -1,8 +1,17 @@
+import { mkdir } from "node:fs/promises";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
+import { FileChecksum } from "@airway/contract/derived/values";
 import { AIRSENSE } from "@airway/edf/airsense";
 import type { CpapFile } from "@airway/synthetic/cpap-data";
 import { readEdfFile, readEdfHeader } from "../../src/ingest/edf.ts";
-import { folderContext, syntheticFolder, writeFolder } from "../support/cpap-folder.ts";
+import {
+  capturingLogger,
+  flipByte,
+  folderContext,
+  syntheticFolder,
+  writeFolder,
+} from "../support/cpap-folder.ts";
 
 const synthetic = (suffix: string): CpapFile => {
   const file = syntheticFolder(1).find(({ path }) => path.endsWith(suffix));
@@ -57,8 +66,52 @@ describe("readEdfFile", () => {
     const ctx = folderContext(await writeFolder([brp]));
     const read = (await readEdfFile(ctx, brp.path, AIRSENSE.brp))._unsafeUnwrap();
 
-    expect(read.records).toBeGreaterThan(0);
-    expect(read.samples["Flow.40ms"]).toHaveLength(read.records * 1500);
+    expect(read.file.records).toBeGreaterThan(0);
+    expect(read.file.samples["Flow.40ms"]).toHaveLength(read.file.records * 1500);
+  });
+
+  it("returns match and 0 bad records for an intact file with a .crc", async () => {
+    const brp = synthetic("_BRP.edf");
+    const ctx = folderContext(await writeFolder([brp, synthetic("_BRP.crc")]));
+    const { check } = (await readEdfFile(ctx, brp.path, AIRSENSE.brp))._unsafeUnwrap();
+
+    expect(check).toEqual({ path: brp.path, checksum: FileChecksum.Match, bad_records: 0 });
+  });
+
+  it("marks a file without a .crc unchecked", async () => {
+    const brp = synthetic("_BRP.edf");
+    const ctx = folderContext(await writeFolder([brp]));
+    const { check } = (await readEdfFile(ctx, brp.path, AIRSENSE.brp))._unsafeUnwrap();
+
+    expect(check.checksum).toBe(FileChecksum.Unchecked);
+  });
+
+  it("reports a mismatch and a bad record after one byte of a record changes, and logs both", async () => {
+    const brp = synthetic("_BRP.edf");
+    // A BRP header is 1,024 bytes, so this byte is in the first record.
+    const files = flipByte([brp, synthetic("_BRP.crc")], brp.path, 1024 + 5);
+    const { logger, lines } = capturingLogger();
+    const ctx = folderContext(await writeFolder(files), { logger });
+    const { check } = (await readEdfFile(ctx, brp.path, AIRSENSE.brp))._unsafeUnwrap();
+
+    expect(check).toEqual({ path: brp.path, checksum: FileChecksum.Mismatch, bad_records: 1 });
+    expect(lines).toMatchObject([
+      { level: "warn", path: brp.path, msg: "EDF file doesn't match its .crc" },
+      { level: "warn", path: brp.path, badRecords: [0] },
+    ]);
+  });
+
+  it("returns read_failed with the .crc's path for a .crc it can't read", async () => {
+    const brp = synthetic("_BRP.edf");
+    const crc = brp.path.replace(/\.edf$/v, ".crc");
+    const root = await writeFolder([brp]);
+
+    // Reading a folder fails with EISDIR.
+    await mkdir(join(root, crc));
+
+    expect(
+      (await readEdfFile(folderContext(root), brp.path, AIRSENSE.brp))._unsafeUnwrapErr(),
+    ).toMatchObject({ kind: "read_failed", path: crc, cause: { code: "EISDIR" } });
   });
 
   it("returns read_failed with the relative path for a file it can't read", async () => {

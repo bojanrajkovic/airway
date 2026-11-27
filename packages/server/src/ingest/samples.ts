@@ -7,7 +7,7 @@ import { PLD_SAMPLE_COLUMNS } from "@airway/edf/columns";
 import type { EdfSignalFile } from "@airway/edf/file";
 import type { AppContext } from "../runtime/context.ts";
 import { inSpanAsync } from "../telemetry.ts";
-import { readEdfFile, type EdfFileError } from "./edf.ts";
+import { readEdfFile, type EdfFileError, type FileCheck } from "./edf.ts";
 import type { PlannedNight } from "./segments.ts";
 
 /** Names a column of the samples table that holds a PLD signal. */
@@ -30,6 +30,9 @@ export type SampleBlock = {
    */
   signals: Record<SampleColumn, Float64Array>;
 };
+
+/** Resolves to a night's sample blocks and the checksum checks of the PLD files they came from. */
+export type SampleBlocks = { blocks: SampleBlock[]; checks: FileCheck[] };
 
 /**
  * Returns one PLD file's samples as columns, with the first row at `start`. Rounds each signal's
@@ -69,14 +72,15 @@ export function toSamples(
 }
 
 /**
- * Reads every PLD file attached to the night's segments and returns one `SampleBlock` per file.
- * Converts each header's device-clock start time to an instant in `zone`. Runs in an
- * `ingest.samples` span that records the night, the number of PLD files, and the number of rows.
+ * Reads every PLD file attached to the night's segments and returns one `SampleBlock` per file,
+ * with each file's checksum checks. Converts each header's device-clock start time to an instant
+ * in `zone`. Runs in an `ingest.samples` span that records the night, the number of PLD files, and
+ * the number of rows.
  */
 export function readSamples(
-  ctx: Pick<AppContext, "config">,
+  ctx: Pick<AppContext, "config" | "logger">,
   { night, zone, segments }: PlannedNight,
-): ResultAsync<SampleBlock[], EdfFileError> {
+): ResultAsync<SampleBlocks, EdfFileError> {
   const plds = segments.flatMap(({ segment, session, plds }) =>
     plds.map((file) => ({ segment, session, path: file.path })),
   );
@@ -86,19 +90,24 @@ export function readSamples(
 
     return ResultAsync.combine(
       plds.map(({ segment, session, path }) =>
-        readEdfFile(ctx, path, AIRSENSE.pld).map((file): SampleBlock => ({
-          segment,
-          session,
-          ...toSamples(file, toInstant(file.header.start, zone)),
+        readEdfFile(ctx, path, AIRSENSE.pld).map(({ file, check }) => ({
+          block: {
+            segment,
+            session,
+            ...toSamples(file, toInstant(file.header.start, zone)),
+          } satisfies SampleBlock,
+          check,
         })),
       ),
-    ).map((blocks) => {
+    ).map((read) => {
+      const blocks = read.map(({ block }) => block);
+
       span.setAttribute(
         "airway.ingest.rows",
         blocks.reduce((sum, { ts }) => sum + ts.length, 0),
       );
 
-      return blocks;
+      return { blocks, checks: read.map(({ check }) => check) };
     });
   });
 }
