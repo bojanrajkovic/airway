@@ -10,6 +10,15 @@ import type { ReadyFile } from "./versions.ts";
 
 const NIGHT_STEPS = valuesOf(NightStep);
 
+/** Names the data that a database write stores, as the value of the `airway.ingest.write` attribute. */
+export enum WriteKind {
+  Night = "night",
+  Str = "str",
+}
+
+/** Names how a timed step ended. */
+export type Outcome = "ok" | "error";
+
 // Returns every BRP, PLD, and EVE file in a night's files. Each file includes the `kind` that the scan set.
 const filesOf = ({ files, eveFiles }: NightFiles): ReadyFile[] => [...files, ...eveFiles];
 
@@ -35,6 +44,17 @@ export class IngestMetrics {
     description: "Time each step of a night's computation took, by step.",
     unit: "s",
   });
+  readonly #writeDuration: Histogram = this.#meter.createHistogram("airway.ingest.write.duration", {
+    description: "Time one database write took, by kind and outcome.",
+    unit: "s",
+  });
+  readonly #percentilesDuration: Histogram = this.#meter.createHistogram(
+    "airway.ingest.percentiles.duration",
+    {
+      description: "Time one recompute of the period percentiles took, by outcome.",
+      unit: "s",
+    },
+  );
   readonly #queueDuration: Histogram = this.#meter.createHistogram("airway.ingest.queue.duration", {
     description: "Time a night waited for a free worker.",
     unit: "s",
@@ -88,5 +108,15 @@ export class IngestMetrics {
     }
 
     this.#nightDuration.record(seconds, { outcome: "error" });
+  }
+
+  /** Records how long a database write took, by kind and outcome. */
+  wrote(write: WriteKind, outcome: Outcome, seconds: number): void {
+    this.#writeDuration.record(seconds, { "airway.ingest.write": write, outcome });
+  }
+
+  /** Records how long one recompute of the period percentiles took, by outcome. */
+  recomputedPercentiles(outcome: Outcome, seconds: number): void {
+    this.#percentilesDuration.record(seconds, { outcome });
   }
 }

@@ -97,6 +97,8 @@ airway's own metrics are named `airway.<area>.<name>`, such as `airway.ingest.la
 | `airway.ingest.night.duration` | histogram, `s` | `outcome` | Time from asking the pool for a night to its result |
 | `airway.ingest.step.duration` | histogram, `s` | `airway.ingest.step`: `segments`, `events`, `samples`, `breaths` | Time each step of a night took |
 | `airway.ingest.queue.duration` | histogram, `s` | none | Time a night waited for a free worker, computed as the night's duration minus the sum of its step durations |
+| `airway.ingest.write.duration` | histogram, `s` | `airway.ingest.write` (`night`, `str`), `outcome` | Time one database write took. The caller of each write records it |
+| `airway.ingest.percentiles.duration` | histogram, `s` | `outcome` | Time one recompute of the period percentiles took |
 
 If the queue wait grows during a rebuild, raise `AIRWAY_INGEST_WORKERS`.
 
