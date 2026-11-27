@@ -1,8 +1,8 @@
 import type { RuleSet } from "../profile.ts";
-import type { EventRow, NightRow } from "./rows.ts";
+import type { EventRow, FileRow, NightRow } from "./rows.ts";
 import type { Sessions } from "./sessions.ts";
 import type { UsedStrDay } from "./str.ts";
-import { AhiOutcome, EventType } from "./values.ts";
+import { AhiOutcome, EventType, FileChecksum } from "./values.ts";
 
 /** Picks the event-row fields that `nightRow` and `ahiCheck` read. */
 export type NightEvent = Pick<EventRow, "type" | "outside_mask_on">;
@@ -55,7 +55,33 @@ export type NightInputs = {
 };
 
 /** `nightRow` returns the night's row and the full AHI check, which ingest logs on a mismatch. */
-export type ScoredNight = { row: Omit<NightRow, "arrived_at">; ahi: AhiCheck };
+export type ScoredNight = {
+  row: Omit<NightRow, "arrived_at" | "possibly_corrupted">;
+  ahi: AhiCheck;
+};
+
+/**
+ * Returns true when one of the night's files:
+ *
+ * - doesn't match its `.crc`
+ * - has a record whose Crc16 doesn't match
+ * - failed `checkFileSize`
+ *
+ * `files` lists the night's BRP, PLD, and EVE files that ingest imported. `rejected` counts the
+ * night's BRP, PLD, and EVE files that `checkFileSize` rejected.
+ */
+export function possiblyCorrupted(
+  files: readonly Pick<FileRow, "checksum" | "bad_records">[],
+  rejected: number,
+): boolean {
+  return (
+    rejected > 0 ||
+    files.some(
+      ({ checksum, bad_records }) =>
+        checksum === FileChecksum.Mismatch || (bad_records !== null && bad_records > 0),
+    )
+  );
+}
 
 /**
  * Builds a night's row from the night's STR.edf day, sessions, event rows, and rule set.

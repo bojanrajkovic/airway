@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { test as base, describe, expect } from "vitest";
-import { EventType, FileKind, SessionSource } from "@airway/contract/derived/values";
+import { EventType, FileChecksum, FileKind, SessionSource } from "@airway/contract/derived/values";
 import { syntheticNights, type SyntheticNight } from "../src/model.ts";
 import { Patient } from "../src/patients.ts";
 import { synthesize, type Synthesized } from "../src/synthesize.ts";
@@ -129,6 +129,21 @@ describe("synthesize", () => {
       );
 
       expect(brps).toHaveLength(1);
+    }
+  });
+
+  test("sets possibly_corrupted to false on every night and marks every BRP, PLD, and EVE file as matching its .crc", ({
+    synthesized: { rows },
+  }) => {
+    const nightFiles = rows.files.filter(({ kind }) =>
+      [FileKind.Brp, FileKind.Pld, FileKind.Eve].includes(kind),
+    );
+
+    expect(rows.nights.every(({ possibly_corrupted }) => !possibly_corrupted)).toBe(true);
+    expect(nightFiles.length).toBeGreaterThan(0);
+
+    for (const file of nightFiles) {
+      expect(file).toMatchObject({ checksum: FileChecksum.Match, bad_records: 0 });
     }
   });
 

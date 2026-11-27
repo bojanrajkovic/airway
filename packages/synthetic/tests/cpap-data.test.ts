@@ -1,5 +1,7 @@
 import { crc32 } from "node:zlib";
 import { test as base, describe, expect } from "vitest";
+import { FileChecksum } from "@airway/contract/derived/values";
+import { checkCompanion } from "@airway/edf/checksum";
 import { cpapData, type CpapFile } from "../src/cpap-data.ts";
 import { DEVICE } from "../src/files.ts";
 import { syntheticNights, type SyntheticNight } from "../src/model.ts";
@@ -94,6 +96,21 @@ describe("cpapData", () => {
       expect(byPath.get(path.replace(/\.edf$/v, ".crc"))).toEqual(
         littleEndian(crc32(bytes.subarray(0, 256)), crc32(bytes.subarray(256))),
       );
+    }
+  });
+
+  test("writes a matching .crc beside Identification.tgt and every DATALOG .edf file", ({
+    folder,
+  }) => {
+    const byPath = bytesOf(folder);
+    const checked = folder.filter(
+      ({ path }) => path === "Identification.tgt" || /^DATALOG\/.*\.edf$/v.test(path),
+    );
+
+    for (const { path, bytes } of checked) {
+      const crc = byPath.get(path.replace(/\.(?:edf|tgt)$/v, ".crc")) ?? new Uint8Array();
+
+      expect(checkCompanion(bytes, crc)).toBe(FileChecksum.Match);
     }
   });
 

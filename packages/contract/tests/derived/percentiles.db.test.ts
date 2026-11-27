@@ -19,14 +19,14 @@ const Rows = z.array(
 const night = (date: string, leaks: readonly number[]): string => `
 insert into derived.nights (night, sessions, expected_sessions, session_count_approximate,
   longest_stretch, obstructive_apneas, central_apneas, unclassified_apneas, hypopneas, arousals,
-  events_outside_mask_on, ahi_check, rule_set, arrived_at)
-values ('${date}', 1, 1, false, 480, 0, 0, 0, 0, 0, 0, 'match', 'pediatric', '${date}T14:00Z');
+  events_outside_mask_on, ahi_check, rule_set, possibly_corrupted, arrived_at)
+values ('${date}', 1, 1, false, 480, 0, 0, 0, 0, 0, 0, 'match', 'pediatric', false, '${date}T14:00Z');
 insert into derived.sessions (night, session, ts, ended_at, source)
 values ('${date}', 1, '${date}T02:00Z', '${date}T10:00Z', 'str');
 insert into derived.segments (night, segment, session, ts, ended_at)
 values ('${date}', 1, 1, '${date}T02:00Z', '${date}T10:00Z');
-insert into derived.files (path, kind, night, segment, size, sha256, ctime)
-values ('${date}/BRP.edf', 'brp', '${date}', 1, 1024, 'abc', '${date}T14:00Z');
+insert into derived.files (path, kind, night, segment, size, sha256, ctime, checksum, bad_records)
+values ('${date}/BRP.edf', 'brp', '${date}', 1, 1024, 'abc', '${date}T14:00Z', 'match', 0);
 insert into derived.samples (night, segment, session, ts, leak)
 values ${leaks.map((leak, i) => `('${date}', 1, 1, '${date}T02:00Z'::timestamptz + interval '${(2 * i).toString()} seconds', ${leak.toString()})`).join(", ")};`;
 

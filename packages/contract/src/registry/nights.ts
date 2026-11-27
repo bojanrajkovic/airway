@@ -124,6 +124,11 @@ export const nights: Omit<Dataset, "columns"> & {
       valuesOf(RuleSet),
       "The scoring rules for the patient's age on this night.",
     ),
+    dimension(
+      "possibly_corrupted",
+      "boolean",
+      "True when one of the night's files doesn't match its checksum, has a bad record, or is incomplete.",
+    ),
     time("arrived_at", "timestamp", "When the night's files finished arriving."),
   ],
 };

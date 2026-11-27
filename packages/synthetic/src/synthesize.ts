@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { Result } from "neverthrow";
-import { EventSource, FileKind } from "@airway/contract/derived/values";
+import { EventSource, FileChecksum, FileKind } from "@airway/contract/derived/values";
 import type { EdfReadError } from "@airway/edf/header";
 import type { FileSizeCheck } from "@airway/edf/size";
 import type {
@@ -13,7 +13,7 @@ import type {
   SessionRow,
   SignalValues,
 } from "@airway/contract/derived/rows";
-import { nightRow } from "@airway/contract/derived/nights";
+import { nightRow, possiblyCorrupted } from "@airway/contract/derived/nights";
 import { assignEvents, buildSessions } from "@airway/contract/derived/sessions";
 import { settingsChanges } from "@airway/contract/derived/settings";
 import type { StrDay, UsedStrDay } from "@airway/contract/derived/str";
@@ -87,21 +87,26 @@ export function synthesize(
       const rows = emptyRows(days);
       const firstImported = sorted.find((_night, i) => (datalog[i] ?? []).length > 0);
 
+      // Ingest checks Identification.tgt against Identification.crc. STR.edf has no .crc, so ingest
+      // checks only its records' Crc16s.
       rows.files.push(
         fileRow(
           files,
           { path: "Identification.tgt", kind: FileKind.Identification, night: null, segment: null },
           options.arrivedAt,
+          { checksum: FileChecksum.Match, bad_records: null },
         ),
         fileRow(
           files,
           { path: "Identification.crc", kind: FileKind.Crc, night: null, segment: null },
           options.arrivedAt,
+          UNCHECKED,
         ),
         fileRow(
           files,
           { path: "STR.edf", kind: FileKind.Str, night: null, segment: null },
           options.arrivedAt,
+          { checksum: FileChecksum.Unchecked, bad_records: 0 },
         ),
       );
 
@@ -186,6 +191,12 @@ function emptyRows(days: readonly StrDay[]): DerivedRows {
 }
 
 type FileSpec = Pick<FileRow, "path" | "kind" | "night" | "segment">;
+type ChecksumColumns = Pick<FileRow, "checksum" | "bad_records">;
+
+// Marks a file that ingest doesn't check: a .crc file, or a night file that ingest doesn't read.
+const UNCHECKED: ChecksumColumns = { checksum: FileChecksum.Unchecked, bad_records: null };
+// Every synthetic night file has a .crc that matches it, and every record's Crc16 matches.
+const CHECKED: ChecksumColumns = { checksum: FileChecksum.Match, bad_records: 0 };
 // Maps each kind of file that ingest imports to its value in the `files` table's `kind` column.
 const IMPORTED_KINDS = { brp: FileKind.Brp, pld: FileKind.Pld, eve: FileKind.Eve } as const;
 
@@ -195,10 +206,15 @@ type ImportedFile = DatalogFile & {
   verdict: Exclude<FileSizeCheck["verdict"], "reject">;
 };
 
-function fileRow(folder: readonly CpapFile[], spec: FileSpec, ctime: Temporal.Instant): FileRow {
+function fileRow(
+  folder: readonly CpapFile[],
+  spec: FileSpec,
+  ctime: Temporal.Instant,
+  check: ChecksumColumns,
+): FileRow {
   const bytes = folder.find((file) => file.path === spec.path)?.bytes ?? new Uint8Array();
 
-  return { ...spec, size: bytes.length, sha256: sha256(bytes), ctime };
+  return { ...spec, size: bytes.length, sha256: sha256(bytes), ctime, ...check };
 }
 
 type NightInputs = {
@@ -253,22 +269,42 @@ function addNight(
     return i === -1 ? null : i + 1;
   };
 
-  const specs = imported.map((file): FileSpec => ({
-    path: `${file.path}.edf`,
-    kind: IMPORTED_KINDS[file.kind],
-    night: date,
-    segment: segmentOf(file),
-  }));
+  // Ingest reads every EVE file, and each BRP and PLD file that belongs to a segment.
+  const nightRows = imported.map((file): FileRow => {
+    const segment = segmentOf(file);
+    const spec = {
+      path: `${file.path}.edf`,
+      kind: IMPORTED_KINDS[file.kind],
+      night: date,
+      segment,
+    };
+
+    return fileRow(
+      folder,
+      spec,
+      options.arrivedAt,
+      file.kind === "eve" || segment !== null ? CHECKED : UNCHECKED,
+    );
+  });
+  const nightKinds = files.filter(
+    (file) => file.kind === "brp" || file.kind === "pld" || file.kind === "eve",
+  );
+  // importedFiles drops the files that checkFileSize rejects, so the difference counts the rejected
+  // files.
+  const rejected = nightKinds.length - imported.length;
 
   // Ingest imports the .crc of each BRP, PLD, and EVE file by size alone, even when it rejects the
   // file's EDF.
-  const crcs = files.flatMap((file): FileSpec[] =>
-    file.kind === "brp" || file.kind === "pld" || file.kind === "eve"
-      ? [{ path: `${file.path}.crc`, kind: FileKind.Crc, night: date, segment: null }]
-      : [],
+  const crcs = nightKinds.map((file) =>
+    fileRow(
+      folder,
+      { path: `${file.path}.crc`, kind: FileKind.Crc, night: date, segment: null },
+      options.arrivedAt,
+      UNCHECKED,
+    ),
   );
 
-  rows.files.push(...[...specs, ...crcs].map((spec) => fileRow(folder, spec, options.arrivedAt)));
+  rows.files.push(...nightRows, ...crcs);
 
   rows.sessions.push(
     ...built.sessions.map(({ session, start, end, source }): SessionRow => ({
@@ -338,6 +374,7 @@ function addNight(
   rows.events.push(...events);
   rows.nights.push({
     ...nightRow({ day, sessions: built, events, ruleSet: RULE_SETS[options.patient] }).row,
+    possibly_corrupted: possiblyCorrupted(nightRows, rejected),
     arrived_at: options.arrivedAt,
   });
 }
