@@ -24,6 +24,7 @@ import {
 import { readStr } from "../../src/ingest/str.ts";
 import { createLogger, type Logger } from "../../src/logger.ts";
 import type { AppContext } from "../../src/runtime/context.ts";
+import { nightFileKind } from "../../src/ingest/scan.ts";
 import type { RejectedFile } from "../../src/ingest/versions.ts";
 import { testContext } from "./context.ts";
 
@@ -97,12 +98,6 @@ export function eveFiles(files: readonly CpapFile[], night: Temporal.PlainDate):
   );
 }
 
-const NIGHT_KINDS = {
-  "_BRP.edf": FileKind.Brp,
-  "_PLD.edf": FileKind.Pld,
-  "_EVE.edf": FileKind.Eve,
-};
-
 /** Returns the BRP, PLD, and EVE files in `night`'s DATALOG folder that fail the size check. */
 export function rejectedFiles(
   files: readonly CpapFile[],
@@ -111,9 +106,9 @@ export function rejectedFiles(
   const folder = `DATALOG/${night.toString().replaceAll("-", "")}/`;
 
   return files.flatMap(({ path, bytes }): RejectedFile[] => {
-    const kind = Object.entries(NIGHT_KINDS).find(([suffix]) => path.endsWith(suffix))?.[1];
+    const kind = nightFileKind(path);
 
-    if (kind === undefined || !path.startsWith(folder)) {
+    if (kind === undefined || kind === FileKind.Crc || !path.startsWith(folder)) {
       return [];
     }
 

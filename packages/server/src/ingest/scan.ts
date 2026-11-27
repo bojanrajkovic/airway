@@ -55,6 +55,13 @@ const SKIPPED_NIGHT_FILES: Readonly<Record<string, SkipReason>> = {
   "_SAD.crc": SkipReason.Crc,
   "_CSL.crc": SkipReason.Crc,
 };
+/**
+ * Returns the kind of a night file from the last 8 characters of its name, such as `_BRP.edf`.
+ * Returns undefined for a file that the scan doesn't list.
+ */
+export const nightFileKind = (name: string): ScannedFile["kind"] | undefined =>
+  NIGHT_FILES[name.slice(-8)];
+
 const ROOT_FILES: Readonly<Record<string, ScannedFile["kind"]>> = {
   "STR.edf": FileKind.Str,
   "Identification.tgt": FileKind.Identification,
@@ -165,7 +172,7 @@ async function walk(root: string): Promise<Scan> {
       withFileTypes: true,
     })) {
       const suffix = entry.isFile() ? entry.name.slice(-8) : "";
-      const kind = NIGHT_FILES[suffix];
+      const kind = nightFileKind(suffix);
       const skip = SKIPPED_NIGHT_FILES[suffix];
 
       if (kind !== undefined) {
