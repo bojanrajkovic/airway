@@ -28,6 +28,32 @@ export type EdfFileType<L extends string = string> =
   | EdfSignalFileType<L>
   | EdfAnnotationFileType<L>;
 
+/** Resolves to the types of file that the AirSense writes in each night's DATALOG folder. */
+export type NightFileType = "brp" | "pld" | "sad" | "eve" | "csl";
+
+/** Resolves to a night file's type and whether the file is a `.crc` file. */
+export type NightFileName = { type: NightFileType; crc: boolean };
+
+const NIGHT_FILE_TYPES: Readonly<Record<string, NightFileType>> = {
+  BRP: "brp",
+  PLD: "pld",
+  SAD: "sad",
+  EVE: "eve",
+  CSL: "csl",
+};
+const NIGHT_FILE_NAME = /_(?<type>[A-Z]{3})\.(?<extension>edf|crc)$/v;
+
+/**
+ * Reads a night file's type from the end of its name, such as `_BRP.edf` or `_BRP.crc`. Returns
+ * undefined when the name doesn't end in `_` plus a known type and `.edf` or `.crc`.
+ */
+export function nightFileType(name: string): NightFileName | undefined {
+  const groups = NIGHT_FILE_NAME.exec(name)?.groups;
+  const type = NIGHT_FILE_TYPES[groups?.["type"] ?? ""];
+
+  return type === undefined ? undefined : { type, crc: groups?.["extension"] === "crc" };
+}
+
 /** Resolves to the union of a file type's signal labels. */
 export type LabelOf<F extends EdfFileType> = F["signals"][number]["label"];
 /** Resolves to the union of a file type's signal labels, excluding the trailing Crc16. */

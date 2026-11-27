@@ -3,6 +3,7 @@ import { join } from "node:path";
 import { ResultAsync } from "neverthrow";
 import { FileKind } from "@airway/contract/derived/values";
 import { valuesOf } from "@airway/contract/enum";
+import { nightFileType, type NightFileType } from "@airway/edf/airsense";
 import type { AppContext } from "../runtime/context.ts";
 import { inSpanAsync } from "../telemetry.ts";
 
@@ -38,29 +39,36 @@ export type Scan = {
 
 export type ScanError = { kind: "read_failed"; path: string; cause: unknown };
 
-// These two tables map the last 8 characters of a night file's name to the file's kind or skip
-// reason. The scan also lists the .crc file of each file that ingest reads, so that import can
-// verify the checksum.
-const NIGHT_FILES: Readonly<Record<string, ScannedFile["kind"]>> = {
-  "_BRP.edf": FileKind.Brp,
-  "_PLD.edf": FileKind.Pld,
-  "_EVE.edf": FileKind.Eve,
-  "_BRP.crc": FileKind.Crc,
-  "_PLD.crc": FileKind.Crc,
-  "_EVE.crc": FileKind.Crc,
+// Ingest imports BRP, PLD, and EVE files and skips SAD and CSL files.
+const IMPORTED_NIGHT_FILES: Partial<Record<NightFileType, ScannedFile["kind"]>> = {
+  brp: FileKind.Brp,
+  pld: FileKind.Pld,
+  eve: FileKind.Eve,
 };
-const SKIPPED_NIGHT_FILES: Readonly<Record<string, SkipReason>> = {
-  "_SAD.edf": SkipReason.Sad,
-  "_CSL.edf": SkipReason.Csl,
-  "_SAD.crc": SkipReason.Crc,
-  "_CSL.crc": SkipReason.Crc,
+const SKIPPED_NIGHT_FILES: Partial<Record<NightFileType, SkipReason>> = {
+  sad: SkipReason.Sad,
+  csl: SkipReason.Csl,
 };
+
 /**
- * Returns the kind of a night file from the last 8 characters of its name, such as `_BRP.edf`.
- * Returns undefined for a file that the scan doesn't list.
+ * Reads the kind of a night file from its name, for the files that the scan lists. The scan also
+ * lists the .crc file of each file that ingest imports, so that import can verify the checksum.
+ * Returns undefined for any other name.
  */
-export const nightFileKind = (name: string): ScannedFile["kind"] | undefined =>
-  NIGHT_FILES[name.slice(-8)];
+export function nightFileKind(name: string): ScannedFile["kind"] | undefined {
+  const file = nightFileType(name);
+  const kind = file === undefined ? undefined : IMPORTED_NIGHT_FILES[file.type];
+
+  return kind !== undefined && file?.crc === true ? FileKind.Crc : kind;
+}
+
+// Returns the reason that the scan skips a night file, or undefined for any other name.
+function skipReason(name: string): SkipReason | undefined {
+  const file = nightFileType(name);
+  const reason = file === undefined ? undefined : SKIPPED_NIGHT_FILES[file.type];
+
+  return reason !== undefined && file?.crc === true ? SkipReason.Crc : reason;
+}
 
 const ROOT_FILES: Readonly<Record<string, ScannedFile["kind"]>> = {
   "STR.edf": FileKind.Str,
@@ -171,9 +179,9 @@ async function walk(root: string): Promise<Scan> {
     for (const entry of await readdir(join(root, "DATALOG", folder.name), {
       withFileTypes: true,
     })) {
-      const suffix = entry.isFile() ? entry.name.slice(-8) : "";
-      const kind = nightFileKind(suffix);
-      const skip = SKIPPED_NIGHT_FILES[suffix];
+      const name = entry.isFile() ? entry.name : "";
+      const kind = nightFileKind(name);
+      const skip = skipReason(name);
 
       if (kind !== undefined) {
         await add(`DATALOG/${folder.name}/${entry.name}`, kind, night);
