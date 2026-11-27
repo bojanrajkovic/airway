@@ -9,17 +9,18 @@ const PERCENTILES = `percentile_cont(0.5) within group (order by value),
   percentile_cont(0.95) within group (order by value)`;
 
 /**
- * Returns the SQL statement that fills an empty `period_percentiles` from `samples`. The statement
- * computes the P50 and P95 of each percentile signal for every week and month that has samples.
+ * Returns the SQL that rebuilds all of `period_percentiles` from `samples`. It deletes every row,
+ * then computes the P50 and P95 of each percentile signal for every week and month that has samples.
  * Weeks start on Monday. The statement uses `percentile_cont`, so the stored values equal the
  * percentiles that a query computes from the same samples.
  */
-export function periodPercentiles(schema: DerivedSchema): string {
+export function rebuildAllPercentiles(schema: DerivedSchema): string {
   const periods = valuesOf(Period)
     .map((period) => `('${period}', date_trunc('${period}', night::timestamp)::date)`)
     .join(", ");
 
   return `
+delete from ${schema}.period_percentiles;
 insert into ${schema}.period_percentiles (period, period_start, signal, p50, p95)
 select period, period_start, signal, ${PERCENTILES}
 from ${schema}.samples
@@ -33,7 +34,7 @@ group by period, period_start, signal;
 /**
  * Returns the SQL that recomputes the `period_percentiles` rows for each week and month that
  * contains one of `nights`. It computes each period once and stores the same values that
- * `periodPercentiles` stores. The SQL deletes those rows, then inserts new rows computed from only
+ * `rebuildAllPercentiles` stores. The SQL deletes those rows, then inserts new rows computed from only
  * the samples inside those periods.
  */
 export function recomputePeriodPercentiles(

@@ -2,7 +2,10 @@ import { test } from "@airway/testing/postgres";
 import { expect } from "vitest";
 import { z } from "zod";
 import { derivedTables } from "../../src/derived/ddl.ts";
-import { periodPercentiles, recomputePeriodPercentiles } from "../../src/derived/percentiles.ts";
+import {
+  rebuildAllPercentiles,
+  recomputePeriodPercentiles,
+} from "../../src/derived/percentiles.ts";
 import { withClient } from "../support/postgres.ts";
 
 const Rows = z.array(
@@ -41,7 +44,7 @@ test("stores the P50 and P95 that percentile_cont computes for each week and mon
     await client.query(FRESH);
     await client.query(night("2030-01-28", [0.2, 0.4]));
     await client.query(night("2030-02-01", [0.6, 0.8]));
-    await client.query(periodPercentiles("derived"));
+    await client.query(rebuildAllPercentiles("derived"));
     const result = await client.query(
       `select period, period_start::text as start, signal,
          round(p50::numeric, 9)::float8 as p50, round(p95::numeric, 9)::float8 as p95
@@ -93,7 +96,7 @@ test("recomputes only the weeks and months that contain the given nights", async
     await client.query(night("2030-01-28", [0.2, 0.4]));
     await client.query(night("2030-02-01", [0.6, 0.8]));
     await client.query(night("2030-03-11", [1.0, 1.2]));
-    await client.query(periodPercentiles("derived"));
+    await client.query(rebuildAllPercentiles("derived"));
     const filled = await rows();
 
     // The update changes every night's samples, but the call recomputes only the periods that
@@ -105,7 +108,7 @@ test("recomputes only the weeks and months that contain the given nights", async
     const recomputed = await rows();
 
     await client.query("truncate derived.period_percentiles");
-    await client.query(periodPercentiles("derived"));
+    await client.query(rebuildAllPercentiles("derived"));
 
     return { before: filled, after: recomputed, full: await rows() };
   });
@@ -122,7 +125,7 @@ test("deletes a period's rows when its samples are deleted", async ({ databaseUr
     await client.query(FRESH);
     await client.query(night("2030-01-28", [0.2, 0.4]));
     await client.query(night("2030-03-11", [1.0, 1.2]));
-    await client.query(periodPercentiles("derived"));
+    await client.query(rebuildAllPercentiles("derived"));
     await client.query(`delete from derived.samples where night = '2030-03-11'`);
     await client.query(
       recomputePeriodPercentiles("derived", [Temporal.PlainDate.from("2030-03-11")]),
