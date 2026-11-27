@@ -3,7 +3,7 @@ import { join } from "node:path";
 import { ResultAsync } from "neverthrow";
 import { FileKind } from "@airway/contract/derived/values";
 import { valuesOf } from "@airway/contract/enum";
-import { nightFileType, type NightFileType } from "@airway/edf/airsense";
+import { nightFileType, NightFileType } from "@airway/edf/airsense";
 import type { AppContext } from "../runtime/context.ts";
 import { inSpanAsync } from "../telemetry.ts";
 
@@ -41,13 +41,13 @@ export type ScanError = { kind: "read_failed"; path: string; cause: unknown };
 
 // Ingest imports BRP, PLD, and EVE files and skips SAD and CSL files.
 const IMPORTED_NIGHT_FILES: Partial<Record<NightFileType, ScannedFile["kind"]>> = {
-  brp: FileKind.Brp,
-  pld: FileKind.Pld,
-  eve: FileKind.Eve,
+  [NightFileType.Brp]: FileKind.Brp,
+  [NightFileType.Pld]: FileKind.Pld,
+  [NightFileType.Eve]: FileKind.Eve,
 };
 const SKIPPED_NIGHT_FILES: Partial<Record<NightFileType, SkipReason>> = {
-  sad: SkipReason.Sad,
-  csl: SkipReason.Csl,
+  [NightFileType.Sad]: SkipReason.Sad,
+  [NightFileType.Csl]: SkipReason.Csl,
 };
 
 /**

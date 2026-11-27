@@ -28,18 +28,24 @@ export type EdfFileType<L extends string = string> =
   | EdfSignalFileType<L>
   | EdfAnnotationFileType<L>;
 
-/** Resolves to the types of file that the AirSense writes in each night's DATALOG folder. */
-export type NightFileType = "brp" | "pld" | "sad" | "eve" | "csl";
+/** Lists the types of file that the AirSense writes in each night's DATALOG folder. */
+export enum NightFileType {
+  Brp = "brp",
+  Pld = "pld",
+  Sad = "sad",
+  Eve = "eve",
+  Csl = "csl",
+}
 
 /** Resolves to a night file's type and whether the file is a `.crc` file. */
 export type NightFileName = { type: NightFileType; crc: boolean };
 
 const NIGHT_FILE_TYPES: Readonly<Record<string, NightFileType>> = {
-  BRP: "brp",
-  PLD: "pld",
-  SAD: "sad",
-  EVE: "eve",
-  CSL: "csl",
+  BRP: NightFileType.Brp,
+  PLD: NightFileType.Pld,
+  SAD: NightFileType.Sad,
+  EVE: NightFileType.Eve,
+  CSL: NightFileType.Csl,
 };
 const NIGHT_FILE_NAME = /_(?<type>[A-Z]{3})\.(?<extension>edf|crc)$/v;
 

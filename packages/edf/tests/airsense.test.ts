@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { AIRSENSE, nightFileType, step } from "../src/airsense.ts";
+import { AIRSENSE, NightFileType, nightFileType, step } from "../src/airsense.ts";
 
 describe("AIRSENSE", () => {
   it("lists STR.edf's 81 signals", () => {
@@ -21,11 +21,11 @@ describe("AIRSENSE", () => {
 
 describe("nightFileType", () => {
   it.each([
-    ["20300107_213412_BRP.edf", { type: "brp", crc: false }],
-    ["20300107_213413_PLD.crc", { type: "pld", crc: true }],
-    ["20300107_213413_SAD.edf", { type: "sad", crc: false }],
-    ["20300107_213412_EVE.crc", { type: "eve", crc: true }],
-    ["20300107_213412_CSL.edf", { type: "csl", crc: false }],
+    ["20300107_213412_BRP.edf", { type: NightFileType.Brp, crc: false }],
+    ["20300107_213413_PLD.crc", { type: NightFileType.Pld, crc: true }],
+    ["20300107_213413_SAD.edf", { type: NightFileType.Sad, crc: false }],
+    ["20300107_213412_EVE.crc", { type: NightFileType.Eve, crc: true }],
+    ["20300107_213412_CSL.edf", { type: NightFileType.Csl, crc: false }],
   ])("reads the type of %s and whether it's a .crc file", (name, expected) => {
     expect(nightFileType(name)).toEqual(expected);
   });
