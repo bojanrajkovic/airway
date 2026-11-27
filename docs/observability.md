@@ -88,7 +88,7 @@ The SDK exports metrics every 60 seconds. Histograms are exponential, so their b
 
 airway's own metrics are named `airway.<area>.<name>`, such as `airway.ingest.last_success`, with [semconv units](https://opentelemetry.io/docs/specs/semconv/general/metrics/#instrument-units) (`s`, `By`, `{night}`). Their attributes never carry values from the data, because each distinct value starts a new time series.
 
-`IngestMetrics` in `ingest/metrics.ts` records ingest's metrics. main.ts creates the process's one instance as `ctx.metrics`. The night pool records each night's result on the main thread, because a counter recorded in a worker would split into one series per thread and reset when the worker restarts. Each attribute has a small, fixed set of values:
+`IngestMetrics` in `ingest/metrics.ts` records ingest's metrics. The night pool records each night's result on the main thread, because a counter recorded in a worker would split into one series per thread and reset when the worker restarts. Each attribute has a small, fixed set of values:
 
 | Metric | Type | Attributes | What it measures |
 |---|---|---|---|
@@ -97,7 +97,6 @@ airway's own metrics are named `airway.<area>.<name>`, such as `airway.ingest.la
 | `airway.ingest.night.duration` | histogram, `s` | `outcome` | Time from asking the pool for a night to its result |
 | `airway.ingest.step.duration` | histogram, `s` | `airway.ingest.step`: `segments`, `events`, `samples`, `breaths` | Time each step of a night took |
 | `airway.ingest.queue.duration` | histogram, `s` | none | Time a night waited for a free worker, computed as the night's duration minus the sum of its step durations |
-| `airway.ingest.write.duration` | histogram, `s` | `airway.ingest.write` (`str`), `outcome` | Time one database write took |
 
 If the queue wait grows during a rebuild, raise `AIRWAY_INGEST_WORKERS`.
 

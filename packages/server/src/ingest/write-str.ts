@@ -10,7 +10,6 @@ import type { AppContext } from "../runtime/context.ts";
 import { inTransaction, type WriteError } from "../db/transaction.ts";
 import { inSpanAsync } from "../telemetry.ts";
 import type { Identification } from "./identification.ts";
-import { WriteKind } from "./metrics.ts";
 import type { StrFile } from "./str.ts";
 import type { ReadyFile } from "./versions.ts";
 
@@ -48,13 +47,12 @@ const firstUsedDay = (str: StrFile): Temporal.PlainDate | undefined =>
  * rows stay in place.
  */
 export function writeStr(
-  ctx: Pick<AppContext, "logger" | "metrics">,
+  ctx: Pick<AppContext, "logger">,
   client: pg.ClientBase,
   schema: DerivedSchema,
   { str, identification, files }: StrInput,
 ): ResultAsync<StrCounts, WriteError> {
   const logger = ctx.logger.child({ module: "ingest.write_str" });
-  const started = performance.now();
   const first = firstUsedDay(str);
   const days =
     first === undefined
@@ -115,35 +113,27 @@ export function writeStr(
         settings_changes: changes.length,
         files: rootFiles.length,
       };
-    })
-      .map((counts) => {
-        span.setAttributes({
-          "airway.rows.daily_usage": counts.daily_usage,
-          "airway.rows.settings_changes": counts.settings_changes,
-          "airway.rows.files": counts.files,
-          "airway.device.serial": identification.device.serial,
-          "airway.device.model": identification.device.model,
-        });
-        if (str.badRecords.length > 0) {
-          logger.warn({ badRecords: str.badRecords }, "STR.edf records don't match their Crc16");
-        }
+    }).map((counts) => {
+      span.setAttributes({
+        "airway.rows.daily_usage": counts.daily_usage,
+        "airway.rows.settings_changes": counts.settings_changes,
+        "airway.rows.files": counts.files,
+        "airway.device.serial": identification.device.serial,
+        "airway.device.model": identification.device.model,
+      });
+      if (str.badRecords.length > 0) {
+        logger.warn({ badRecords: str.badRecords }, "STR.edf records don't match their Crc16");
+      }
 
-        if (str.warnings.length > 0) {
-          logger.warn(
-            { warnings: str.warnings },
-            "STR.edf records' Date fields don't match their positions",
-          );
-        }
+      if (str.warnings.length > 0) {
+        logger.warn(
+          { warnings: str.warnings },
+          "STR.edf records' Date fields don't match their positions",
+        );
+      }
 
-        ctx.metrics.wrote(WriteKind.Str, "ok", (performance.now() - started) / 1000);
-
-        return counts;
-      })
-      .mapErr((error) => {
-        ctx.metrics.wrote(WriteKind.Str, "error", (performance.now() - started) / 1000);
-
-        return error;
-      }),
+      return counts;
+    }),
   );
 }
 

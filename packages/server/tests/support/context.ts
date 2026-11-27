@@ -2,7 +2,6 @@ import { pino } from "pino";
 import { LogLevel, type Config } from "../../src/config.ts";
 import { errAsync } from "neverthrow";
 import { createPools } from "../../src/db/pools.ts";
-import { IngestMetrics } from "../../src/ingest/metrics.ts";
 import type { NightPool } from "../../src/ingest/pool.ts";
 import type { AppContext } from "../../src/runtime/context.ts";
 
@@ -47,7 +46,6 @@ export function testContext(overrides: Partial<AppContext> = {}): AppContext {
     clock: () => Temporal.Instant.from("2026-01-15T12:00:00Z"),
     db: createPools(CONFIG, logger),
     nightPool: noNightPool,
-    metrics: new IngestMetrics(),
     ...overrides,
   };
 }

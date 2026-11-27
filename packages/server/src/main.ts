@@ -4,7 +4,6 @@ import { serve } from "@hono/node-server";
 import { loadConfig } from "./config.ts";
 import { createPools } from "./db/pools.ts";
 import { createApp } from "./http/app.ts";
-import { IngestMetrics } from "./ingest/metrics.ts";
 import { createNightPool } from "./ingest/pool.ts";
 import { createLogger } from "./logger.ts";
 import type { AppContext } from "./runtime/context.ts";
@@ -28,7 +27,6 @@ if (config.auth.mode === "none") {
 // Shutdown disposes these in reverse order: first the listener, then the night pool, then the
 // database pools.
 const resources = new AsyncDisposableStack();
-const metrics = new IngestMetrics();
 const ctx: AppContext = {
   config,
   logger,
@@ -36,11 +34,10 @@ const ctx: AppContext = {
   db: resources.use(createPools(config, logger)),
   nightPool: resources.use(
     createNightPool(
-      { config, logger, metrics },
+      { config, logger },
       { filename: fileURLToPath(new URL("./night-worker.js", import.meta.url)) },
     ),
   ),
-  metrics,
 };
 
 // Start the listener first, so the pod answers /healthz while later startup work runs.

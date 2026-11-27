@@ -10,17 +10,12 @@ import type { ReadyFile } from "./versions.ts";
 
 const NIGHT_STEPS = valuesOf(NightStep);
 
-/** Names the data that a database write stores, as the value of the `airway.ingest.write` attribute. */
-export enum WriteKind {
-  Str = "str",
-}
-
 // Returns every BRP, PLD, and EVE file in a night's files. Each file includes the `kind` that the scan set.
 const filesOf = ({ files, eveFiles }: NightFiles): ReadyFile[] => [...files, ...eveFiles];
 
 /**
- * Creates ingest's counters and histograms. main.ts constructs one after the SDK starts, because a
- * meter created before the SDK starts stays a no-op.
+ * Creates ingest's counters and histograms. `createNightPool` constructs one after the SDK starts,
+ * because a meter created before the SDK starts stays a no-op.
  */
 export class IngestMetrics {
   readonly #meter = metrics.getMeter("airway/ingest");
@@ -38,10 +33,6 @@ export class IngestMetrics {
   });
   readonly #stepDuration: Histogram = this.#meter.createHistogram("airway.ingest.step.duration", {
     description: "Time each step of a night's computation took, by step.",
-    unit: "s",
-  });
-  readonly #writeDuration: Histogram = this.#meter.createHistogram("airway.ingest.write.duration", {
-    description: "Time one database write took, by kind and outcome.",
     unit: "s",
   });
   readonly #queueDuration: Histogram = this.#meter.createHistogram("airway.ingest.queue.duration", {
@@ -97,10 +88,5 @@ export class IngestMetrics {
     }
 
     this.#nightDuration.record(seconds, { outcome: "error" });
-  }
-
-  /** Records how long a database write took, by kind and outcome. */
-  wrote(write: WriteKind, outcome: "ok" | "error", seconds: number): void {
-    this.#writeDuration.record(seconds, { "airway.ingest.write": write, outcome });
   }
 }
