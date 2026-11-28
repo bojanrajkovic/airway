@@ -4,7 +4,8 @@ import { err, errAsync, ok, okAsync, ResultAsync, type Result } from "neverthrow
 import type pg from "pg";
 import {
   DERIVED_VERSION,
-  derivedIndexesAndKeys,
+  derivedIndexes,
+  derivedKeys,
   derivedTables,
 } from "@airway/contract/derived/ddl";
 import { withAdvisoryLock, type LockFailure } from "../db/lock.ts";
@@ -85,11 +86,11 @@ function droppedNights(client: pg.ClientBase, scan: Scan): ResultAsync<number, R
  * 1. Fails with `nights_dropped` when derived has nights whose folders are missing from the scan,
  *    unless `allowDroppedNights` is true.
  * 2. Drops any derived_old or derived_next that a crashed rebuild left behind, and creates
- *    derived_next with its indexes and foreign keys.
+ *    derived_next with its indexes.
  * 3. Imports the whole folder into derived_next. A file whose ctime is more than 2 minutes old is
  *    ready at once.
  * 4. Fails with `str_not_ready` or `nothing_imported` when the import would empty the tables.
- * 5. Writes the meta row.
+ * 5. Adds the foreign keys and writes the meta row.
  * 6. Renames derived to derived_old and derived_next to derived in one statement, then drops
  *    derived_old. The drop waits until queries on the old tables finish.
  *
@@ -117,7 +118,7 @@ export function rebuild(
             `drop schema if exists derived_old cascade;
              drop schema if exists derived_next cascade;
              ${derivedTables("derived_next")}
-             ${derivedIndexesAndKeys("derived_next")}`,
+             ${derivedIndexes("derived_next")}`,
           ),
         )
         .andThen(() =>
@@ -132,10 +133,15 @@ export function rebuild(
           checkImport(summary),
         )
         .andThen((summary) =>
-          sql(client, "insert into derived_next.meta (derived_version, built_at) values ($1, $2)", [
-            DERIVED_VERSION,
-            ctx.clock().toString(),
-          ]).map(() => summary),
+          sql(client, derivedKeys("derived_next"))
+            .andThen(() =>
+              sql(
+                client,
+                "insert into derived_next.meta (derived_version, built_at) values ($1, $2)",
+                [DERIVED_VERSION, ctx.clock().toString()],
+              ),
+            )
+            .map(() => summary),
         )
         .orElse((error) =>
           // derived keeps serving. The next rebuild also drops derived_next, so a failed cleanup

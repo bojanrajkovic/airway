@@ -35,9 +35,9 @@ const doubles = (names: readonly string[]): string =>
   names.map((name) => `${name} double precision`).join(",\n  ");
 
 /**
- * Returns the statements that create `schema` and every derived table in it, without the indexes
- * and the two largest tables' foreign keys. `derivedIndexesAndKeys` returns the rest of the derived
- * DDL.
+ * Returns the statements that create `schema` and every derived table in it. `derivedIndexes`
+ * returns the statements for the indexes, and `derivedKeys` returns the statements for the foreign
+ * keys.
  *
  * The tables are UNLOGGED: they're rebuilt from the card's files, so they skip the WAL and
  * backups. Deleting a nights row removes that night from every table that holds a night's rows.
@@ -172,15 +172,25 @@ create unlogged table ${schema}.breaths (
 }
 
 /**
- * Returns the statements that add the derived tables' indexes and the foreign keys from `samples`
- * and `breaths` to their segment. A rebuild runs them before it loads any rows, because the
- * percentile recompute at the end of the load uses these indexes to scan `samples`.
+ * Returns the statements that add the foreign keys from `files`, `samples`, and `breaths` to their
+ * segment. A rebuild adds them after it loads every row, because checking every row in one pass
+ * costs less than checking each row's key as it's inserted.
  */
-export function derivedIndexesAndKeys(schema: DerivedSchema): string {
+export function derivedKeys(schema: DerivedSchema): string {
   return `
 alter table ${schema}.files add foreign key (night, segment)
   references ${schema}.segments (night, segment);
 ${["samples", "breaths"].map((table) => `alter table ${schema}.${table} add foreign key (night, segment, session)\n  references ${schema}.segments (night, segment, session) on delete cascade;`).join("\n")}
+`;
+}
+
+/**
+ * Returns the statements that create the derived tables' indexes. A rebuild creates them before it
+ * loads any rows, because the percentile recompute at the end of the load uses them to scan
+ * `samples`.
+ */
+export function derivedIndexes(schema: DerivedSchema): string {
+  return `
 create index events_night_ts on ${schema}.events (night, ts);
 create index samples_night_ts on ${schema}.samples (night, ts);
 -- "Latest samples" queries would otherwise scan the table.

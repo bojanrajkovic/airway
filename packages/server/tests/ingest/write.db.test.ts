@@ -1,7 +1,7 @@
 import type pg from "pg";
 import { expect } from "vitest";
 import { z } from "zod";
-import { derivedIndexesAndKeys, derivedTables } from "@airway/contract/derived/ddl";
+import { derivedIndexes, derivedKeys, derivedTables } from "@airway/contract/derived/ddl";
 import { EdgeCaseName } from "@airway/synthetic/cases";
 import { test, withClient } from "@airway/testing/postgres";
 import { computeNight } from "../../src/ingest/night.ts";
@@ -15,7 +15,7 @@ import {
 } from "../support/cpap-folder.ts";
 
 // The tests in this file share one database, so each test drops and recreates the `derived` schema.
-const FRESH = `drop schema if exists derived cascade; ${derivedTables("derived")} ${derivedIndexesAndKeys("derived")}`;
+const FRESH = `drop schema if exists derived cascade; ${derivedTables("derived")} ${derivedIndexes("derived")} ${derivedKeys("derived")}`;
 
 const synthetic = synthesizedNights(
   [EdgeCaseName.DamagedFiles, EdgeCaseName.SplitFiles, EdgeCaseName.ManyPeriods],

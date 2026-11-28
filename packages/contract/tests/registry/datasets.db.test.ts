@@ -1,7 +1,7 @@
 import { test, withClient } from "@airway/testing/postgres";
 import pg from "pg";
 import { expect } from "vitest";
-import { derivedIndexesAndKeys, derivedTables } from "../../src/derived/ddl.ts";
+import { derivedIndexes, derivedKeys, derivedTables } from "../../src/derived/ddl.ts";
 import { DATASETS } from "../../src/registry/datasets.ts";
 import { render, type Column } from "../../src/registry/define.ts";
 
@@ -23,7 +23,9 @@ test.for(DATASETS)(
     await withClient(databaseUrl, async (client) => {
       // The transaction rolls back, so each dataset's test creates the tables for itself.
       await client.query("begin");
-      await client.query(derivedTables("derived") + derivedIndexesAndKeys("derived"));
+      await client.query(
+        derivedTables("derived") + derivedIndexes("derived") + derivedKeys("derived"),
+      );
 
       const selected = columns.map(
         ({ name: column, sql }, index) =>

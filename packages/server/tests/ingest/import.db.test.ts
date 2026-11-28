@@ -4,7 +4,7 @@ import { ResultAsync } from "neverthrow";
 import pg from "pg";
 import { expect, onTestFinished } from "vitest";
 import { z } from "zod";
-import { derivedIndexesAndKeys, derivedTables } from "@airway/contract/derived/ddl";
+import { derivedIndexes, derivedKeys, derivedTables } from "@airway/contract/derived/ddl";
 import { test, withClient } from "@airway/testing/postgres";
 import { importFolder } from "../../src/ingest/import.ts";
 import { ImportMetrics } from "../../src/ingest/metrics.ts";
@@ -14,7 +14,7 @@ import type { FileVersion } from "../../src/ingest/versions.ts";
 import { importContext, syntheticFolder } from "../support/cpap-folder.ts";
 
 // The tests in this file share one database, so each test drops and recreates the `derived` schema.
-const FRESH = `drop schema if exists derived cascade; ${derivedTables("derived")} ${derivedIndexesAndKeys("derived")}`;
+const FRESH = `drop schema if exists derived cascade; ${derivedTables("derived")} ${derivedIndexes("derived")} ${derivedKeys("derived")}`;
 
 /** Returns a pool for the test's database that closes when the test finishes. */
 function poolFor(databaseUrl: string): pg.Pool {

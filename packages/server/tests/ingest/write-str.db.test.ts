@@ -1,6 +1,6 @@
 import { expect } from "vitest";
 import { z } from "zod";
-import { derivedIndexesAndKeys, derivedTables } from "@airway/contract/derived/ddl";
+import { derivedIndexes, derivedKeys, derivedTables } from "@airway/contract/derived/ddl";
 import { FileChecksum } from "@airway/contract/derived/values";
 import { EdgeCaseName } from "@airway/synthetic/cases";
 import { test, withClient } from "@airway/testing/postgres";
@@ -28,7 +28,7 @@ const input: StrInput = {
 const ctx = testContext();
 
 // The tests in this file share one database, so each test drops and recreates the `derived` schema.
-const FRESH = `drop schema if exists derived cascade; ${derivedTables("derived")} ${derivedIndexesAndKeys("derived")}`;
+const FRESH = `drop schema if exists derived cascade; ${derivedTables("derived")} ${derivedIndexes("derived")} ${derivedKeys("derived")}`;
 
 test("writes the STR.edf tables, the device row, and the root files' `files` rows that synthesize expects", async ({
   databaseUrl,
