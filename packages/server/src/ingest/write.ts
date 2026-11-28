@@ -99,7 +99,8 @@ function* linesOf<B>(
   }
 }
 
-// Joins lines into chunks, because a stream chunk per row costs more than the row itself.
+// Joins every BATCH_LINES lines into one string, because the stream writes a few large chunks
+// faster than one chunk per row.
 function* batched(lines: Iterable<string>): Generator<string> {
   let batch: string[] = [];
 
