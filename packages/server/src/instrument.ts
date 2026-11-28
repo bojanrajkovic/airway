@@ -65,10 +65,6 @@ export async function instrumentations(): Promise<
   ];
 }
 
-if ((process.env["OTEL_EXPORTER_OTLP_ENDPOINT"] ?? "") !== "") {
-  await startSdk();
-}
-
 /**
  * Returns this thread's `service.instance.id`: the host name, plus `/worker-<threadId>` in a worker
  * thread. Each worker loads this preload and exports its own telemetry, so the ID separates a worker's
@@ -127,4 +123,9 @@ async function startSdk(): Promise<void> {
   process.once("beforeExit", () => {
     void started.shutdown();
   });
+}
+
+// Runs last, so startSdk reads module constants after they're initialized.
+if ((process.env["OTEL_EXPORTER_OTLP_ENDPOINT"] ?? "") !== "") {
+  await startSdk();
 }
