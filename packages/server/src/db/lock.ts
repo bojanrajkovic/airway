@@ -1,8 +1,9 @@
-// Holds the advisory lock that keeps polls, rebuilds, and notes migrations from running at once.
+// Takes the advisory lock that keeps polls, rebuilds, and notes migrations from running at the
+// same time.
 import { errAsync, okAsync, ResultAsync, type Result } from "neverthrow";
 import type pg from "pg";
 
-// Spells "airw". One key covers every caller, so any two of them exclude each other.
+// The key's bytes spell "airw" in ASCII. One key covers every caller, so any two of them exclude each other.
 const LOCK_KEY = 0x6169_7277;
 
 type LockMode = { kind: "try" } | { kind: "wait"; timeout: Temporal.Duration };
@@ -56,8 +57,8 @@ function acquire(
   );
 }
 
-// Unlocks and returns the client to the pool. A failed unlock destroys the connection, and
-// Postgres frees a session's locks when the session ends.
+// Unlocks and returns the client to the pool. When the unlock fails, release destroys the
+// connection, so Postgres frees the lock when the session ends.
 async function release(client: pg.PoolClient, held: boolean, broken?: Error): Promise<void> {
   if (!held) {
     client.release(broken);
@@ -80,7 +81,7 @@ async function release(client: pg.PoolClient, held: boolean, broken?: Error): Pr
  * - `{ kind: "try" }` returns `lock_unavailable` at once when another session holds the lock.
  * - `{ kind: "wait", timeout }` waits up to `timeout`, then returns `lock_unavailable`.
  *
- * Any other database failure while taking the lock returns `lock_failed`.
+ * Any other database error while it takes the lock returns `lock_failed`.
  */
 export function withAdvisoryLock<T, E>(
   pool: pg.Pool,

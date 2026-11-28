@@ -1,4 +1,3 @@
-import { errAsync } from "neverthrow";
 import { readFile, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { ResultAsync } from "neverthrow";
@@ -9,13 +8,10 @@ import { derivedIndexesAndKeys, derivedTables } from "@airway/contract/derived/d
 import { test, withClient } from "@airway/testing/postgres";
 import { importFolder } from "../../src/ingest/import.ts";
 import { ImportMetrics } from "../../src/ingest/metrics.ts";
-import { computeNight } from "../../src/ingest/night.ts";
-import type { NightPool } from "../../src/ingest/pool.ts";
 import type { SeenFile } from "../../src/ingest/readiness.ts";
 import type { ScannedFile } from "../../src/ingest/scan.ts";
 import type { FileVersion } from "../../src/ingest/versions.ts";
-import type { AppContext } from "../../src/runtime/context.ts";
-import { folderContext, syntheticFolder, writeFolder } from "../support/cpap-folder.ts";
+import { importContext, syntheticFolder } from "../support/cpap-folder.ts";
 
 // The tests in this file share one database, so each test drops and recreates the `derived` schema.
 const FRESH = `drop schema if exists derived cascade; ${derivedTables("derived")} ${derivedIndexesAndKeys("derived")}`;
@@ -32,30 +28,6 @@ function poolFor(databaseUrl: string): pg.Pool {
 
 const byCtime = (file: ScannedFile): Temporal.Instant => file.ctime;
 const metrics = new ImportMetrics();
-
-/**
- * Returns a context for a new synthetic folder with `nights` nights. The context's clock runs 3
- * minutes ahead, so every file has already passed the 2-minute wait. Its night pool computes
- * nights in the test's thread.
- * The pool fails every night that `fails` returns true for.
- */
-async function folder(
-  nights: number,
-  fails: (night: Temporal.PlainDate) => boolean = () => false,
-): Promise<AppContext> {
-  const ctx = folderContext(await writeFolder(syntheticFolder(nights)), {
-    clock: () => Temporal.Now.instant().add({ minutes: 3 }),
-  });
-  const nightPool: NightPool = {
-    ...ctx.nightPool,
-    run: (task) =>
-      fails(task.night)
-        ? errAsync({ kind: "worker_failed", cause: new Error("synthetic failure") })
-        : computeNight(ctx, task),
-  };
-
-  return { ...ctx, nightPool };
-}
 
 const Version = z.object({ path: z.string(), size: z.coerce.number(), sha256: z.string() });
 
@@ -74,7 +46,7 @@ async function count(client: pg.ClientBase, table: string): Promise<number> {
 test("imports every night, the STR.edf tables, and the period percentiles", async ({
   databaseUrl,
 }) => {
-  const ctx = await folder(3);
+  const ctx = await importContext(syntheticFolder(3));
 
   const { summary, nights, percentiles, usage } = await withClient(databaseUrl, async (client) => {
     await client.query(FRESH);
@@ -105,7 +77,7 @@ test("lists a night that fails in `failed` and commits the other nights", async 
   databaseUrl,
 }) => {
   const asked: Temporal.PlainDate[] = [];
-  const ctx = await folder(3, (night) => asked.push(night) === 2);
+  const ctx = await importContext(syntheticFolder(3), (night) => asked.push(night) === 2);
 
   const { summary, imported } = await withClient(databaseUrl, async (client) => {
     await client.query(FRESH);
@@ -133,7 +105,7 @@ test("lists a night that fails in `failed` and commits the other nights", async 
 test("imports nothing and returns a null STR.edf count while STR.edf isn't ready", async ({
   databaseUrl,
 }) => {
-  const ctx = await folder(2);
+  const ctx = await importContext(syntheticFolder(2));
   const now = ctx.clock();
 
   const summary = await withClient(databaseUrl, async (client) => {
@@ -156,7 +128,7 @@ test("imports nothing and returns a null STR.edf count while STR.edf isn't ready
 test("plans zero nights on a second pass that reads `imported` from the files table", async ({
   databaseUrl,
 }) => {
-  const ctx = await folder(2);
+  const ctx = await importContext(syntheticFolder(2));
   const seen = new Map<string, SeenFile>();
 
   const second = await withClient(databaseUrl, async (client) => {
@@ -186,7 +158,7 @@ test("plans zero nights on a second pass that reads `imported` from the files ta
 test("deletes a pass's files rows when the percentile recompute fails, so the next pass imports those nights again", async ({
   databaseUrl,
 }) => {
-  const ctx = await folder(2);
+  const ctx = await importContext(syntheticFolder(2));
 
   const { error, files, second } = await withClient(databaseUrl, async (client) => {
     await client.query(FRESH);
@@ -222,7 +194,7 @@ test("deletes a pass's files rows when the percentile recompute fails, so the ne
 test("skips the STR.edf tables while Identification.tgt is missing, and writes them on a later pass", async ({
   databaseUrl,
 }) => {
-  const ctx = await folder(2);
+  const ctx = await importContext(syntheticFolder(2));
   const root = ctx.config.cpapDataPath;
   const identification = await readFile(join(root, "Identification.tgt"));
   await rm(join(root, "Identification.tgt"));
@@ -256,7 +228,7 @@ test("skips the STR.edf tables while Identification.tgt is missing, and writes t
 });
 
 test("writes the nights on two connections from the pool", async ({ databaseUrl }) => {
-  const ctx = await folder(4);
+  const ctx = await importContext(syntheticFolder(4));
   const pool = poolFor(databaseUrl);
   let acquired = 0;
   pool.on("acquire", () => {
@@ -283,7 +255,7 @@ test("writes the nights on two connections from the pool", async ({ databaseUrl 
 test("keeps at most two nights per worker computing or waiting for a write", async ({
   databaseUrl,
 }) => {
-  const base = await folder(5);
+  const base = await importContext(syntheticFolder(5));
   // testContext sets one worker, so the window is 2 nights.
   const window = base.config.ingestWorkers * 2;
   const counter = new pg.Client(databaseUrl);

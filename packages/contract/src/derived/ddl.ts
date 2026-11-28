@@ -173,9 +173,8 @@ create unlogged table ${schema}.breaths (
 
 /**
  * Returns the statements that add the derived tables' indexes and the foreign keys from `samples`
- * and `breaths` to their segment. A load runs them after it has inserted its rows, because building
- * an index once is faster than updating it for every row, and adding a key checks every row in one
- * pass instead of one row at a time.
+ * and `breaths` to their segment. A rebuild runs them before it loads any rows, because the
+ * percentile recompute at the end of the load uses these indexes to scan `samples`.
  */
 export function derivedIndexesAndKeys(schema: DerivedSchema): string {
   return `

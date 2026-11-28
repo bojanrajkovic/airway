@@ -80,9 +80,9 @@ For example, with leak stored in L/s and tidal volume in L, as an AirSense 10 de
 
 ## Derived tables
 
-Everything airway derives from the card's files lives in one Postgres schema, `derived`. `derivedTables(schema)` and `derivedIndexesAndKeys(schema)` in `@airway/contract/derived/ddl` return the statements that create it, and no other code creates a derived table or index. Both take the schema's name, so the same tables can be built in `derived_next` beside the ones in use. `derivedIndexesAndKeys` creates the indexes and the foreign keys from `samples` and `breaths` to `segments`. A load runs `derivedIndexesAndKeys` after it inserts the rows, because building an index once is faster than updating it for every row, and adding a foreign key checks every row in one pass instead of one row at a time. What people and agents write lives in a second schema, `notes`, which [Notes](notes.md) describes.
+Everything airway derives from the card's files lives in one Postgres schema, `derived`. `derivedTables(schema)` and `derivedIndexesAndKeys(schema)` in `@airway/contract/derived/ddl` return the statements that create it, and no other code creates a derived table or index. Both take the schema's name, so the same tables can be built in `derived_next` beside the ones in use. `derivedIndexesAndKeys` creates the indexes and the foreign keys from `samples` and `breaths` to `segments`. A [rebuild](ingest.md#rebuild) runs both before it loads any rows, because the percentile recompute at the end of the load uses the indexes to scan `samples`. What people and agents write lives in a second schema, `notes`, which [Notes](notes.md) describes.
 
-Every table is UNLOGGED. airway can rebuild the data from the files, so the tables skip the write-ahead log and backups. A crash empties the tables.
+Every table is UNLOGGED. airway can rebuild the data from the files, so the tables skip the write-ahead log and backups. A crash empties the tables. A [rebuild](ingest.md#rebuild) writes the `meta` row after it loads every table, so an empty `meta` means the tables are incomplete. `derived_next` and `derived_old` exist only while a rebuild runs.
 
 ```mermaid
 erDiagram

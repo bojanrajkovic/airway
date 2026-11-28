@@ -24,7 +24,7 @@ import { checkStrHistory, writeStr, type QueryError } from "./write-str.ts";
 import { writeNight, writePercentiles } from "./write.ts";
 
 /** Counts what one import pass did. */
-type ImportSummary = {
+export type ImportSummary = {
   planned: number;
   committed: number;
   /** Lists the nights whose compute or write failed. The next poll plans them again. */
@@ -33,7 +33,12 @@ type ImportSummary = {
   nightsBeforeStr: number | null;
 };
 
-type ImportError = ScanError | EdfFileError | ReadIdentificationError | WriteError | QueryError;
+export type ImportError =
+  | ScanError
+  | EdfFileError
+  | ReadIdentificationError
+  | WriteError
+  | QueryError;
 
 /** Collects the context, connections, and telemetry that every step of one import pass reads. */
 type Pass = {

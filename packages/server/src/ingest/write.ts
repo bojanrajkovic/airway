@@ -179,10 +179,6 @@ export function writeNight(
     return inTransaction(client, schema, async () => {
       const columns = Object.keys(nightRow);
 
-      // A schema that a rebuild is filling may lack the samples and breaths foreign keys that
-      // derivedIndexesAndKeys adds, so deleting the nights row may not cascade to them.
-      await client.query("delete from samples where night = $1", [night]);
-      await client.query("delete from breaths where night = $1", [night]);
       await client.query("delete from nights where night = $1", [night]);
       await client.query(
         `insert into nights (${columns.join(", ")})

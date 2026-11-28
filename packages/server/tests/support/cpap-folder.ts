@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { Writable } from "node:stream";
 import { onTestFinished } from "vitest";
+import { errAsync } from "neverthrow";
 import { z } from "zod";
 import type { DerivedRows } from "@airway/contract/derived/rows";
 import type { UsedStrDay } from "@airway/contract/derived/str";
@@ -16,6 +17,8 @@ import { Patient } from "@airway/synthetic/patients";
 import { synthesize } from "@airway/synthetic/synthesize";
 import { LogLevel } from "../../src/config.ts";
 import type { EveFile, NightEvents } from "../../src/ingest/events.ts";
+import { computeNight } from "../../src/ingest/night.ts";
+import type { NightPool } from "../../src/ingest/pool.ts";
 import { inNight, isEveFile, isSegmentFile, planTasks } from "../../src/ingest/planner.ts";
 import {
   planSegments,
@@ -194,6 +197,29 @@ export function folderContext(root: string, overrides: Partial<AppContext> = {})
   const ctx = testContext(overrides);
 
   return { ...ctx, config: { ...ctx.config, cpapDataPath: root } };
+}
+
+/**
+ * Writes `files` to a new folder and returns a context for importing it. The context's clock runs
+ * 3 minutes ahead, so every file has already passed the 2-minute wait. Its night pool computes
+ * nights in the test's thread, and fails every night that `fails` returns true for.
+ */
+export async function importContext(
+  files: readonly CpapFile[],
+  fails: (night: Temporal.PlainDate) => boolean = () => false,
+): Promise<AppContext> {
+  const ctx = folderContext(await writeFolder(files), {
+    clock: () => Temporal.Now.instant().add({ minutes: 3 }),
+  });
+  const nightPool: NightPool = {
+    ...ctx.nightPool,
+    run: (task) =>
+      fails(task.night)
+        ? errAsync({ kind: "worker_failed", cause: new Error("synthetic failure") })
+        : computeNight(ctx, task),
+  };
+
+  return { ...ctx, nightPool };
 }
 
 /** Pairs a logger with the parsed JSON of each line it has written. */

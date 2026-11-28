@@ -13,7 +13,7 @@ function poolFor(databaseUrl: string): pg.Pool {
   return pool;
 }
 
-/** Runs a try-mode lock in a second session and returns its result's error kind, or "ok". */
+/** Runs a try-mode lock in a second session and returns the error kind, or "ok" when it takes the lock. */
 async function tryFromAnotherSession(pool: pg.Pool): Promise<string> {
   return (await withAdvisoryLock(pool, { kind: "try" }, () => okAsync("ok"))).match(
     (value) => value,
