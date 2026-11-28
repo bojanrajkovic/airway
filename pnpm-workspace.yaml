@@ -26,7 +26,7 @@ catalog:
   "@tsconfig/node": npm:@tsconfig/node26@26.0.2
   "@tsconfig/strictest": 2.0.9
   "@types/d3-random": 3.0.4
-  "@types/node": 26.6.6
+  "@types/node": 26.6.7
   "@types/pg": 8.23.1
   "@types/pg-copy-streams": 1.2.5
   "@types/react": 19.3.0
