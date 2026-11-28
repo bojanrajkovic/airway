@@ -6,7 +6,7 @@ import { EdgeCaseName } from "@airway/synthetic/cases";
 import { inMemoryTelemetry } from "@airway/testing/telemetry";
 import { beforeEach, describe, expect, it } from "vitest";
 import type { SeenFile } from "../../src/ingest/readiness.ts";
-import { scanCpapData } from "../../src/ingest/scan.ts";
+import { scanCpapData, type ScannedFile } from "../../src/ingest/scan.ts";
 import { checkVersions, type FileStates } from "../../src/ingest/versions.ts";
 import type { AppContext } from "../../src/runtime/context.ts";
 import {
@@ -34,10 +34,11 @@ async function poll(
   ctx: AppContext,
   seen: Map<string, SeenFile>,
   now: Temporal.Instant,
+  since: (file: ScannedFile) => Temporal.Instant = () => now,
 ): Promise<Poll> {
   spans.reset();
   const scan = (await scanCpapData(ctx))._unsafeUnwrap();
-  const states = (await checkVersions(ctx, seen, scan, now))._unsafeUnwrap();
+  const states = (await checkVersions(ctx, seen, scan, { now, since }))._unsafeUnwrap();
   const count = (name: string): number =>
     spans.getFinishedSpans().filter((span) => span.name === name).length;
 
@@ -139,6 +140,26 @@ describe("checkVersions", () => {
     expect(lines.filter(({ msg }) => msg === "header not read; retrying next poll")).toHaveLength(
       2,
     );
+  });
+
+  it("makes a file ready on the first check when `since` returns a ctime older than 2 minutes", async () => {
+    const ctx = folderContext(await writeFolder(syntheticFolder(1)));
+    const byCtime = (file: ScannedFile): Temporal.Instant => file.ctime;
+
+    const later = await poll(ctx, new Map(), Temporal.Now.instant().add({ minutes: 3 }), byCtime);
+
+    expect(later).toMatchObject({ waiting: [], rejected: [] });
+    expect(later.ready.length).toBeGreaterThan(0);
+  });
+
+  it("makes a file wait when `since` returns a ctime from the last 2 minutes", async () => {
+    const ctx = folderContext(await writeFolder(syntheticFolder(1)));
+    const byCtime = (file: ScannedFile): Temporal.Instant => file.ctime;
+
+    const soon = await poll(ctx, new Map(), Temporal.Now.instant().add({ seconds: 30 }), byCtime);
+
+    expect(soon.ready).toEqual([]);
+    expect(soon.waiting.length).toBeGreaterThan(0);
   });
 
   it("removes a path from `seen` when the folder no longer has that file", async () => {

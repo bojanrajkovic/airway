@@ -32,15 +32,18 @@ type HashError = { kind: "hash_failed"; path: string; cause: unknown };
  * - A ready file is hashed once per version.
  * - A rejected file is logged once per version.
  * - Paths missing from the scan are removed from `seen`.
+ *
+ * `since(file)` returns when a new size and ctime count as first seen. Polls pass `() => now`, so
+ * a file waits 2 minutes. A rebuild passes the file's ctime, so an older file is ready at once.
  */
 export function checkVersions(
   ctx: AppContext,
   seen: Map<string, SeenFile>,
   scan: Scan,
-  now: Temporal.Instant,
+  clock: { now: Temporal.Instant; since: (file: ScannedFile) => Temporal.Instant },
 ): ResultAsync<FileStates, never> {
   return inSpanAsync("ingest.readiness", (span) =>
-    ResultAsync.fromSafePromise(sort(ctx, seen, scan, now)).map((states) => {
+    ResultAsync.fromSafePromise(sort(ctx, seen, scan, clock)).map((states) => {
       span.setAttributes({
         "airway.files.ready": states.ready.length,
         "airway.files.waiting": states.waiting.length,
@@ -56,7 +59,7 @@ async function sort(
   ctx: AppContext,
   seen: Map<string, SeenFile>,
   scan: Scan,
-  now: Temporal.Instant,
+  { now, since }: { now: Temporal.Instant; since: (file: ScannedFile) => Temporal.Instant },
 ): Promise<FileStates> {
   const logger = ctx.logger.child({ module: "ingest.readiness" });
   const states: FileStates = { ready: [], waiting: [], rejected: [] };
@@ -70,7 +73,7 @@ async function sort(
 
   for (const file of scan.files) {
     const previous = seen.get(file.path);
-    const current = await update(ctx, previous, file, now);
+    const current = await update(ctx, previous, file, since);
     seen.set(file.path, current);
 
     const readiness = checkReadiness(previous, current, now);
@@ -119,7 +122,7 @@ async function update(
   ctx: AppContext,
   previous: SeenFile | undefined,
   file: ScannedFile,
-  now: Temporal.Instant,
+  since: (file: ScannedFile) => Temporal.Instant,
 ): Promise<SeenFile> {
   const unchanged =
     previous !== undefined && previous.size === file.size && previous.ctime.equals(file.ctime)
@@ -135,7 +138,7 @@ async function update(
   return {
     size: file.size,
     ctime: file.ctime,
-    since: unchanged?.since ?? now,
+    since: unchanged?.since ?? since(file),
     header: await readHeaderOf(ctx, file),
     sha256: null,
     rejectionLogged: unchanged?.rejectionLogged ?? false,
