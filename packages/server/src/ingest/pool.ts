@@ -44,6 +44,10 @@ export function createNightPool(
     filename,
     minThreads: 1,
     maxThreads: ctx.config.ingestWorkers,
+    // With piscina's default of 0, the pool stops an extra thread as soon as it goes idle and starts
+    // another for the next task. Each new thread loads the worker bundle and the telemetry preload
+    // again.
+    idleTimeout: 60_000,
     atomics: "async",
     niceIncrement: 10,
     workerData,

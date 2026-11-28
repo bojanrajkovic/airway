@@ -357,7 +357,7 @@ sequenceDiagram
   Main->>Main: decodeNight, IngestMetrics
 ```
 
-- The pool starts one thread immediately and adds threads, up to `AIRWAY_INGEST_WORKERS`, when tasks are waiting. Each worker deserializes its config from `workerData` and creates its logger once.
+- The pool starts one thread immediately and adds threads, up to `AIRWAY_INGEST_WORKERS`, when tasks are waiting. A thread beyond the first stops after it has been idle for 60 s. With piscina's default of 0, the pool would stop that thread as soon as it went idle and start another for the next task. Each new thread loads the worker bundle and the telemetry preload again. Each worker deserializes its config from `workerData` and creates its logger once.
 - After the listener starts, `main.ts` runs a warm-up task, which checks that a worker can load the bundled `dist/night-worker.js`. `ready` becomes true when a worker returns `"ready"` for the warm-up.
 - Workers wait for tasks with `Atomics.waitAsync` (`atomics: "async"`). A blocking wait would freeze an idle worker's event loop and stop its telemetry from exporting.
 - Workers run at a lower priority (`niceIncrement: 10`), so the main thread's requests run first when the CPUs are busy.
