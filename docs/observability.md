@@ -100,10 +100,12 @@ airway's own metrics are named `airway.<area>.<name>`, such as `airway.ingest.la
 
 If the queue wait grows during a rebuild, raise `AIRWAY_INGEST_WORKERS`.
 
-`WriteMetrics`, also in `ingest/metrics.ts`, records how long ingest's database writes and percentile recomputes take. The service that runs the writes creates a `WriteMetrics` and times each write with it.
+`ImportMetrics`, also in `ingest/metrics.ts`, records each import pass, its database writes, and its percentile recomputes. `importFolder` takes one as a parameter. The poller creates one when it starts, and each rebuild creates its own. `timed(record, step)` runs a `ResultAsync` step and passes its outcome and duration to `record`.
 
 | Metric | Type | Attributes | What it measures |
 |---|---|---|---|
+| `airway.ingest.import.duration` | histogram, `s` | `outcome` | Time one import pass took |
+| `airway.ingest.nights_unused` | gauge, `{night}` | none | Nights in the last pass that STR.edf marks unused |
 | `airway.ingest.write.duration` | histogram, `s` | `airway.ingest.write` (`night`, `str`), `outcome` | Time one database write took |
 | `airway.ingest.percentiles.duration` | histogram, `s` | `outcome` | Time one recompute of the period percentiles took |
 

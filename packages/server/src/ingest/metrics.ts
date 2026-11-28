@@ -1,7 +1,7 @@
-// Records ingest's metrics on the main thread. `IngestMetrics` records each night's result, and
-// `WriteMetrics` records how long each database write takes. A counter recorded in a worker would
-// split into one series per thread and reset when the worker restarts.
-import { metrics, type Counter, type Histogram } from "@opentelemetry/api";
+// `IngestMetrics` records each night's result, and `ImportMetrics` records each import pass and its
+// database writes.
+import { metrics, type Counter, type Gauge, type Histogram } from "@opentelemetry/api";
+import type { ResultAsync } from "neverthrow";
 import { FileChecksum } from "@airway/contract/derived/values";
 import { valuesOf } from "@airway/contract/enum";
 import { NightStep, type NightResult } from "./night.ts";
@@ -102,11 +102,38 @@ export class IngestMetrics {
 }
 
 /**
- * Creates the histograms that record how long ingest's database writes and percentile recomputes
- * take. The service that runs the writes creates one after the SDK starts.
+ * Runs `step` and passes its outcome and duration in seconds to `record`. Returns `step`'s result.
  */
-export class WriteMetrics {
+export function timed<T, E>(
+  record: (outcome: Outcome, seconds: number) => void,
+  step: () => ResultAsync<T, E>,
+): ResultAsync<T, E> {
+  const start = performance.now();
+  const seconds = (): number => (performance.now() - start) / 1000;
+
+  return step()
+    .andTee(() => {
+      record("ok", seconds());
+    })
+    .orTee(() => {
+      record("error", seconds());
+    });
+}
+
+/**
+ * Creates the instruments that record each import pass, its database writes, and its percentile
+ * recomputes. A meter that `getMeter` returns before the OpenTelemetry SDK starts is a no-op.
+ */
+export class ImportMetrics {
   readonly #meter = metrics.getMeter("airway/ingest");
+  readonly #importDuration: Histogram = this.#meter.createHistogram(
+    "airway.ingest.import.duration",
+    { description: "Time one import pass took, by outcome.", unit: "s" },
+  );
+  readonly #nightsUnused: Gauge = this.#meter.createGauge("airway.ingest.nights_unused", {
+    description: "Nights in the last import pass that STR.edf marks unused.",
+    unit: "{night}",
+  });
   readonly #writeDuration: Histogram = this.#meter.createHistogram("airway.ingest.write.duration", {
     description: "Time one database write took, by kind and outcome.",
     unit: "s",
@@ -118,6 +145,16 @@ export class WriteMetrics {
       unit: "s",
     },
   );
+
+  /** Records how long one import pass took, by outcome. */
+  imported(outcome: Outcome, seconds: number): void {
+    this.#importDuration.record(seconds, { outcome });
+  }
+
+  /** Records how many nights the last import pass found unused. */
+  nightsUnused(count: number): void {
+    this.#nightsUnused.record(count);
+  }
 
   /** Records how long a database write took, by kind and outcome. */
   wrote(write: WriteKind, outcome: Outcome, seconds: number): void {
