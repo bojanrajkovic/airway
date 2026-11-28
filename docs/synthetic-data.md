@@ -172,7 +172,7 @@ The rows follow ingest's rules:
 - `synthesize` reads the header of each file it writes with `readHeader`, as ingest does, and uses the size check that `readHeader` returns. `synthesize` builds segments, samples, and the `segment` column of `files` by the rules in [Ingest](ingest.md#segments), which has a diagram of how BRP and PLD files map to segments.
 - `files` lists Identification.tgt, STR.edf, and each BRP, PLD, and EVE file that `checkFileSize` reads or skips, with its size and SHA-256. It also lists Identification.crc and the `.crc` of each BRP, PLD, and EVE file, rejected ones included, because ingest imports `.crc` files by size alone. Ingest skips SAD and CSL files and their `.crc` files.
 - `daily_usage` covers every day from the first night to the last, with 0 on a day with no night.
-- `settings_changes` comes from the contract's `settingsChanges`, called with every STR.edf day and the first night that has a folder. A change made on a night with no folder is recorded on that night.
+- `settings_changes` comes from the contract's `settingsChanges`, called with every STR.edf day and STR.edf's first used day. A change made on a night with no folder is recorded on that night.
 - A night with no segments has no folder, so ingest never sees it. Ingest writes only a `daily_usage` row for that night.
 - `synthesize` sets every `ctime` and `arrived_at` to `arrivedAt`.
 

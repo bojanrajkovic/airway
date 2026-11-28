@@ -3,9 +3,11 @@ import { FileKind } from "@airway/contract/derived/values";
 import { readHeader } from "@airway/edf/header";
 import { strFile } from "@airway/synthetic/files";
 import { syntheticNights } from "@airway/synthetic/model";
-import { planNights } from "../../src/ingest/planner.ts";
+import { EdgeCaseName } from "@airway/synthetic/cases";
+import { inNight, planNights, planTasks } from "../../src/ingest/planner.ts";
 import type { ScannedFile } from "../../src/ingest/scan.ts";
 import type { FileStates, FileVersion, ReadyFile } from "../../src/ingest/versions.ts";
+import { fileStates, syntheticFolder, usedDays } from "../support/cpap-folder.ts";
 
 // The model has three synthetic nights. STR.edf's records stop at the third night.
 const model = syntheticNights({ seed: 3, nights: 3 })._unsafeUnwrap();
@@ -132,5 +134,52 @@ describe("planNights", () => {
       planNights(states({ ready: [str, { ...identification, sha256: "b" }] }), imported)
         .rewriteStrTables,
     ).toBe(true);
+  });
+});
+
+describe("planTasks", () => {
+  const files = syntheticFolder(0, [EdgeCaseName.DamagedFiles]);
+  const states = fileStates(files);
+  const days = usedDays(files);
+  const nights = days.map(({ day }) => day);
+  const zone = "America/New_York";
+
+  it("builds each night's task from the files in its folder", () => {
+    const { tasks, unused } = planTasks(nights, states, days, zone);
+
+    expect(unused).toEqual([]);
+    expect(tasks.map(({ night }) => night)).toEqual(nights);
+    for (const task of tasks) {
+      const ready = states.ready.filter(inNight(task.night));
+
+      expect(task.day.day).toEqual(task.night);
+      expect(
+        [...task.files, ...task.eveFiles, ...task.crcFiles]
+          .map(({ path }) => path)
+          .toSorted((a, b) => a.localeCompare(b)),
+      ).toEqual(ready.map(({ path }) => path).toSorted((a, b) => a.localeCompare(b)));
+      expect(task.rejected).toEqual(states.rejected.filter(inNight(task.night)));
+    }
+
+    expect(tasks.flatMap(({ rejected }) => rejected)).not.toEqual([]);
+    expect(tasks.flatMap(({ crcFiles }) => crcFiles)).not.toEqual([]);
+  });
+
+  it("puts a night whose STR.edf day is unused in `unused`", () => {
+    const [first, ...rest] = days;
+
+    if (first === undefined) {
+      throw new Error("expected a used day");
+    }
+
+    const { tasks, unused } = planTasks(
+      nights,
+      states,
+      [{ day: first.day, used: false }, ...rest],
+      zone,
+    );
+
+    expect(unused).toEqual([first.day]);
+    expect(tasks.map(({ night }) => night)).toEqual(nights.slice(1));
   });
 });

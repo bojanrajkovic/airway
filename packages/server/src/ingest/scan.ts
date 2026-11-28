@@ -6,6 +6,7 @@ import { valuesOf } from "@airway/contract/enum";
 import { nightFileType, NightFileType } from "@airway/edf/airsense";
 import type { AppContext } from "../runtime/context.ts";
 import { inSpanAsync } from "../telemetry.ts";
+import { readFailed, type ReadFailed } from "./read.ts";
 
 /**
  * Describes a file that ingest reads. `size` and `ctime` come from one stat call, and `path` is
@@ -37,7 +38,7 @@ export type Scan = {
   skipped: Record<SkipReason, number>;
 };
 
-export type ScanError = { kind: "read_failed"; path: string; cause: unknown };
+export type ScanError = ReadFailed;
 
 // Ingest imports BRP, PLD, and EVE files and skips SAD and CSL files.
 const IMPORTED_NIGHT_FILES: Partial<Record<NightFileType, ScannedFile["kind"]>> = {
@@ -70,7 +71,8 @@ function skipReason(name: string): SkipReason | undefined {
   return reason !== undefined && file?.crc === true ? SkipReason.Crc : reason;
 }
 
-const ROOT_FILES: Readonly<Record<string, ScannedFile["kind"]>> = {
+/** Maps the name of each file that the scan lists at the root of the CPAP data folder to its kind. */
+export const ROOT_FILES: Readonly<Record<string, ScannedFile["kind"]>> = {
   "STR.edf": FileKind.Str,
   "Identification.tgt": FileKind.Identification,
   "Identification.crc": FileKind.Crc,
@@ -109,11 +111,7 @@ export function scanCpapData(ctx: AppContext): ResultAsync<Scan, ScanError> {
   const root = ctx.config.cpapDataPath;
 
   return inSpanAsync("ingest.scan", (span) =>
-    ResultAsync.fromPromise(walk(root), (cause): ScanError => ({
-      kind: "read_failed",
-      path: root,
-      cause,
-    })).map((scan) => {
+    ResultAsync.fromPromise(walk(root), readFailed(root)).map((scan) => {
       span.setAttribute("airway.files", scan.files.length);
       for (const reason of valuesOf(SkipReason)) {
         span.setAttribute(`airway.skipped.${reason}`, scan.skipped[reason]);

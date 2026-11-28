@@ -1,4 +1,4 @@
-import { test } from "@airway/testing/postgres";
+import { test, withClient } from "@airway/testing/postgres";
 import { expect } from "vitest";
 import { z } from "zod";
 import { derivedTables } from "../../src/derived/ddl.ts";
@@ -6,7 +6,6 @@ import {
   rebuildAllPercentiles,
   recomputePeriodPercentiles,
 } from "../../src/derived/percentiles.ts";
-import { withClient } from "../support/postgres.ts";
 
 const Rows = z.array(
   z.object({

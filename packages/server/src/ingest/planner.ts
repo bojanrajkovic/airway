@@ -1,5 +1,8 @@
+import type { StrDay } from "@airway/contract/derived/str";
 import { FileKind } from "@airway/contract/derived/values";
+import type { EveFile } from "./events.ts";
 import type { ScannedFile } from "./scan.ts";
+import type { NightFiles, SegmentFile } from "./segments.ts";
 import type { FileStates, FileVersion, ReadyFile, RejectedFile } from "./versions.ts";
 
 /** Describes what a poll should import. */
@@ -77,4 +80,71 @@ export function planNights(states: FileStates, imported: readonly FileVersion[])
         isNew(file, versions),
     ),
   };
+}
+
+/** Returns a predicate that tells whether a scanned file is in `night`'s DATALOG folder. */
+export const inNight =
+  (night: Temporal.PlainDate) =>
+  (file: ScannedFile): boolean =>
+    file.night?.equals(night) === true;
+
+/**
+ * Resolves to the tasks for a poll's planned nights. `unused` lists the planned nights whose STR.edf
+ * day is unused. Until the machine rewrites STR.edf around noon, the record for the night that just
+ * ended has -1 in every field, so that night is in `unused`.
+ */
+export type NightTasks = { tasks: NightFiles[]; unused: Temporal.PlainDate[] };
+
+/** Tells whether a ready file is a BRP or PLD file whose header passed the size check. */
+export const isSegmentFile = (file: ReadyFile): file is SegmentFile =>
+  (file.kind === FileKind.Brp || file.kind === FileKind.Pld) &&
+  file.edf !== null &&
+  file.edf.size.verdict !== "reject";
+
+/** Tells whether a ready file is an EVE file with its headers. */
+export const isEveFile = (file: ReadyFile): file is EveFile =>
+  file.kind === FileKind.Eve && file.edf !== null;
+
+/**
+ * Builds a `NightFiles` for each of `nights` from the files in its DATALOG folder, matched by the
+ * scan's `night` field. A night whose STR.edf day is unused, or that STR.edf doesn't cover, goes in
+ * `unused`. The planner holds back nights that STR.edf doesn't cover, so in practice every night
+ * in `unused` has an unused STR.edf day.
+ */
+export function planTasks(
+  nights: readonly Temporal.PlainDate[],
+  states: FileStates,
+  days: readonly StrDay[],
+  zone: string,
+): NightTasks {
+  const byDay = new Map(days.map((day) => [day.day.toString(), day]));
+
+  return nights.reduce<NightTasks>(
+    (planned, night) => {
+      const day = byDay.get(night.toString());
+
+      if (day?.used !== true) {
+        planned.unused.push(night);
+
+        return planned;
+      }
+
+      const ready = states.ready.filter(inNight(night));
+
+      planned.tasks.push({
+        night,
+        zone,
+        day,
+        files: ready.filter(isSegmentFile),
+        eveFiles: ready.filter(isEveFile),
+        rejected: states.rejected.filter(
+          (file) => inNight(night)(file) && file.kind !== FileKind.Crc,
+        ),
+        crcFiles: ready.filter((file) => file.kind === FileKind.Crc),
+      });
+
+      return planned;
+    },
+    { tasks: [], unused: [] },
+  );
 }
