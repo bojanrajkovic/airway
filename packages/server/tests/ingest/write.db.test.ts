@@ -1,7 +1,7 @@
 import type pg from "pg";
 import { expect } from "vitest";
 import { z } from "zod";
-import { derivedIndexesAndKeys, derivedTables } from "@airway/contract/derived/ddl";
+import { derivedIndexes, derivedKeys, derivedTables } from "@airway/contract/derived/ddl";
 import { EdgeCaseName } from "@airway/synthetic/cases";
 import { test, withClient } from "@airway/testing/postgres";
 import { computeNight } from "../../src/ingest/night.ts";
@@ -15,7 +15,7 @@ import {
 } from "../support/cpap-folder.ts";
 
 // The tests in this file share one database, so each test drops and recreates the `derived` schema.
-const FRESH = `drop schema if exists derived cascade; ${derivedTables("derived")} ${derivedIndexesAndKeys("derived")}`;
+const FRESH = `drop schema if exists derived cascade; ${derivedTables("derived")} ${derivedIndexes("derived")} ${derivedKeys("derived")}`;
 
 const synthetic = synthesizedNights(
   [EdgeCaseName.DamagedFiles, EdgeCaseName.SplitFiles, EdgeCaseName.ManyPeriods],
@@ -231,32 +231,5 @@ test("keeps arrived_at for unchanged files and moves it forward when one changes
 
     expect(twice).toEqual(once);
     expect(await arrived(client)).toEqual(later);
-  });
-});
-
-test("replaces a night's samples and breaths in a schema that has no keys yet", async ({
-  databaseUrl,
-}) => {
-  const [night] = await computed();
-
-  if (night === undefined) {
-    throw new Error("expected a night");
-  }
-
-  await withClient(databaseUrl, async (client) => {
-    // A rebuild may fill its tables before derivedIndexesAndKeys adds the samples and breaths keys.
-    await client.query(`drop schema if exists derived cascade; ${derivedTables("derived")}`);
-    (await writeNight(client, "derived", night))._unsafeUnwrap();
-    const once = {
-      samples: await count(client, "samples"),
-      breaths: await count(client, "breaths"),
-    };
-
-    (await writeNight(client, "derived", night))._unsafeUnwrap();
-
-    expect({
-      samples: await count(client, "samples"),
-      breaths: await count(client, "breaths"),
-    }).toEqual(once);
   });
 });

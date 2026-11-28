@@ -4,6 +4,7 @@ import { errAsync, okAsync, ResultAsync } from "neverthrow";
 import type pg from "pg";
 import type { DerivedSchema } from "@airway/contract/derived/ddl";
 import { FileKind } from "@airway/contract/derived/values";
+import { query, type QueryError } from "../db/query.ts";
 import type { WriteError } from "../db/transaction.ts";
 import type { Logger } from "../logger.ts";
 import type { AppContext } from "../runtime/context.ts";
@@ -20,11 +21,11 @@ import { scanCpapData, type ScanError, type ScannedFile } from "./scan.ts";
 import type { NightFiles } from "./segments.ts";
 import { readStr, type StrFile } from "./str.ts";
 import { checkVersions, type FileStates, type FileVersion } from "./versions.ts";
-import { checkStrHistory, writeStr, type QueryError } from "./write-str.ts";
+import { checkStrHistory, writeStr } from "./write-str.ts";
 import { writeNight, writePercentiles } from "./write.ts";
 
 /** Counts what one import pass did. */
-type ImportSummary = {
+export type ImportSummary = {
   planned: number;
   committed: number;
   /** Lists the nights whose compute or write failed. The next poll plans them again. */
@@ -33,7 +34,12 @@ type ImportSummary = {
   nightsBeforeStr: number | null;
 };
 
-type ImportError = ScanError | EdfFileError | ReadIdentificationError | WriteError | QueryError;
+export type ImportError =
+  | ScanError
+  | EdfFileError
+  | ReadIdentificationError
+  | WriteError
+  | QueryError;
 
 /** Collects the context, connections, and telemetry that every step of one import pass reads. */
 type Pass = {
@@ -180,16 +186,15 @@ function recomputePercentiles(
   };
 
   const forget = (error: WriteError): ResultAsync<void, WriteError> =>
-    ResultAsync.fromPromise(
-      pass.client.query(`delete from ${pass.schema}.files where night = any($1::date[])`, [
-        committed.map(String),
-      ]),
-      (cause) => {
+    query(pass.client, `delete from ${pass.schema}.files where night = any($1::date[])`, [
+      committed.map(String),
+    ])
+      .mapErr(({ cause }) => {
         pass.logger.error({ err: cause }, "files rows not deleted; percentiles stay stale");
 
         return error;
-      },
-    ).andThen(() => errAsync(error));
+      })
+      .andThen(() => errAsync(error));
 
   return timed(record, () => writePercentiles(pass.client, pass.schema, [first, ...rest])).orElse(
     forget,

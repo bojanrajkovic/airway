@@ -1,7 +1,7 @@
 import { test, withClient } from "@airway/testing/postgres";
 import { expect } from "vitest";
 import { z } from "zod";
-import { derivedIndexesAndKeys, derivedTables } from "../../src/derived/ddl.ts";
+import { derivedIndexes, derivedKeys, derivedTables } from "../../src/derived/ddl.ts";
 
 const NIGHT_TABLES = ["files", "sessions", "segments", "events", "samples", "breaths"] as const;
 const Tables = z.array(z.object({ name: z.string(), persistence: z.string() }));
@@ -33,7 +33,8 @@ values ('${night}', 1, 1, '${night}T02:00Z', 3.2, 0.3, 0.25);`;
 const freshDerived =
   "drop schema if exists derived cascade;" +
   derivedTables("derived") +
-  derivedIndexesAndKeys("derived");
+  derivedIndexes("derived") +
+  derivedKeys("derived");
 
 const countsByNight = NIGHT_TABLES.map(
   (table) =>
@@ -42,7 +43,9 @@ const countsByNight = NIGHT_TABLES.map(
 
 test("creates every table in derived_next as an UNLOGGED table", async ({ databaseUrl }) => {
   const tables = await withClient(databaseUrl, async (client) => {
-    await client.query(derivedTables("derived_next") + derivedIndexesAndKeys("derived_next"));
+    await client.query(
+      derivedTables("derived_next") + derivedIndexes("derived_next") + derivedKeys("derived_next"),
+    );
     const result = await client.query(
       `select relname as name, relpersistence as persistence from pg_class
        where relnamespace = 'derived_next'::regnamespace and relkind = 'r' order by relname`,

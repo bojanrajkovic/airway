@@ -1,20 +1,18 @@
 // Writes the tables that come from STR.edf and Identification.tgt: daily_usage, settings_changes,
 // device, and those files' `files` rows.
 import type pg from "pg";
-import { okAsync, ResultAsync } from "neverthrow";
+import { okAsync, type ResultAsync } from "neverthrow";
 import type { DerivedSchema } from "@airway/contract/derived/ddl";
 import { settingsChanges } from "@airway/contract/derived/settings";
 import type { UsedStrDay } from "@airway/contract/derived/str";
 import { FileChecksum, FileKind } from "@airway/contract/derived/values";
 import type { AppContext } from "../runtime/context.ts";
+import { query, type QueryError } from "../db/query.ts";
 import { inTransaction, type WriteError } from "../db/transaction.ts";
 import { inSpanAsync } from "../telemetry.ts";
 import type { Identification } from "./identification.ts";
 import type { StrFile } from "./str.ts";
 import type { ReadyFile } from "./versions.ts";
-
-/** Reports a database read that failed. */
-export type QueryError = { kind: "query_failed"; cause: unknown };
 
 /** Collects the parsed STR.edf, the device identification, and the root files' versions that `writeStr` writes. */
 export type StrInput = {
@@ -157,12 +155,10 @@ export function checkStrHistory(
     return okAsync(0);
   }
 
-  return ResultAsync.fromPromise(
-    client.query<{ count: string }>(
-      `select count(*) as count from ${schema}.nights where night < $1::date`,
-      [first.toString()],
-    ),
-    (cause): QueryError => ({ kind: "query_failed", cause }),
+  return query<{ count: string }>(
+    client,
+    `select count(*) as count from ${schema}.nights where night < $1::date`,
+    [first.toString()],
   ).map(({ rows }) => {
     const count = Number(rows[0]?.count ?? 0);
 

@@ -4,7 +4,8 @@ import type pg from "pg";
 import { from as copyFrom } from "pg-copy-streams";
 import {
   DERIVED_VERSION,
-  derivedIndexesAndKeys,
+  derivedIndexes,
+  derivedKeys,
   derivedTables,
   type DerivedSchema,
 } from "@airway/contract/derived/ddl";
@@ -129,7 +130,7 @@ export async function loadDerived(
       await copy(client, { schema, table, rows: rows[table] });
     }
 
-    await client.query(derivedIndexesAndKeys(schema));
+    await client.query(derivedIndexes(schema) + derivedKeys(schema));
     await client.query(rebuildAllPercentiles(schema));
     await client.query(`insert into ${schema}.meta (derived_version, built_at) values ($1, $2)`, [
       DERIVED_VERSION,
