@@ -33,8 +33,9 @@ type HashError = { kind: "hash_failed"; path: string; cause: unknown };
  * - A rejected file is logged once per version.
  * - Paths missing from the scan are removed from `seen`.
  *
- * `since(file)` returns when a new size and ctime count as first seen. Polls pass `() => now`, so
- * a file waits 2 minutes. A rebuild passes the file's ctime, so an older file is ready at once.
+ * `since(file)` returns the time at which a new size and ctime count as first seen. Polls pass
+ * `() => now`, so a file waits 2 minutes. A rebuild passes the file's ctime, so a file whose ctime
+ * is more than 2 minutes old is ready on the first check.
  */
 export function checkVersions(
   ctx: AppContext,

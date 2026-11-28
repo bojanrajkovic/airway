@@ -37,7 +37,7 @@ Each `ScannedFile` has its path relative to the folder, its kind, its night, and
 
 ## Readiness
 
-Files in the CPAP data folder can change while airway polls, so a file can be half-written. `checkVersions(ctx, seen, scan, now)` in `ingest/versions.ts` sorts each scanned file into ready, waiting, or rejected. The poller keeps `seen` between polls, with one `SeenFile` per path. A `SeenFile` holds the file's size, its ctime, the time when that size and ctime were first seen, the parsed header, and the hash.
+Files in the CPAP data folder can change while airway polls, so a file can be half-written. `checkVersions(ctx, seen, scan, { now, since })` in `ingest/versions.ts` sorts each scanned file into ready, waiting, or rejected. The poller keeps `seen` between polls, with one `SeenFile` per path. A `SeenFile` holds the file's size, its ctime, the time when that size and ctime were first seen, the parsed header, and the hash.
 
 ```mermaid
 stateDiagram-v2
@@ -50,6 +50,7 @@ stateDiagram-v2
 ```
 
 - A file waits until its size and ctime have held for 2 minutes, measured on airway's clock. `checkReadiness`, a pure function in `ingest/readiness.ts`, decides whether a file has waited long enough.
+- `since(file)` returns the time at which a new size and ctime count as first seen. A poll passes `() => now`, so the 2 minutes start when the poll first sees the version. A rebuild passes the file's ctime, so a file that changed more than 2 minutes ago is ready on the first check.
 - `checkVersions` reads a file's header through `readEdfHeader` only when the file's size or ctime changed, and the size check then decides whether the file is ready or rejected. Identification.tgt and `.crc` files aren't EDF, so `checkVersions` skips the header read, and they're ready once their size and ctime have held for 2 minutes.
 - When an I/O error (`read_failed`) stops a header read, `checkVersions` logs the error and reads the header again on the next poll, and the 2-minute wait keeps running. A file whose header won't parse is rejected as `unreadable` until the file changes, because parsing the same bytes would fail the same way.
 - A rejected file is logged once per version at `warn`, with its path, reason, size, declared records, and records on disk.
@@ -381,3 +382,37 @@ If a statement fails, the transaction rolls back and the night keeps its previou
 `copy.ts` encodes the sample and breath blocks as COPY text, one line per row index, in the column order that `SAMPLE_COLUMNS` and `BREATH_COLUMNS` list. The worker already rounded each value to its signal's step, so `copy.ts` writes `String(value)`, which is the shortest decimal that reads back as the same number. A stored `leak` of 0.4 matches `leak = 0.4`. NaN becomes `\N`.
 
 `writePercentiles(client, schema, nights)` recomputes the [period percentiles](data-model.md#period-percentiles) of the weeks and months that a pass's nights fall in, in an `ingest.write_percentiles` span. Call it once per import pass, after the night writes, with the nights that committed. A night and its percentiles commit in separate transactions, so a query can briefly return a new night before its week's and month's percentiles are recomputed.
+
+## Import pass
+
+`importFolder(ctx, { client, pool, schema }, { imported, seen, since }, metrics)` in `ingest/import.ts` runs one import pass into `schema`. Polls run it against `derived`, with `imported` read from the `files` table. A rebuild runs it against `derived_next`, with an empty `imported`.
+
+```mermaid
+flowchart TD
+  scan[scanCpapData] --> versions["checkVersions(seen, since)"]
+  versions --> plan["planNights(imported)"]
+  plan --> strReady{STR.edf ready?}
+  strReady -- no --> done[return summary, nightsBeforeStr null]
+  strReady -- yes --> str[read STR.edf] --> tasks[planTasks]
+  tasks --> nights["night pool computes each task; writeNight writes on 2 connections"]
+  nights --> pct[writePercentiles for committed nights]
+  pct --> strTables{"rewriteStrTables and Identification.tgt ready?"}
+  strTables -- yes --> writeStr[readIdentification, writeStr] --> history
+  strTables -- no --> history[checkStrHistory]
+  history --> summary[return ImportSummary]
+```
+
+- `importFolder` writes nights on 2 connections from `pool` at once, and each connection takes the next night when its previous write finishes. Every other statement runs on `client`, the session that holds the advisory lock. Each night commits in its own transaction, so the order of the writes doesn't matter. `importFolder` keeps at most twice `AIRWAY_INGEST_WORKERS` nights computing or waiting for their write, and starts the next night's compute when a connection claims a night. Computes finish faster than writes. Without the cap, every result reaches the main thread early, and the main thread spends its time decoding results and collecting garbage instead of driving the writes.
+- When a night's compute or write fails, `importFolder` logs the error at `warn`, lists the night in `failed`, and continues with the other nights. Ingest writes `files` rows only for nights that commit, so the next poll plans the failed night again.
+- `importFolder` skips `writePercentiles` when no night committed.
+- When `writePercentiles` fails, `importFolder` deletes the committed nights' `files` rows before it returns the error. The next poll then imports those nights again and retries the recompute.
+- A failure in any of these steps ends the pass and returns its error:
+  - scanning the folder
+  - reading STR.edf or Identification.tgt
+  - `writePercentiles`
+  - `writeStr`
+  - `checkStrHistory`
+
+`ImportSummary` counts the nights planned and committed, lists the nights that failed, and includes the count that `checkStrHistory` returns. That count is null when STR.edf isn't ready, because the planner then holds back every night.
+
+The pass runs in an `ingest.import` span with `airway.ingest.nights_planned`, `airway.ingest.nights_unused`, `airway.ingest.nights_committed`, and `airway.ingest.nights_failed`. `importFolder` reads STR.edf in an `ingest.read_str` span. `importFolder` logs the unused nights at `debug`. [Observability](observability.md#metrics) lists the metrics that `ImportMetrics` records.
