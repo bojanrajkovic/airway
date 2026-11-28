@@ -21,7 +21,7 @@ catalog:
   "@opentelemetry/sdk-trace": 3.1.1
   "@rolldown/plugin-babel": 0.3.1
   "@stylistic/eslint-plugin": 6.0.1
-  "@trpc/server": 11.31.2
+  "@trpc/server": 11.31.3
   # Every tsconfig extends this alias, so a Node major bump changes only this line.
   "@tsconfig/node": npm:@tsconfig/node26@26.0.2
   "@tsconfig/strictest": 2.0.9
