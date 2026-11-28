@@ -1,13 +1,11 @@
 // Reads the device's serial and model from Identification.tgt.
-import { readFile } from "node:fs/promises";
-import { join } from "node:path";
 import { err, errAsync, ok, okAsync, ResultAsync, type Result } from "neverthrow";
 import type { DeviceRow } from "@airway/contract/derived/rows";
 import { FileChecksum } from "@airway/contract/derived/values";
 import { checkCompanion } from "@airway/edf/checksum";
 import type { AppContext } from "../runtime/context.ts";
 import { inSpanAsync } from "../telemetry.ts";
-import { isNotFound, readFailed, type ReadFailed } from "./read-failed.ts";
+import { isNotFound, readCpapFile, type ReadFailed } from "./read.ts";
 
 /** Reports an Identification.tgt that has no `#SRN` or no `#PNA` line. */
 export type IdentificationError = { kind: "missing_key"; key: "SRN" | "PNA" };
@@ -20,7 +18,7 @@ export type Identification = { device: DeviceRow; check: FileChecksum };
 
 /**
  * Parses Identification.tgt's `#KEY value` lines and returns the serial from `#SRN` and the model
- * from `#PNA`. Lines that don't start with `#` are ignored. Returns `missing_key` with the first
+ * from `#PNA`. Skips lines that don't start with `#`. Returns `missing_key` with the first
  * key that's absent.
  */
 export function parseIdentification(bytes: Uint8Array): Result<DeviceRow, IdentificationError> {
@@ -44,12 +42,6 @@ export function parseIdentification(bytes: Uint8Array): Result<DeviceRow, Identi
     : ok({ serial, model });
 }
 
-const readFrom = (
-  ctx: Pick<AppContext, "config">,
-  path: string,
-): ResultAsync<Uint8Array, ReadIdentificationError> =>
-  ResultAsync.fromPromise(readFile(join(ctx.config.cpapDataPath, path)), readFailed(path));
-
 /**
  * Reads Identification.tgt and Identification.crc from the CPAP data folder in an
  * `ingest.identification` span, and returns the device row and the checksum result. The checksum
@@ -59,17 +51,15 @@ export function readIdentification(
   ctx: Pick<AppContext, "config">,
 ): ResultAsync<Identification, ReadIdentificationError> {
   return inSpanAsync("ingest.identification", (span) =>
-    readFrom(ctx, "Identification.tgt")
+    readCpapFile(ctx, "Identification.tgt")
       .andThen((tgt) =>
         parseIdentification(tgt)
           .mapErr((error) => ({ ...error, path: "Identification.tgt" }))
           .asyncAndThen((device) =>
-            readFrom(ctx, "Identification.crc")
+            readCpapFile(ctx, "Identification.crc")
               .map((crc): FileChecksum => checkCompanion(tgt, crc))
               .orElse((error) =>
-                error.kind === "read_failed" && isNotFound(error.cause)
-                  ? okAsync(FileChecksum.Unchecked)
-                  : errAsync(error),
+                isNotFound(error.cause) ? okAsync(FileChecksum.Unchecked) : errAsync(error),
               )
               .map((check) => ({ device, check })),
           ),

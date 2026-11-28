@@ -6,7 +6,7 @@ import { valuesOf } from "@airway/contract/enum";
 import { nightFileType, NightFileType } from "@airway/edf/airsense";
 import type { AppContext } from "../runtime/context.ts";
 import { inSpanAsync } from "../telemetry.ts";
-import { readFailed, type ReadFailed } from "./read-failed.ts";
+import { readFailed, type ReadFailed } from "./read.ts";
 
 /**
  * Describes a file that ingest reads. `size` and `ctime` come from one stat call, and `path` is
