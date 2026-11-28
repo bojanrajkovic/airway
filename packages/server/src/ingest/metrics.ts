@@ -1,5 +1,6 @@
-// Records ingest's metrics on the main thread, from each night's result. A counter recorded in a
-// worker would split into one series per thread and reset when the worker restarts.
+// Records ingest's metrics on the main thread. `IngestMetrics` records each night's result, and
+// `WriteMetrics` records how long each database write takes. A counter recorded in a worker would
+// split into one series per thread and reset when the worker restarts.
 import { metrics, type Counter, type Histogram } from "@opentelemetry/api";
 import { FileChecksum } from "@airway/contract/derived/values";
 import { valuesOf } from "@airway/contract/enum";
@@ -44,17 +45,6 @@ export class IngestMetrics {
     description: "Time each step of a night's computation took, by step.",
     unit: "s",
   });
-  readonly #writeDuration: Histogram = this.#meter.createHistogram("airway.ingest.write.duration", {
-    description: "Time one database write took, by kind and outcome.",
-    unit: "s",
-  });
-  readonly #percentilesDuration: Histogram = this.#meter.createHistogram(
-    "airway.ingest.percentiles.duration",
-    {
-      description: "Time one recompute of the period percentiles took, by outcome.",
-      unit: "s",
-    },
-  );
   readonly #queueDuration: Histogram = this.#meter.createHistogram("airway.ingest.queue.duration", {
     description: "Time a night waited for a free worker.",
     unit: "s",
@@ -109,6 +99,25 @@ export class IngestMetrics {
 
     this.#nightDuration.record(seconds, { outcome: "error" });
   }
+}
+
+/**
+ * Creates the histograms that record how long ingest's database writes and percentile recomputes
+ * take. The service that runs the writes creates one after the SDK starts.
+ */
+export class WriteMetrics {
+  readonly #meter = metrics.getMeter("airway/ingest");
+  readonly #writeDuration: Histogram = this.#meter.createHistogram("airway.ingest.write.duration", {
+    description: "Time one database write took, by kind and outcome.",
+    unit: "s",
+  });
+  readonly #percentilesDuration: Histogram = this.#meter.createHistogram(
+    "airway.ingest.percentiles.duration",
+    {
+      description: "Time one recompute of the period percentiles took, by outcome.",
+      unit: "s",
+    },
+  );
 
   /** Records how long a database write took, by kind and outcome. */
   wrote(write: WriteKind, outcome: Outcome, seconds: number): void {
