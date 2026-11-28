@@ -362,3 +362,22 @@ sequenceDiagram
 - Workers run at a lower priority (`niceIncrement: 10`), so the main thread's requests run first when the CPUs are busy.
 - When a worker crashes during a task, `run` returns `worker_failed`. When a worker fails outside a task, for example because it can't load, the pool logs the failure at `error` level.
 - `run` records each night's metrics on the main thread ([Observability](observability.md#metrics)).
+
+## Night writes
+
+`writeNight(client, schema, { task, result })` in `ingest/write.ts` replaces one night's rows in one transaction, inside an `ingest.write_night` span. It sets `search_path` to `schema` for the transaction, so the same code writes `derived` and `derived_next`.
+
+1. It deletes the night's samples and breaths, then its `nights` row, and the delete cascades to the night's rows in the other tables. `derivedIndexesAndKeys` adds the foreign keys from `samples` and `breaths` to `nights`. A schema that a rebuild is still filling may not have those keys yet, so `writeNight` deletes the samples and breaths rows itself.
+2. It inserts the `nights` row, then the sessions, segments, and events, each table in one `unnest` statement.
+3. It inserts the night's `files` rows. Each BRP and PLD row stores its segment number. Header-only files, PLD files outside every segment, EVE files, and `.crc` files have a null segment.
+4. It COPYs the samples and breaths through `pg-copy-streams`.
+
+If a statement fails, the transaction rolls back and the night keeps its previous rows.
+
+- **`arrived_at`** is the newest ctime among the night's ready files, `.crc` files included. It comes from the files on disk, so a rebuild or a crash that empties the UNLOGGED tables doesn't change it. The planner plans a night only when one of its ready files is new, so every planned night has at least one ready file.
+- **`possibly_corrupted`** is `possiblyCorrupted(result.checks, task.rejected.length)`.
+- **Checksums**: `writeNight` copies `checksum` and `bad_records` from `result.checks` into each BRP, PLD, and EVE row. A `.crc` row has `checksum` set to `unchecked` and a null `bad_records`.
+
+`copy.ts` encodes the sample and breath blocks as COPY text, one line per row index, in the column order that `SAMPLE_COLUMNS` and `BREATH_COLUMNS` list. The worker already rounded each value to its signal's step, so `copy.ts` writes `String(value)`, which is the shortest decimal that reads back as the same number. A stored `leak` of 0.4 matches `leak = 0.4`. NaN becomes `\N`.
+
+`writePercentiles(client, schema, nights)` recomputes the [period percentiles](data-model.md#period-percentiles) of the weeks and months that a pass's nights fall in, in an `ingest.write_percentiles` span. Call it once per import pass, after the night writes, with the nights that committed. A night and its percentiles commit in separate transactions, so a query can briefly return a new night before its week's and month's percentiles are recomputed.
