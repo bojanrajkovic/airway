@@ -25,7 +25,7 @@ export type StrInput = {
 };
 
 /** Counts the rows that `writeStr` wrote to each table. */
-export type StrCounts = { daily_usage: number; settings_changes: number; files: number };
+type StrCounts = { daily_usage: number; settings_changes: number; files: number };
 
 /** Returns STR.edf's first used day, or undefined when the machine was never used. */
 const firstUsedDay = (str: StrFile): Temporal.PlainDate | undefined =>

@@ -24,23 +24,24 @@ import {
 import type { Logger } from "../logger.ts";
 import type { AppContext } from "../runtime/context.ts";
 import { inSpanAsync } from "../telemetry.ts";
+import { isNotFound, type ReadFailed } from "./read-failed.ts";
 
-/** Reports that the file system couldn't read a file. `cause` is the error that it threw. */
-type ReadFailed = { kind: "read_failed"; cause: unknown };
+// Reports a failed read before `withPath` adds the file's path.
+type ReadFailedAt = Omit<ReadFailed, "path">;
 
 /**
  * Reports why a file in the CPAP data folder couldn't be read or parsed. `path` is the file's path
  * relative to the CPAP data folder.
  */
-export type EdfFileError = (EdfReadError | ReadFailed) & { path: string };
+export type EdfFileError = (EdfReadError & { path: string }) | ReadFailed;
 
-const readFailed = (cause: unknown): ReadFailed => ({ kind: "read_failed", cause });
+const unread = (cause: unknown): ReadFailedAt => ({ kind: "read_failed", cause });
 
 // Adds the file's path to an error, because readEdf and readHeader parse bytes and don't know the
 // path.
 const withPath =
   (path: string) =>
-  (error: EdfReadError | ReadFailed): EdfFileError => ({ ...error, path });
+  (error: EdfReadError | ReadFailedAt): EdfFileError => ({ ...error, path });
 
 // Returns a header warning's kind and details as span event attributes. The build fails here when
 // a new warning kind has different fields.
@@ -79,7 +80,7 @@ export function readEdfHeader(
   return inSpanAsync("edf.read_header", (span) => {
     span.setAttribute("airway.file.path", path);
 
-    return ResultAsync.fromPromise(open(join(ctx.config.cpapDataPath, path), "r"), readFailed)
+    return ResultAsync.fromPromise(open(join(ctx.config.cpapDataPath, path), "r"), unread)
       .andThen((handle) => closeAfter(handle, headerFromHandle(handle)))
       .mapErr(withPath(path))
       .map((file) => {
@@ -100,13 +101,13 @@ export function readEdfHeader(
 
 function headerFromHandle(
   handle: FileHandle,
-): ResultAsync<EdfFileHeaders, EdfReadError | ReadFailed> {
-  const readFirstBytes = (length: number): ResultAsync<Uint8Array, ReadFailed> =>
-    ResultAsync.fromPromise(handle.read(new Uint8Array(length), 0, length, 0), readFailed).map(
+): ResultAsync<EdfFileHeaders, EdfReadError | ReadFailedAt> {
+  const readFirstBytes = (length: number): ResultAsync<Uint8Array, ReadFailedAt> =>
+    ResultAsync.fromPromise(handle.read(new Uint8Array(length), 0, length, 0), unread).map(
       ({ buffer, bytesRead }) => buffer.subarray(0, bytesRead),
     );
 
-  return ResultAsync.fromPromise(handle.stat(), readFailed).andThen(({ size }) =>
+  return ResultAsync.fromPromise(handle.stat(), unread).andThen(({ size }) =>
     readFirstBytes(Math.min(FIXED_BYTES, size))
       .andThen((bytes) => readHeader(bytes, size))
       // Reads the rest of the header when the first 256 bytes declare a longer one. When the file is
@@ -144,9 +145,6 @@ export type FileCheck = Pick<FileRow, "path" | "checksum" | "bad_records">;
 /** Pairs a file that `readEdfFile` read with its checksum checks. */
 export type CheckedFile<T> = { file: T; check: FileCheck };
 
-const isNotFound = (cause: unknown): boolean =>
-  cause instanceof Error && "code" in cause && cause.code === "ENOENT";
-
 // Reads the .crc beside the EDF file at `path`. Returns null when the file has no .crc, and an
 // error with the .crc's path when it can't read the .crc.
 function readCompanion(
@@ -155,7 +153,7 @@ function readCompanion(
 ): ResultAsync<Uint8Array | null, EdfFileError> {
   const crcPath = path.replace(/\.edf$/v, ".crc");
 
-  return ResultAsync.fromPromise(readFile(join(ctx.config.cpapDataPath, crcPath)), readFailed)
+  return ResultAsync.fromPromise(readFile(join(ctx.config.cpapDataPath, crcPath)), unread)
     .map((bytes): Uint8Array | null => bytes)
     .orElse((error) => (isNotFound(error.cause) ? okAsync(null) : errAsync(error)))
     .mapErr(withPath(crcPath));
@@ -193,7 +191,7 @@ export function readEdfFile(
   return inSpanAsync("edf.read_file", (span) => {
     span.setAttribute("airway.file.path", path);
 
-    return ResultAsync.fromPromise(readFile(join(ctx.config.cpapDataPath, path)), readFailed)
+    return ResultAsync.fromPromise(readFile(join(ctx.config.cpapDataPath, path)), unread)
       .andThen((bytes) => readEdf(bytes, type).map((file) => ({ bytes, file })))
       .mapErr(withPath(path))
       .andThen(({ bytes, file }) =>

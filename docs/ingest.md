@@ -230,7 +230,7 @@ The 90 s join can't be exact: the machine starts new BRP files inside one period
 
 - **`daily_usage`** has a row for every STR.edf day from the first used day on. `writeStr` writes STR.edf's usage for each used day, including one with no DATALOG folder, and 0 hours for each unused day.
 - **`settings_changes`** also starts on the first used day (see [Settings changes](#settings-changes)).
-- **`device`** holds the serial and model. `readIdentification(ctx)` in `ingest/identification.ts` reads them verbatim from Identification.tgt's `#SRN` and `#PNA` lines, and checks the file against Identification.crc. The check is `unchecked` when Identification.crc is missing.
+- **`device`** holds the serial and model. `readIdentification(ctx)` in `ingest/identification.ts` reads them from Identification.tgt's `#SRN` and `#PNA` lines, and checks the file against Identification.crc. The check is `unchecked` when Identification.crc is missing.
 - **`files`**: STR.edf's row is `unchecked`, with `bad_records` set to the number of records whose Crc16 doesn't match. Identification.tgt's row records the result of the Identification.crc check, and Identification.crc's row is `unchecked`. Deleting a night's rows leaves these rows in place, because their `night` is null.
 
 `writeStr` logs STR.edf's bad records and `date_mismatch` warnings at `warn`.

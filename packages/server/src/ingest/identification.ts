@@ -7,22 +7,21 @@ import { FileChecksum } from "@airway/contract/derived/values";
 import { checkCompanion } from "@airway/edf/checksum";
 import type { AppContext } from "../runtime/context.ts";
 import { inSpanAsync } from "../telemetry.ts";
+import { isNotFound, readFailed, type ReadFailed } from "./read-failed.ts";
 
 /** Reports an Identification.tgt that has no `#SRN` or no `#PNA` line. */
 export type IdentificationError = { kind: "missing_key"; key: "SRN" | "PNA" };
 
 /** Reports an Identification.tgt that can't be read or parsed. `path` is the file that failed. */
-export type ReadIdentificationError =
-  | (IdentificationError & { path: string })
-  | { kind: "read_failed"; path: string; cause: unknown };
+export type ReadIdentificationError = (IdentificationError & { path: string }) | ReadFailed;
 
 /** Pairs the device row with the result of checking Identification.tgt against its `.crc`. */
 export type Identification = { device: DeviceRow; check: FileChecksum };
 
 /**
  * Parses Identification.tgt's `#KEY value` lines and returns the serial from `#SRN` and the model
- * from `#PNA`, as the card writes them. Lines that don't start with `#` are ignored. Returns
- * `missing_key` when either key is absent.
+ * from `#PNA`. Lines that don't start with `#` are ignored. Returns `missing_key` with the first
+ * key that's absent.
  */
 export function parseIdentification(bytes: Uint8Array): Result<DeviceRow, IdentificationError> {
   const values = new Map(
@@ -40,25 +39,16 @@ export function parseIdentification(bytes: Uint8Array): Result<DeviceRow, Identi
   const serial = values.get("SRN");
   const model = values.get("PNA");
 
-  if (serial === undefined) {
-    return err({ kind: "missing_key", key: "SRN" });
-  }
-
-  return model === undefined ? err({ kind: "missing_key", key: "PNA" }) : ok({ serial, model });
+  return serial === undefined || model === undefined
+    ? err({ kind: "missing_key", key: serial === undefined ? "SRN" : "PNA" })
+    : ok({ serial, model });
 }
 
 const readFrom = (
   ctx: Pick<AppContext, "config">,
   path: string,
 ): ResultAsync<Uint8Array, ReadIdentificationError> =>
-  ResultAsync.fromPromise(readFile(join(ctx.config.cpapDataPath, path)), (cause) => ({
-    kind: "read_failed" as const,
-    path,
-    cause,
-  }));
-
-const isNotFound = (cause: unknown): boolean =>
-  cause instanceof Error && "code" in cause && cause.code === "ENOENT";
+  ResultAsync.fromPromise(readFile(join(ctx.config.cpapDataPath, path)), readFailed(path));
 
 /**
  * Reads Identification.tgt and Identification.crc from the CPAP data folder in an
