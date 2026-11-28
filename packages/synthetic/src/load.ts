@@ -8,7 +8,7 @@ import {
   derivedTables,
   type DerivedSchema,
 } from "@airway/contract/derived/ddl";
-import { periodPercentiles } from "@airway/contract/derived/percentiles";
+import { rebuildAllPercentiles } from "@airway/contract/derived/percentiles";
 import type { DerivedRows, SignalValues } from "@airway/contract/derived/rows";
 import { COLUMN_UNITS } from "@airway/edf/columns";
 
@@ -130,7 +130,7 @@ export async function loadDerived(
     }
 
     await client.query(derivedIndexesAndKeys(schema));
-    await client.query(periodPercentiles(schema));
+    await client.query(rebuildAllPercentiles(schema));
     await client.query(`insert into ${schema}.meta (derived_version, built_at) values ($1, $2)`, [
       DERIVED_VERSION,
       builtAt.toString(),
